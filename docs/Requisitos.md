@@ -43,7 +43,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 - **Nota:** clase de altura (12 posibles) más octava. Se representa con nombre (por ejemplo C#4) y número MIDI.
 - **Enarmonía:** la aplicación debe mostrar el nombre correcto según contexto (por ejemplo Bb en lugar de A# en tonalidad de F mayor). Si no hay contexto, preferencia configurable entre sostenidos y bemoles.
 - **Afinación:** lista ordenada de notas de las cuerdas al aire, de grave a aguda (6 cuerdas en esta fase).
-- **Posición en el mástil:** par (cuerda, traste). Traste 0 = cuerda al aire. Mástil de 0 a 24 trastes.
+- **Posición en el mástil:** par (cuerda, traste). Cuerda 1 = la más aguda, cuerda 6 = la más grave. Traste 0 = cuerda al aire. Mástil de 0 a 24 trastes.
 - **Selección:** conjunto de notas activas, cada una con su origen (posición en guitarra o tecla de piano). Una misma altura puede aparecer en varias posiciones de la guitarra.
 - **Acorde:** tónica más calidad (mayor, menor, 7, maj7, m7, dim, aug, sus2, sus4 como mínimo).
 - **Escala:** tónica más tipo (ver sección 6.4).
@@ -53,7 +53,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 ### 5.1 Disposición general
 
 - Barra superior con: selector de afinación, selector de modo de nombres (sostenidos/bemoles), botón de limpiar selección, interruptor de sonido.
-- Zona central con los dos instrumentos. Por defecto: guitarra a la izquierda y piano a la derecha en disposición vertical, o ambos en horizontal. El usuario puede cambiar la orientación (horizontal/vertical) y ocultar cualquiera de los dos. La preferencia se guarda.
+- Zona central con los dos instrumentos. Por defecto: disposición horizontal, con la guitarra arriba y el piano debajo. El usuario puede cambiar la orientación (horizontal/vertical) y ocultar cualquiera de los dos. La preferencia se guarda.
 - Panel lateral o inferior de **sugerencias** y de **información de la selección**.
 
 ### 5.2 Guitarra
@@ -62,11 +62,11 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 - Clic en una posición: activa o desactiva la nota (aparece un círculo).
 - Opción de modo **zurdo** (invertir el mástil).
 - Etiquetas en los círculos conmutables entre: nombre de nota, intervalo respecto a la tónica, grado, nada.
-- Cuando hay varias notas en una misma altura, se resaltan todas las posiciones equivalentes del mástil (modo "mostrar todas las posiciones", activable).
+- Cuando hay varias notas en una misma altura, se resaltan todas las posiciones equivalentes del mástil (modo "mostrar todas las posiciones", activable y **activado por defecto**). La posición pulsada en la guitarra se dibuja como círculo lleno (opaco); las equivalentes, como círculos huecos o translúcidos. Las notas seleccionadas desde el piano o los menús se muestran como equivalentes (huecas) en todas sus posiciones.
 
 ### 5.3 Piano
 
-- Rango por defecto de 4 octavas, con desplazamiento para ver otras octavas.
+- Rango por defecto C2–C7 (61 teclas), que cubre todo el mástil de 24 trastes en afinación estándar (E2–E6). Desplazamiento por octavas cuando el espacio no alcanza (pantallas pequeñas u orientación vertical).
 - Clic en una tecla: activa o desactiva la nota.
 - Mismas etiquetas conmutables que la guitarra.
 - Cuando se selecciona en un instrumento, el otro refleja la selección de forma inmediata. Si la guitarra tiene la nota en una octava fuera del rango visible del piano, el piano debe poder mostrarla desplazándose automáticamente.
@@ -118,7 +118,7 @@ El panel de sugerencias tiene dos modos conmutables: **Acordes** y **Escalas**.
 
 ### 6.4 Catálogo mínimo de escalas y acordes
 
-Escalas: mayor, menor natural, menor armónica, menor melódica, los siete modos de la mayor (jónico, dórico, frigio, lidio, mixolidio, eólico, locrio), pentatónica mayor, pentatónica menor, blues (pentatónica menor con blue note) y blues mayor.
+Escalas: mayor / jónico (una sola entrada), menor natural / eólico (una sola entrada), menor armónica, menor melódica, el resto de modos de la mayor (dórico, frigio, lidio, mixolidio, locrio), pentatónica mayor, pentatónica menor, blues (pentatónica menor con blue note) y blues mayor.
 
 Acordes: mayor, menor, 7, maj7, m7, dim, aug, sus2, sus4, 6, m6, 9.
 
@@ -150,7 +150,7 @@ Se guardan en el navegador: afinación, orientación, instrumentos visibles, mod
 
 La Fase 1 está terminada cuando:
 
-1. Al pulsar la nota E en la cuerda 5, traste 7 (afinación estándar), el piano marca B y la etiqueta muestra el nombre correcto.
+1. Al pulsar la cuerda 5, traste 7 (afinación estándar), el piano marca E3 y la etiqueta muestra el nombre correcto (E).
 2. Al pulsar una tecla del piano con la opción "mostrar todas las posiciones" activa, se resaltan todas las posiciones equivalentes del mástil.
 3. Seleccionar acorde Am7 muestra A, C, E, G en ambos instrumentos y el panel indica los intervalos (fundamental, 3ª menor, 5ª justa, 7ª menor).
 4. Seleccionar C, E y G a mano hace que el panel reconozca C mayor.
