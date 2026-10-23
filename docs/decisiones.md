@@ -84,6 +84,19 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
   - **Motivo:** `typescript-eslint` 8.72 declara el peer `typescript >=4.8.4 <6.1.0`, y ESLint es una pieza clave del plan (regla de capas).
   - **Cuándo revisarlo:** cuando una versión de `typescript-eslint` amplíe su rango de peer para incluir TS 7. Comprobar con `pnpm peers check` al actualizar dependencias; entonces subir `typescript` y quitar esta nota.
 
+## 2026-10-23 — Hito T1: núcleo y mástil
+
+- Deletreo de notas hecho a mano (modo sostenidos/bemoles), sin usar `tonal` por ahora: no hacía falta. Se puede incorporar más adelante si T2/T3 necesitan deletreo contextual de escalas.
+- Convención MIDI 60 = C4. Las afinaciones guardan las cuerdas de grave a aguda (cuerda 6 → 1).
+- Recolocación al cambiar de afinación: conserva la cuerda si la nota sigue existiendo en ella; si no, el traste más cercano; si no existe, devuelve null (la UI avisará).
+
+## 2026-10-23 — Hito T2: acordes, detección, intervalos y grados
+
+- **Catálogo de acordes (`chords.ts`):** las 12 calidades de Requisitos §6.4 (`maj`, `m`, `7`, `maj7`, `m7`, `6`, `m6`, `9`, `sus4`, `sus2`, `dim`, `aug`) con máscaras de bits precalculadas (`requiredMask`, `optionalMask`, `allowedMask`). La 5ª es opcional en `9` y obligatoria en el resto para evitar falsos positivos entre tríadas y cuatríadas incompletas (p. ej. que `Am` no se detecte como `C6` sin 5ª).
+- **Ambigüedad `6` vs `m7` y ordenación:** `6` y `m7` tienen el mismo peso de catálogo (`88`). Si hay raíz de entrada, gana el candidato cuya fundamental coincide (`rootMatches`, `+1000`) y el otro se conserva como inversión (`invertedBass`, `bass` en `ChordRef`, formateable como `Am7/C` con `chordDisplayName`). Si no se indica raíz, se desempata por el orden de aparición de las notas en la entrada.
+- **Códigos de razón estructurados:** `detectChords` emite `containsChordTones` (`{ n, of }`), `rootMatches` (`{ root }`), `invertedBass` (`{ root, bass }`) y `omitsOptionalTones` (`{ count }`).
+- **Intervalos y grados:** se añaden nombres descriptivos en español (`intervalLongName`: `fundamental`, `3ª menor`, `5ª justa`, `7ª menor`, etc.) y grados (`degreeName` / `pcDegree`), además de `chordTones` que resuelve intervalos específicos de calidad (`5ª disminuida` / `♭5` en `dim`, `5ª aumentada` / `♯5` en `aug`, `9ª mayor` / `9` en `9`).
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).
