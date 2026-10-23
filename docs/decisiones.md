@@ -98,6 +98,15 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - **Códigos de razón estructurados:** `detectChords` emite `containsChordTones` (`{ n, of }`), `rootMatches` (`{ root }`), `invertedBass` (`{ root, bass }`) y `omitsOptionalTones` (`{ count }`).
 - **Intervalos y grados:** se añaden nombres descriptivos en español (`intervalLongName`: `fundamental`, `3ª menor`, `5ª justa`, `7ª menor`, etc.) y grados (`degreeName` / `pcDegree`), además de `chordTones` que resuelve intervalos específicos de calidad (`5ª disminuida` / `♭5` en `dim`, `5ª aumentada` / `♯5` en `aug`, `9ª mayor` / `9` en `9`).
 
+## 2026-10-23 — Hito T3a: catálogo de escalas y ranking
+
+- **Alcance:** solo `scales.ts`, `rankScalesForChord`, `scalesContaining` y `scalesOnTonic`. Diatónicos, escalas relacionadas y progresiones quedan para T3b. Sin penalizaciones por notas a evitar.
+- **Catálogo (13 entradas):** mayor/jónico y menor natural/eólico con alias (una entrada cada una), armónica, melódica, dórico, frigio, lidio, mixolidio, locrio, pentatónicas, blues (pentatónica menor + ♭5) y blues mayor (1 2 ♭3 3 5 6). Cada una: `id`, `name`, `aliases`, `intervals`, `weight`, `family` y `parentOffset` (semitonos de su tónica sobre la de la escala madre; ausente en blues, que no es modo de ninguna familia).
+- **Pesos (`SCALE_WEIGHTS`):** mayor 100, menor natural 98, dórico 92, pentatónica menor 90, pentatónica mayor 88, mixolidio 85, lidio 80, blues 75, blues mayor 70, armónica 70, melódica 68, frigio 60, locrio 40. Am7 → eólico, dórico, pentatónica menor (frigio y blues quedan debajo); Cmaj7 → jónico por encima de lidio.
+- **Puntuación (`SCALE_RANKING_SCORING`):** `ROOT_MATCH_BONUS` 1000, `EXTRA_NOTE_PENALTY` 0,01 por nota sobrante (nunca supera 1 punto de peso). El orden real es lexicográfico (raíz → peso → sobrantes) con desempate determinista por orden de catálogo y tónica; `score` es coherente con él.
+- **Contrato:** `Candidate`/`Reason` sin cambios. Nuevo tipo `ScaleRef { tonic, type, name }` y un código de razón nuevo, `scaleExtraNotes` (`{ count }`). Se reutilizan `scaleContainsAllNotes` (`{ n }`), `tonicMatches` (`{ tonic }`) y `scaleContainsNote` (`{ pc, degree }`).
+- `scalesContaining` ordena por peso; `scalesOnTonic` devuelve las 13 escalas de la tónica, por peso.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).

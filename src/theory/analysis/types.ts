@@ -1,5 +1,6 @@
 import type { PitchClass } from '../core/pitch';
 import type { ChordQualityId } from '../data/chords';
+import type { ScaleTypeId } from '../data/scales';
 
 /** Nota por clase de altura con peso de relevancia (1 = normal). */
 export interface WeightedPc {
@@ -23,6 +24,7 @@ export type ReasonCode =
   | 'tonicMatches'
   | 'noteRoleInChord'
   | 'scaleContainsNote'
+  | 'scaleExtraNotes'
   | 'sharedParentScale'
   | 'relativeScale'
   | 'closeScaleVariant'
@@ -47,4 +49,12 @@ export interface ChordRef {
   name: string;
   /** Bajo cuando difiere de la fundamental del acorde (p. ej. 0 en Am7/C). */
   bass?: PitchClass;
+}
+
+/** Referencia a una escala concreta (tónica + tipo del catálogo). */
+export interface ScaleRef {
+  tonic: PitchClass;
+  type: ScaleTypeId;
+  /** Nombre base (p. ej. "A Dórico") según el modo de enarmonía. */
+  name: string;
 }

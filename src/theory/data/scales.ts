@@ -1,1 +1,208 @@
-export {};
+import { type PcMask, pcsToMask } from '../core/pcset';
+import type { PitchClass } from '../core/pitch';
+
+/** Identificadores de las escalas del catálogo de la Fase 1. */
+export type ScaleTypeId =
+  | 'major'
+  | 'minor'
+  | 'harmonicMinor'
+  | 'melodicMinor'
+  | 'dorian'
+  | 'phrygian'
+  | 'lydian'
+  | 'mixolydian'
+  | 'locrian'
+  | 'majorPentatonic'
+  | 'minorPentatonic'
+  | 'blues'
+  | 'majorBlues';
+
+/** Familia (escala madre) de la que se derivan las escalas. */
+export type ScaleFamilyId = 'major' | 'harmonicMinor' | 'melodicMinor' | 'blues';
+
+/**
+ * Pesos de cada escala en el catálogo (0–100). Se usan en el ranking justo después de
+ * la coincidencia de raíz. Para ajustar resultados poco musicales se tocan aquí, no el algoritmo.
+ *
+ * Criterio: primero las escalas más habituales para improvisar sobre un acorde.
+ * - Mayor y menor natural arriba (las más reconocibles); la menor queda 2 puntos por debajo de
+ *   la mayor, pero por encima de dórico.
+ * - Dórico (92) y pentatónica menor (90) detrás de la menor natural: Am7 → eólico, dórico,
+ *   pentatónica menor.
+ * - Pentatónica mayor (88) y mixolidio (85) por encima de lidio (80), de modo que Cmaj7 pone
+ *   el jónico por encima del lidio, y el lidio por encima de las escalas más coloridas.
+ * - Blues (75) y blues mayor (70) por debajo de las pentatónicas (añaden una nota de paso).
+ * - Armónica (70) y melódica (68): útiles pero más "de color".
+ * - Frigio (60) y locrio (40) al final: más inestables o raros como primera opción.
+ */
+export const SCALE_WEIGHTS: Readonly<Record<ScaleTypeId, number>> = {
+  major: 100,
+  minor: 98,
+  dorian: 92,
+  minorPentatonic: 90,
+  majorPentatonic: 88,
+  mixolydian: 85,
+  lydian: 80,
+  blues: 75,
+  majorBlues: 70,
+  harmonicMinor: 70,
+  melodicMinor: 68,
+  phrygian: 60,
+  locrian: 40,
+};
+
+/** Constantes de puntuación de los rankings de escalas (la puntuación refleja el orden). */
+export const SCALE_RANKING_SCORING = {
+  /** Bonificación cuando la tónica de la escala coincide con la raíz de entrada. */
+  ROOT_MATCH_BONUS: 1000,
+  /** Penalización por cada nota de la escala que no está en la entrada (< 1 punto de peso). */
+  EXTRA_NOTE_PENALTY: 0.01,
+} as const;
+
+export interface ScaleType {
+  id: ScaleTypeId;
+  /** Nombre principal en español. */
+  name: string;
+  /** Otros nombres de la misma escala (p. ej. Jónico para la mayor). */
+  aliases: readonly string[];
+  /** Semitonos desde la tónica, ascendente, sin la octava. */
+  intervals: readonly number[];
+  weight: number;
+  /** Familia / escala madre de la que procede. */
+  family: ScaleFamilyId;
+  /**
+   * Semitonos de la tónica de esta escala sobre la tónica de la escala madre (p. ej. dórico: 2,
+   * porque D dórico procede de C mayor). Ausente si la escala no es un modo de la familia (blues).
+   */
+  parentOffset?: number;
+  /** Máscara de bits con la tónica en la clase 0 (rotar para transponer). */
+  mask: PcMask;
+}
+
+type RawScale = Omit<ScaleType, 'weight' | 'mask'>;
+
+const RAW_SCALES: readonly RawScale[] = [
+  {
+    id: 'major',
+    name: 'Mayor',
+    aliases: ['Jónico'],
+    intervals: [0, 2, 4, 5, 7, 9, 11],
+    family: 'major',
+    parentOffset: 0,
+  },
+  {
+    id: 'minor',
+    name: 'Menor natural',
+    aliases: ['Eólico'],
+    intervals: [0, 2, 3, 5, 7, 8, 10],
+    family: 'major',
+    parentOffset: 9,
+  },
+  {
+    id: 'harmonicMinor',
+    name: 'Menor armónica',
+    aliases: [],
+    intervals: [0, 2, 3, 5, 7, 8, 11],
+    family: 'harmonicMinor',
+    parentOffset: 0,
+  },
+  {
+    id: 'melodicMinor',
+    name: 'Menor melódica',
+    aliases: [],
+    intervals: [0, 2, 3, 5, 7, 9, 11],
+    family: 'melodicMinor',
+    parentOffset: 0,
+  },
+  {
+    id: 'dorian',
+    name: 'Dórico',
+    aliases: [],
+    intervals: [0, 2, 3, 5, 7, 9, 10],
+    family: 'major',
+    parentOffset: 2,
+  },
+  {
+    id: 'phrygian',
+    name: 'Frigio',
+    aliases: [],
+    intervals: [0, 1, 3, 5, 7, 8, 10],
+    family: 'major',
+    parentOffset: 4,
+  },
+  {
+    id: 'lydian',
+    name: 'Lidio',
+    aliases: [],
+    intervals: [0, 2, 4, 6, 7, 9, 11],
+    family: 'major',
+    parentOffset: 5,
+  },
+  {
+    id: 'mixolydian',
+    name: 'Mixolidio',
+    aliases: [],
+    intervals: [0, 2, 4, 5, 7, 9, 10],
+    family: 'major',
+    parentOffset: 7,
+  },
+  {
+    id: 'locrian',
+    name: 'Locrio',
+    aliases: [],
+    intervals: [0, 1, 3, 5, 6, 8, 10],
+    family: 'major',
+    parentOffset: 11,
+  },
+  {
+    id: 'majorPentatonic',
+    name: 'Pentatónica mayor',
+    aliases: [],
+    intervals: [0, 2, 4, 7, 9],
+    family: 'major',
+    parentOffset: 0,
+  },
+  {
+    id: 'minorPentatonic',
+    name: 'Pentatónica menor',
+    aliases: [],
+    intervals: [0, 3, 5, 7, 10],
+    family: 'major',
+    parentOffset: 9,
+  },
+  {
+    // Pentatónica menor + ♭5 (blue note).
+    id: 'blues',
+    name: 'Blues',
+    aliases: ['Blues menor'],
+    intervals: [0, 3, 5, 6, 7, 10],
+    family: 'blues',
+  },
+  {
+    // 1, 2, ♭3, 3, 5, 6 (decisiones.md, aclaración 6).
+    id: 'majorBlues',
+    name: 'Blues mayor',
+    aliases: [],
+    intervals: [0, 2, 3, 4, 7, 9],
+    family: 'blues',
+  },
+];
+
+export const SCALE_TYPES: readonly ScaleType[] = RAW_SCALES.map((s) => ({
+  ...s,
+  weight: SCALE_WEIGHTS[s.id],
+  mask: pcsToMask(s.intervals as PitchClass[]),
+}));
+
+const SCALE_MAP = new Map<ScaleTypeId, ScaleType>(SCALE_TYPES.map((s) => [s.id, s]));
+
+export function getScaleType(id: ScaleTypeId): ScaleType {
+  const s = SCALE_MAP.get(id);
+  if (!s) throw new Error(`Unknown scale type: ${id}`);
+  return s;
+}
+
+/** Clases de altura de la escala empezando por la tónica. */
+export function scalePitchClasses(tonic: PitchClass, id: ScaleTypeId): PitchClass[] {
+  return getScaleType(id).intervals.map((i) => ((tonic + i) % 12) as PitchClass);
+}

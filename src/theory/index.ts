@@ -8,3 +8,5 @@ export * from './data/chords';
 export * from './fretboard';
 export * from './analysis/types';
 export * from './analysis/detectChords';
+export * from './data/scales';
+export * from './analysis/rankScales';
