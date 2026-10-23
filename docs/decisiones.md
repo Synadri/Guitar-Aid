@@ -77,6 +77,13 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - **Reproducir escala:** una octava ascendente desde la tónica en la octava 3 hasta la tónica superior (C3–C4; como máximo B3–B4).
 - **Voicings en la Fase 1:** diccionario estándar + desplazamiento uniforme (Eb, D) + adaptación por cuerda (Drop D). Se elimina el sub-hito T4b. Si no hay voicing válido, se muestran las notas del acorde en todo el mástil.
 
+## 2026-10-23 — Hito 0: herramientas
+
+- **Dependencias añadidas fuera de la tabla de stack** (aprobadas): `@vitejs/plugin-react` (fast refresh y transformación de JSX en Vite) y `jsdom` (entorno DOM para los tests con Testing Library desde U1; los tests usan `node` por defecto y piden jsdom por archivo).
+- **TypeScript fijado a `~6.0`** (instalado 6.0.3), no 7.x.
+  - **Motivo:** `typescript-eslint` 8.72 declara el peer `typescript >=4.8.4 <6.1.0`, y ESLint es una pieza clave del plan (regla de capas).
+  - **Cuándo revisarlo:** cuando una versión de `typescript-eslint` amplíe su rango de peer para incluir TS 7. Comprobar con `pnpm peers check` al actualizar dependencias; entonces subir `typescript` y quitar esta nota.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).
