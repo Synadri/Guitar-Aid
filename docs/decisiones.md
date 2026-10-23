@@ -68,3 +68,24 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 ### Orden y pruebas
 - Orden: teoría (T1–T4) → estado (S1–S2) → interfaz (U1–U7).
 - Cada hito trae sus tests. El criterio 9 queda cubierto al cerrar T3, en `src/theory/acceptance.test.ts`.
+
+## 2026-10-23 — Cierre del plan de la Fase 1
+
+- **El plan canónico está en `docs/plan_fase1.md`** y no solo como artifact, para que otros agentes puedan trabajar con él.
+- **Sujeto de las sugerencias:** se analiza la última capa modificada. El panel indica siempre con claridad qué está analizando (objeto y origen). Si hay notas pulsadas y un contexto de menú, se puede cambiar con pestañas.
+- **Fijar raíz:** el control principal es un desplegable en el panel de información con "Automática" y las 12 notas. Permite fijar una raíz no pulsada y volver a automático. El clic derecho sobre una nota es solo un atajo opcional.
+- **Reproducir escala:** una octava ascendente desde la tónica en la octava 3 hasta la tónica superior (C3–C4; como máximo B3–B4).
+- **Voicings en la Fase 1:** diccionario estándar + desplazamiento uniforme (Eb, D) + adaptación por cuerda (Drop D). Se elimina el sub-hito T4b. Si no hay voicing válido, se muestran las notas del acorde en todo el mástil.
+
+## Ideas posteriores (fuera de la Fase 1)
+
+- **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).
+- **Algoritmo de voicings de respaldo** para afinaciones sin diccionario, con restricciones ergonómicas estrictas:
+  - 5ª opcional donde la teoría lo permite;
+  - raíz en el bajo;
+  - como máximo una cuerda interior muteada;
+  - cejilla detectada;
+  - al menos 4 cuerdas.
+
+  Sus resultados se marcarían como "generado" y quedarían por debajo de los del diccionario.
+- **Estimación de raíz** sin raíz explícita: para el modo Canción.
