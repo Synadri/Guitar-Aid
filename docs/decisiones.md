@@ -25,3 +25,46 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - Clic en una posición hueca: la fija (pasa a llena).
 - Clic en una posición llena: la desfija. Si la nota se quedó sin posiciones fijadas y no vino del piano ni de un menú, sale de la selección.
 - Clic en una tecla activa del piano: quita esa nota de la selección, con todas sus posiciones.
+
+## 2026-10-23 — Revisión del plan (v2)
+
+### Selección en capas
+- `notes`: notas concretas con octava, con sus posiciones fijadas y su origen.
+- `context`: acorde o escala de menú como **clase de altura de la raíz + tipo**, sin convertirse en notas MIDI. En los acordes guarda también el voicing elegido.
+- `preview`: sugerencia previsualizada.
+- `rootOverride`: raíz fijada por el usuario.
+- El panel de información lista las clases de altura del contexto, no notas MIDI. La detección de acordes solo se aplica a `notes`. "Reproducir escala" toca una octava.
+
+### Componentes de instrumento puros
+`Fretboard` y `Piano` reciben marcas (`{ posición o midi, papel, etiqueta }`) por props y emiten eventos. No leen el estado del Sandbox. Las marcas las calculan selectores puros con tests.
+
+### Contrato de la teoría
+- Las funciones aceptan notas con peso (`WeightedPc[]`) y una raíz opcional.
+- Devuelven siempre `Candidate<T> = { value, score, reasons }`, con razones estructuradas que la UI traduce a texto.
+
+### Raíz
+- En el Sandbox, la raíz es la que fija el usuario o, si no fija ninguna, la nota más grave.
+- No hay estimación de raíz; queda para el modo Canción.
+- La raíz ordena los candidatos pero no los filtra.
+
+### Detección de acordes
+- Se hace por clases de altura (máscaras de bits) contra un catálogo propio con intervalos requeridos y opcionales, por ejemplo la 5ª opcional en los acordes de 9.
+- A♯ y B♭ dan el mismo resultado. `tonal` queda solo para deletreo de notas.
+
+### Ranking de escalas
+- Filtro: la escala debe incluir todas las notas del acorde.
+- Orden: raíz coincidente → peso de la escala (en datos) → menos notas sobrantes.
+- Si un caso falla, se ajustan los pesos, no la arquitectura.
+
+### Voicings
+- Diccionario de formas conocidas para la afinación estándar (abiertas, cejilla/CAGED, drop 2/3, shell sin 5ª), con tests de integridad.
+- Para otras afinaciones:
+  1. desplazamiento uniforme (Eb, D);
+  2. adaptación por cuerda (Drop D);
+  3. diccionario pequeño para afinaciones abiertas;
+  4. algoritmo de respaldo marcado como "generado".
+- Los puntos 3 y 4 son un sub-hito que se puede posponer.
+
+### Orden y pruebas
+- Orden: teoría (T1–T4) → estado (S1–S2) → interfaz (U1–U7).
+- Cada hito trae sus tests. El criterio 9 queda cubierto al cerrar T3, en `src/theory/acceptance.test.ts`.
