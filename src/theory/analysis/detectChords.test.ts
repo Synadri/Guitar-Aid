@@ -96,8 +96,10 @@ describe('detectChords', () => {
   });
 
   it('criterio 5: C-E-G-A → [C6, Am7] sin elegir uno por el usuario; la raíz ordena pero no filtra', () => {
-    // Sin raíz explícita: devuelve ambos [C6, Am7]
+    // Sin raíz explícita: devuelve ambos [C6, Am7] de forma determinista e independiente del orden de entrada
     const withoutRoot = detectChords({ notes: toWeightedPcs([0, 4, 7, 9]) });
+    const withoutRootReversed = detectChords({ notes: toWeightedPcs([9, 7, 4, 0]) });
+    expect(withoutRoot).toEqual(withoutRootReversed);
     expect(withoutRoot.map((c) => c.value.name)).toEqual(['C6', 'Am7']);
     expect(withoutRoot[0]!.reasons.map((r) => r.code)).toEqual(['containsChordTones']);
     expect(withoutRoot[1]!.reasons.map((r) => r.code)).toEqual(['containsChordTones']);

@@ -53,6 +53,32 @@ export interface ChordTone {
   optional: boolean;
 }
 
+/** Pesos intrínsecos de cada calidad de acorde en el catálogo (centralizados para ajuste). */
+export const CHORD_QUALITY_WEIGHTS: Readonly<Record<ChordQualityId, number>> = {
+  maj: 100,
+  m: 95,
+  '7': 90,
+  maj7: 89,
+  m7: 88,
+  '6': 88,
+  '9': 85,
+  m6: 84,
+  sus4: 78,
+  sus2: 76,
+  dim: 74,
+  aug: 72,
+};
+
+/** Constantes de puntuación para `detectChords` (centralizadas junto a los pesos del catálogo). */
+export const CHORD_DETECTION_SCORING = {
+  /** Bonificación cuando la fundamental del candidato coincide con `input.root`. */
+  ROOT_MATCH_BONUS: 1000,
+  /** Penalización por cada nota opcional del acorde omitida en la entrada. */
+  OMITTED_OPTIONAL_PENALTY: 200,
+  /** Factor multiplicador para el peso extra (`weight - 1`) de la nota que actúa como raíz. */
+  ROOT_NOTE_WEIGHT_FACTOR: 10,
+} as const;
+
 interface RawChordQuality {
   id: ChordQualityId;
   name: string;
@@ -60,7 +86,6 @@ interface RawChordQuality {
   intervals: readonly number[];
   required: readonly PitchClass[];
   optional: readonly PitchClass[];
-  weight: number;
 }
 
 const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
@@ -71,7 +96,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 7],
     required: [0, 4, 7],
     optional: [],
-    weight: 100,
   },
   {
     id: 'm',
@@ -80,7 +104,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 3, 7],
     required: [0, 3, 7],
     optional: [],
-    weight: 95,
   },
   {
     id: '7',
@@ -89,7 +112,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 7, 10],
     required: [0, 4, 7, 10],
     optional: [],
-    weight: 90,
   },
   {
     id: 'maj7',
@@ -98,7 +120,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 7, 11],
     required: [0, 4, 7, 11],
     optional: [],
-    weight: 89,
   },
   {
     id: 'm7',
@@ -107,7 +128,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 3, 7, 10],
     required: [0, 3, 7, 10],
     optional: [],
-    weight: 88,
   },
   {
     id: '6',
@@ -116,7 +136,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 7, 9],
     required: [0, 4, 7, 9],
     optional: [],
-    weight: 88,
   },
   {
     id: 'm6',
@@ -125,7 +144,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 3, 7, 9],
     required: [0, 3, 7, 9],
     optional: [],
-    weight: 84,
   },
   {
     id: '9',
@@ -134,7 +152,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 7, 10, 14],
     required: [0, 4, 10, 2],
     optional: [7],
-    weight: 85,
   },
   {
     id: 'sus4',
@@ -143,7 +160,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 5, 7],
     required: [0, 5, 7],
     optional: [],
-    weight: 78,
   },
   {
     id: 'sus2',
@@ -152,7 +168,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 2, 7],
     required: [0, 2, 7],
     optional: [],
-    weight: 76,
   },
   {
     id: 'dim',
@@ -161,7 +176,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 3, 6],
     required: [0, 3, 6],
     optional: [],
-    weight: 74,
   },
   {
     id: 'aug',
@@ -170,7 +184,6 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     intervals: [0, 4, 8],
     required: [0, 4, 8],
     optional: [],
-    weight: 72,
   },
 ];
 
@@ -179,6 +192,7 @@ export const CHORD_QUALITIES: readonly ChordQuality[] = RAW_CHORD_QUALITIES.map(
   const optionalMask = pcsToMask(q.optional);
   return {
     ...q,
+    weight: CHORD_QUALITY_WEIGHTS[q.id],
     requiredMask,
     optionalMask,
     allowedMask: requiredMask | optionalMask,

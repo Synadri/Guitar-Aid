@@ -1,7 +1,12 @@
 import { type PcMask, rotateMask } from '../core/pcset';
 import type { NameMode, PitchClass } from '../core/pitch';
 import { pcName } from '../core/spelling';
-import { CHORD_QUALITIES, type ChordQualityId, getChordQuality } from '../data/chords';
+import {
+  CHORD_DETECTION_SCORING,
+  CHORD_QUALITIES,
+  type ChordQualityId,
+  getChordQuality,
+} from '../data/chords';
 import type { AnalysisInput, Candidate, ChordRef, Reason, WeightedPc } from './types';
 
 function popcount12(mask: PcMask): number {
@@ -51,6 +56,8 @@ export function chordDisplayName(
  * - Coincide cuando están todos los intervalos requeridos y no sobra ninguna nota
  *   fuera de requeridos ∪ opcionales.
  * - La raíz de entrada ordena los candidatos pero no los filtra (p. ej. C-E-G-A → [C6, Am7]).
+ * - En caso de empate exacto de puntuación, desempata de forma determinista por clase de altura
+ *   de la raíz (0..11), sin depender del orden en que vienen las notas.
  * - Devuelve `[]` si ningún acorde del catálogo explica el conjunto de notas.
  */
 export function detectChords(
@@ -59,21 +66,17 @@ export function detectChords(
 ): Candidate<ChordRef>[] {
   let inputMask: PcMask = 0;
   const weightByPc = new Float64Array(12);
-  const firstIndexByPc = new Int32Array(12).fill(Number.MAX_SAFE_INTEGER);
 
-  input.notes.forEach((n, idx) => {
-    if (n.weight <= 0) return;
+  for (const n of input.notes) {
+    if (n.weight <= 0) continue;
     inputMask |= 1 << n.pc;
     weightByPc[n.pc] = (weightByPc[n.pc] ?? 0) + n.weight;
-    if (idx < (firstIndexByPc[n.pc] ?? Number.MAX_SAFE_INTEGER)) {
-      firstIndexByPc[n.pc] = idx;
-    }
-  });
+  }
 
   if (inputMask === 0) return [];
 
   const presentTones = popcount12(inputMask);
-  const candidates: Array<{ candidate: Candidate<ChordRef>; firstIdx: number }> = [];
+  const candidates: Candidate<ChordRef>[] = [];
 
   for (let r = 0; r < 12; r++) {
     const root = r as PitchClass;
@@ -96,7 +99,7 @@ export function detectChords(
 
       if (input.root !== undefined) {
         if (root === input.root) {
-          rootMatchBonus = 1000;
+          rootMatchBonus = CHORD_DETECTION_SCORING.ROOT_MATCH_BONUS;
           reasons.push({ code: 'rootMatches', params: { root } });
         } else {
           bass = input.root;
@@ -109,7 +112,11 @@ export function detectChords(
       }
 
       const rootWeight = weightByPc[root] ?? 1;
-      const score = rootMatchBonus - omittedOptional * 200 + q.weight + (rootWeight - 1) * 10;
+      const score =
+        rootMatchBonus -
+        omittedOptional * CHORD_DETECTION_SCORING.OMITTED_OPTIONAL_PENALTY +
+        q.weight +
+        (rootWeight - 1) * CHORD_DETECTION_SCORING.ROOT_NOTE_WEIGHT_FACTOR;
 
       const ref: ChordRef = {
         root,
@@ -118,22 +125,16 @@ export function detectChords(
         ...(bass !== undefined ? { bass } : {}),
       };
 
-      candidates.push({
-        candidate: { value: ref, score, reasons },
-        firstIdx: firstIndexByPc[root] ?? Number.MAX_SAFE_INTEGER,
-      });
+      candidates.push({ value: ref, score, reasons });
     }
   }
 
   candidates.sort((a, b) => {
-    if (b.candidate.score !== a.candidate.score) {
-      return b.candidate.score - a.candidate.score;
+    if (b.score !== a.score) {
+      return b.score - a.score;
     }
-    if (a.firstIdx !== b.firstIdx) {
-      return a.firstIdx - b.firstIdx;
-    }
-    return a.candidate.value.root - b.candidate.value.root;
+    return a.value.root - b.value.root;
   });
 
-  return candidates.map((c) => c.candidate);
+  return candidates;
 }
