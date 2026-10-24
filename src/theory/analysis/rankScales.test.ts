@@ -32,6 +32,12 @@ describe('catálogo de escalas', () => {
     ]);
   });
 
+  it('los pesos no tienen empates (el orden entre escalas es explícito)', () => {
+    const weights = SCALE_TYPES.map((s) => s.weight);
+    expect(new Set(weights).size).toBe(weights.length);
+    expect(SCALE_WEIGHTS.harmonicMinor).toBe(SCALE_WEIGHTS.majorBlues + 1);
+  });
+
   it('los pesos del catálogo vienen de SCALE_WEIGHTS', () => {
     for (const s of SCALE_TYPES) expect(s.weight).toBe(SCALE_WEIGHTS[s.id]);
   });
@@ -60,6 +66,16 @@ describe('rankScalesForChord', () => {
     const codes = major.reasons.map((r) => r.code);
     expect(codes).toContain('scaleContainsAllNotes');
     expect(codes).toContain('tonicMatches');
+    // Ambos tienen 3 notas sobrantes: lo que explica el orden es la popularidad (peso).
+    const lydian = res.find((c) => c.value.type === 'lydian')!;
+    const extraOf = (c: typeof major) =>
+      c.reasons.find((r) => r.code === 'scaleExtraNotes')?.params;
+    const weightOf = (c: typeof major) =>
+      c.reasons.find((r) => r.code === 'scaleCommonness')?.params;
+    expect(extraOf(major)).toEqual(extraOf(lydian));
+    expect(weightOf(major)?.weight).toBe(SCALE_WEIGHTS.major);
+    expect(weightOf(lydian)?.weight).toBe(SCALE_WEIGHTS.lydian);
+    expect(weightOf(major)!.weight).toBeGreaterThan(weightOf(lydian)!.weight as number);
     expect(major.reasons.find((r) => r.code === 'scaleExtraNotes')?.params).toEqual({ count: 3 });
   });
 

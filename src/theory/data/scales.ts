@@ -32,7 +32,10 @@ export type ScaleFamilyId = 'major' | 'harmonicMinor' | 'melodicMinor' | 'blues'
  * - Pentatónica mayor (88) y mixolidio (85) por encima de lidio (80), de modo que Cmaj7 pone
  *   el jónico por encima del lidio, y el lidio por encima de las escalas más coloridas.
  * - Blues (75) y blues mayor (70) por debajo de las pentatónicas (añaden una nota de paso).
- * - Armónica (70) y melódica (68): útiles pero más "de color".
+ * - Armónica (71) y blues mayor (70): sin empate a propósito. La armónica es bastante más
+ *   popular (música clásica, metal, flamenco, dominante de la menor), mientras que el blues
+ *   mayor es un nicho del género; por eso la armónica va un punto por encima.
+ * - Melódica (68): útil pero más "de color".
  * - Frigio (60) y locrio (40) al final: más inestables o raros como primera opción.
  */
 export const SCALE_WEIGHTS: Readonly<Record<ScaleTypeId, number>> = {
@@ -45,7 +48,7 @@ export const SCALE_WEIGHTS: Readonly<Record<ScaleTypeId, number>> = {
   lydian: 80,
   blues: 75,
   majorBlues: 70,
-  harmonicMinor: 70,
+  harmonicMinor: 71,
   melodicMinor: 68,
   phrygian: 60,
   locrian: 40,

@@ -25,6 +25,7 @@ export type ReasonCode =
   | 'noteRoleInChord'
   | 'scaleContainsNote'
   | 'scaleExtraNotes'
+  | 'scaleCommonness'
   | 'sharedParentScale'
   | 'relativeScale'
   | 'closeScaleVariant'

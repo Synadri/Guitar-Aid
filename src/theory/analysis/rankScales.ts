@@ -56,6 +56,7 @@ export function rankScalesForChord(
       { code: 'scaleContainsAllNotes', params: { n } },
     ];
     if (rootMatch) reasons.push({ code: 'tonicMatches', params: { tonic } });
+    reasons.push({ code: 'scaleCommonness', params: { weight: type.weight } });
     reasons.push({ code: 'scaleExtraNotes', params: { count: extra } });
     rows.push({
       cand: {
@@ -86,7 +87,10 @@ export function scalesContaining(pc: PitchClass, mode: NameMode = 'sharps'): Can
     out.push({
       value: scaleRef(tonic, type, mode),
       score: type.weight,
-      reasons: [{ code: 'scaleContainsNote', params: { pc, degree: degreeName(pc - tonic) } }],
+      reasons: [
+        { code: 'scaleContainsNote', params: { pc, degree: degreeName(pc - tonic) } },
+        { code: 'scaleCommonness', params: { weight: type.weight } },
+      ],
     });
   }
   return out.sort((a, b) => b.score - a.score || catalogOrder(a.value, b.value));
@@ -97,6 +101,9 @@ export function scalesOnTonic(pc: PitchClass, mode: NameMode = 'sharps'): Candid
   return SCALE_TYPES.map((type): Candidate<ScaleRef> => ({
     value: scaleRef(pc, type, mode),
     score: type.weight,
-    reasons: [{ code: 'tonicMatches', params: { tonic: pc } }],
+    reasons: [
+      { code: 'tonicMatches', params: { tonic: pc } },
+      { code: 'scaleCommonness', params: { weight: type.weight } },
+    ],
   })).sort((a, b) => b.score - a.score || catalogOrder(a.value, b.value));
 }
