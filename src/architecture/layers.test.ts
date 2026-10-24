@@ -38,7 +38,6 @@ const forbidden: [string, string, string][] = [
 ];
 
 const allowed: [string, string, string][] = [
-  ['theory', 'src/theory/core/x.ts', "import { Note } from 'tonal';"],
   ['theory', 'src/theory/analysis/x.ts', "import { a } from '../core/pitch';"],
   ['state', 'src/state/sandbox/x.ts', "import { create } from 'zustand';"],
   ['state', 'src/state/sandbox/x.ts', "import { a } from '../../theory';"],

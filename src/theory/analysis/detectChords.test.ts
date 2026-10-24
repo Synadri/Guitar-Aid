@@ -14,6 +14,18 @@ function inputFromNames(names: string[], rootName?: string) {
   return { notes, ...(root !== undefined ? { root } : {}) };
 }
 
+function permutations<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [items.slice()];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i++) {
+    const rest = [...items.slice(0, i), ...items.slice(i + 1)];
+    for (const p of permutations(rest)) {
+      out.push([items[i]!, ...p]);
+    }
+  }
+  return out;
+}
+
 describe('catálogo de acordes e intervalos (criterio 3)', () => {
   it('incluye las 12 calidades requeridas en Requisitos §6.4', () => {
     expect(CHORD_QUALITIES.map((q) => q.id)).toEqual([
@@ -93,6 +105,34 @@ describe('detectChords', () => {
       { code: 'containsChordTones', params: { n: 3, of: 3 } },
       { code: 'rootMatches', params: { root: 0 } },
     ]);
+  });
+
+  it('C-E-G con raíz E (E en el bajo) → el primer candidato es C mayor con invertedBass y chordDisplayName = C/E', () => {
+    const res = detectChords({ notes: toWeightedPcs([0, 4, 7]), root: 4 });
+    expect(res).toHaveLength(1);
+    expect(res[0]!.value).toEqual({ root: 0, quality: 'maj', name: 'C', bass: 4 });
+    expect(res[0]!.reasons).toEqual([
+      { code: 'containsChordTones', params: { n: 3, of: 3 } },
+      { code: 'invertedBass', params: { root: 0, bass: 4 } },
+    ]);
+    expect(chordDisplayName(res[0]!.value)).toBe('C/E');
+  });
+
+  it('las 24 permutaciones de C-E-G-A sin raíz (construidas a mano sin toWeightedPcs) producen resultado idéntico', () => {
+    const manualNotes = [
+      { pc: 0 as PitchClass, weight: 1 },
+      { pc: 4 as PitchClass, weight: 1 },
+      { pc: 7 as PitchClass, weight: 1 },
+      { pc: 9 as PitchClass, weight: 1 },
+    ];
+    const allPerms = permutations(manualNotes);
+    expect(allPerms).toHaveLength(24);
+
+    const reference = detectChords({ notes: allPerms[0]! });
+    expect(reference.map((c) => c.value.name)).toEqual(['C6', 'Am7']);
+    for (const perm of allPerms) {
+      expect(detectChords({ notes: perm })).toEqual(reference);
+    }
   });
 
   it('criterio 5: C-E-G-A → [C6, Am7] sin elegir uno por el usuario; la raíz ordena pero no filtra', () => {

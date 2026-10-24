@@ -122,6 +122,7 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 
 ## Ideas posteriores (fuera de la Fase 1)
 
+- **Power chords (calidad `5` con dos notas):** actualmente `detectChords` devuelve `[]` con un intervalo de 5ª justa como `C-G`, y los *power chords* (fundamental + 5ª justa, sin 3ª) son de lo más común en guitarra; añadir la calidad `5` (dos notas `[0, 7]`) al catálogo en fases posteriores.
 - **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).
 - **Algoritmo de voicings de respaldo** para afinaciones sin diccionario, con restricciones ergonómicas estrictas:
   - 5ª opcional donde la teoría lo permite;

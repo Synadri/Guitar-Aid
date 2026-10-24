@@ -1,30 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { getTuning, STANDARD_TUNING, TUNINGS } from '../data/tunings';
-import { midiToName } from '../core/spelling';
+import { midiToName, nameToMidi } from '../core/spelling';
 import { equivalentPositions, midiToPositions, positionToMidi, relocatePosition } from '.';
 
 const dropD = getTuning('dropD')!;
 
 describe('afinaciones', () => {
-  it('todas tienen 6 cuerdas ascendentes en el rango del piano C2–C7', () => {
+  it('todas tienen 6 cuerdas estrictamente ascendentes en el rango del piano C2–C7', () => {
     for (const t of TUNINGS) {
       expect(t.strings).toHaveLength(6);
-      expect(Math.min(...t.strings)).toBeGreaterThanOrEqual(36);
-      expect(Math.max(...t.strings) + 24).toBeLessThanOrEqual(96);
+      for (let i = 0; i < t.strings.length - 1; i++) {
+        expect(t.strings[i + 1]!).toBeGreaterThan(t.strings[i]!);
+      }
+      expect(Math.min(...t.strings)).toBeGreaterThanOrEqual(nameToMidi('C2')!);
+      expect(Math.max(...t.strings) + 24).toBeLessThanOrEqual(nameToMidi('C7')!);
     }
   });
-  it('estándar y desplazadas', () => {
-    expect(STANDARD_TUNING.strings.map((m) => midiToName(m))).toEqual([
-      'E2',
-      'A2',
-      'D3',
-      'G3',
-      'B3',
-      'E4',
-    ]);
-    expect(getTuning('halfDown')!.strings[0]).toBe(39);
-    expect(getTuning('wholeDown')!.strings[0]).toBe(38);
-    expect(dropD.strings.map((m) => midiToName(m))[0]).toBe('D2');
+  it('compara las siete afinaciones de la cuerda 6 a la 1 usando nameToMidi', () => {
+    const expected: Record<string, string[]> = {
+      standard: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+      dropD: ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+      dadgad: ['D2', 'A2', 'D3', 'G3', 'A3', 'D4'],
+      openG: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'],
+      openD: ['D2', 'A2', 'D3', 'F♯3', 'A3', 'D4'],
+      halfDown: ['E♭2', 'A♭2', 'D♭3', 'G♭3', 'B♭3', 'E♭4'],
+      wholeDown: ['D2', 'G2', 'C3', 'F3', 'A3', 'D4'],
+    };
+    expect(TUNINGS.map((t) => t.id)).toEqual(Object.keys(expected));
+    for (const [id, noteNames] of Object.entries(expected)) {
+      const tuning = getTuning(id)!;
+      expect(tuning.strings).toEqual(noteNames.map((n) => nameToMidi(n)!));
+    }
   });
 });
 
@@ -78,7 +84,7 @@ describe('recolocación (criterio 7, teoría)', () => {
     // Las cuerdas no afectadas no cambian.
     expect(relocatePosition(dropD, 52, { string: 5, fret: 7 })).toEqual({ string: 5, fret: 7 });
   });
-  it('si no existe en la cuerda, elige el traste más cercano', () => {
+  it('una nota que no existe en la nueva afinación devuelve null', () => {
     // D2 (38) solo existe en la cuerda 6 de Drop D; en estándar no existe: null.
     expect(relocatePosition(STANDARD_TUNING, 38, { string: 6, fret: 0 })).toBeNull();
     // E3 estaba en (6, 12): en cuerda 6 sigue existiendo (traste 14 en Drop D).
