@@ -120,6 +120,16 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - **Eliminación de `tonal` de `package.json`:** no se importa en ningún archivo del proyecto (todo el deletreo, intervalos, acordes, escalas y rankings son propios), por lo que se retira de `dependencies`.
 - **`acceptance.test.ts`:** cubre los criterios 1–6 (teoría) comprobando códigos y datos.
 
+## 2026-10-24 — Hito T4a: diccionario de voicings estándar (abiertas y cejilla) y verificación en guitarra
+
+- **División de T4 en T4a y T4b:**
+  - **T4a:** formato de datos, cálculo de dedos desde los trastes, formas abiertas (`open`) y de cejilla (`barre-E`, `barre-A`) para las 12 calidades en afinación estándar, tests de integridad con `positionToMidi` y script `pnpm voicings:print` + `docs/voicings.md` para verificar ergonomía y naturalidad en la guitarra.
+  - **T4b:** formas drop 2/3, shells y adaptación a otras afinaciones (Eb, D, Drop D).
+- **Sin campo `fingers` en los datos (`standard.ts`):** se elimina `fingers` de las plantillas y se calcula directamente desde los trastes resueltos con `requiredFingers(frets)`: las cuerdas al aire (`0`) y muteadas (`'x'`) cuentan 0 dedos; cada cuerda pulsada (`> 0`) cuenta 1 dedo; y un único dedo puede agrupar en cejilla varias cuerdas en el mismo traste `b > 0` siempre que ninguna cuerda intermedia que suene esté en un traste `< b` (lo que impide físicamente cejillas que crucen cuerdas al aire o trastes más bajos, como en `Cmaj7` `x35453` o `B7` `x21202`, y permite cejillas reales como `F` `133211`, `C6` `x35555` o `C9` `x32333`).
+- **Cobertura completa de las 12 calidades × 12 raíces:** cada una de las 12 calidades del catálogo (`maj`, `m`, `7`, `maj7`, `m7`, `6`, `m6`, `9`, `sus4`, `sus2`, `dim`, `aug`) cuenta con formas móviles (`barre-E` y/o `barre-A`) además de las formas abiertas clásicas, garantizando que ninguno de los 144 acordes posibles se quede sin digitación. Las formas móviles se transponen al primer traste donde todas las cuerdas pulsadas quedan en `>= 1`, de modo que no duplican la forma abierta en la cejuela (p. ej. en `Am7`, `x02010` es `open`, `575555` es `barre-E` y `x-12-14-12-13-12` es `barre-A`).
+- **Tests de integridad con `positionToMidi`:** los tests no usan tablas de notas escritas a mano; calculan las notas MIDI reales de cada cuerda activa llamando a `positionToMidi(STANDARD_TUNING, { string, fret })` y comprueban contra el catálogo (`chords.ts`) que contienen todos los intervalos requeridos, no tienen notas ajenas, tienen la raíz en la nota más grave, abarcan como máximo 4 trastes y usan como máximo 4 dedos.
+- **Script `pnpm voicings:print` y `docs/voicings.md`:** imprime todas las formas de un acorde (p. ej. `pnpm voicings:print Am7` → `x02010 · A C E G · open` más tablatura ASCII de 6 cuerdas) y genera `docs/voicings.md` con las plantillas en tablatura y la lista completa de los 144 acordes.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Power chords (calidad `5` con dos notas):** actualmente `detectChords` devuelve `[]` con un intervalo de 5ª justa como `C-G`, y los *power chords* (fundamental + 5ª justa, sin 3ª) son de lo más común en guitarra; añadir la calidad `5` (dos notas `[0, 7]`) al catálogo en fases posteriores.

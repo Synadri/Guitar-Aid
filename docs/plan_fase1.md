@@ -153,16 +153,22 @@ Cada calidad del catálogo define intervalos **requeridos** y **opcionales**. Po
 Ejemplo de entrada:
 
 ```ts
-{ quality: 'm7', family: 'barre-E', rootString: 6,
-  frets: [0, 2, 0, 0, 0, 0],            // relativos al traste de la raíz, cuerda 6 → 1; 'x' = muteada
-  fingers: [1, 3, 1, 1, 1, 1], omits: [] }
+{ id: 'barre-E-m7', quality: 'm7', family: 'barre-E', rootString: 6,
+  frets: [0, 2, 0, 0, 0, 0] }           // relativos al traste de la raíz, cuerda 6 → 1; 'x' = muteada
 ```
 
-**Tests de integridad del diccionario:** cada forma, transpuesta a sus 12 raíces, debe:
+> [!NOTE]
+> El dato no almacena un campo `fingers`: el número de dedos requeridos se calcula directamente a partir de `frets` (1 dedo por cuerda pulsada `> 0`, contando como 1 solo dedo un tramo de cejilla en un mismo traste sin cuerdas intermedias en un traste inferior).
+
+**Tests de integridad del diccionario (calculando notas reales con `positionToMidi`):** cada forma abierta en su raíz y cada forma móvil transpuesta a sus 12 raíces debe:
 - contener todos los intervalos requeridos de su calidad;
 - no tener notas ajenas al acorde;
+- tener la fundamental en la nota más grave;
 - abarcar como máximo 4 trastes;
-- tener una digitación coherente (como máximo 4 dedos, contando la cejilla como uno).
+- tener una digitación coherente (como máximo 4 dedos, calculados desde `frets` contando la cejilla como uno);
+- cubrir las 12 calidades × 12 raíces con al menos un voicing por acorde.
+
+**Verificación ergonómica (`pnpm voicings:print`):** script que imprime todas las formas de un acorde (p. ej. `pnpm voicings:print Am7` → `x02010 · A C E G · open` + tablatura ASCII) y genera `docs/voicings.md` con la lista completa.
 
 **Otras afinaciones:**
 
@@ -217,7 +223,8 @@ Se sigue el orden de la sección 10 de los requisitos: **teoría → estado → 
 | **T1** | `core/` + `fretboard/` + `tunings.ts` | midi ↔ nombre, enarmonía por contexto, (cuerda, traste) ↔ midi, equivalentes, recolocación Drop D | **1, 2, 7** (teoría) |
 | **T2** | `chords.ts` + `detectChords` + intervalos y grados | A♯ ≡ B♭, C-E-G → C, C-E-G-A → [C6, Am7] sin elegir, intervalos de Am7, conjunto sin acorde → `[]` | **3, 4, 5** |
 | **T3** | `scales.ts` + `rankScales` + `suggestions/*` + `progressions.ts` | Notas de A pentatónica menor, diatónicos con romanos, escalas relacionadas, casos de referencia del ranking | **6** → **9 completo** |
-| **T4** | Diccionario de voicings estándar + adaptación (Eb, D, Drop D) | Integridad del diccionario × 12 raíces, adaptación | — |
+| **T4a** | Diccionario de voicings estándar (formas abiertas y cejilla en las 12 calidades) + `pnpm voicings:print` (`docs/voicings.md`) | Integridad con `positionToMidi`, dedos desde `frets`, cobertura 12 × 12 | — |
+| **T4b** | Voicings drop 2/3, shells y adaptación a otras afinaciones (Eb, D, Drop D) | Integridad de nuevas familias y adaptación por afinación | — |
 | **S1** | `state/sandbox` + selectores de marcas, panel y sujeto de sugerencias | Capas, fijar/desfijar, marcas llenas/huecas, raíz, cambio de afinación | 1, 2, 7 (estado) |
 | **S2** | `state/settings` + persistencia | Serializa solo los ajustes; la selección no se guarda | 8 (estado) |
 | U1 | Mástil y piano estáticos (puros) con afinación, zurdo, C2–C7 | Render y eventos con Testing Library | — |
