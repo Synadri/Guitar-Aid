@@ -71,7 +71,9 @@ describe('criterios de aceptación (teoría)', () => {
       name: 'A Pentatónica menor',
     };
     const chords = diatonicChords(scale);
-    expect(chords.map((d) => d.chord.name)).toContain('Am');
+    const chordNames = chords.map((d) => d.chord.name);
+    expect(chordNames).toEqual(expect.arrayContaining(['Am', 'Am7', 'C6', 'Asus4']));
+    expect(chordNames).not.toContain('Em');
     expect(chords.map((d) => d.roman)).toContain('♭III');
 
     const related = relatedScales(scale);

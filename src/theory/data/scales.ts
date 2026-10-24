@@ -83,11 +83,6 @@ export interface ScaleType {
    * (p. ej. mayor → menor natural a +9; menor natural → mayor a +3). Ausente si no tiene.
    */
   relative?: { type: ScaleTypeId; offset: number };
-  /**
-   * Escala heptatónica (misma tónica) de la que se toman los acordes diatónicos cuando esta no
-   * tiene siete notas (pentatónicas y blues). Ausente en las heptatónicas.
-   */
-  chordSource?: ScaleTypeId;
   /** Máscara de bits con la tónica en la clase 0 (rotar para transponer). */
   mask: PcMask;
 }
@@ -171,7 +166,6 @@ const RAW_SCALES: readonly RawScale[] = [
   },
   {
     id: 'majorPentatonic',
-    chordSource: 'major',
     relative: { type: 'minorPentatonic', offset: 9 },
     name: 'Pentatónica mayor',
     aliases: [],
@@ -181,7 +175,6 @@ const RAW_SCALES: readonly RawScale[] = [
   },
   {
     id: 'minorPentatonic',
-    chordSource: 'minor',
     relative: { type: 'majorPentatonic', offset: 3 },
     name: 'Pentatónica menor',
     aliases: [],
@@ -192,7 +185,6 @@ const RAW_SCALES: readonly RawScale[] = [
   {
     // Pentatónica menor + ♭5 (blue note).
     id: 'blues',
-    chordSource: 'minor',
     relative: { type: 'majorBlues', offset: 3 },
     name: 'Blues',
     aliases: ['Blues menor'],
@@ -202,7 +194,6 @@ const RAW_SCALES: readonly RawScale[] = [
   {
     // 1, 2, ♭3, 3, 5, 6 (decisiones.md, aclaración 6).
     id: 'majorBlues',
-    chordSource: 'major',
     relative: { type: 'blues', offset: 9 },
     name: 'Blues mayor',
     aliases: [],

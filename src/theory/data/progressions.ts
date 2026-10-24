@@ -5,18 +5,15 @@ export type ProgressionId =
   | 'I-IV-V'
   | 'vi-IV-I-V'
   | 'ii-V-I'
-  | 'ii7-V7-Imaj7'
   | 'I-vi-IV-V'
-  | 'blues12Major'
   | 'i-VII-VI-VII'
   | 'i-VI-III-VII'
   | 'andaluza'
   | 'i-iv-v'
-  | 'iidim-V-i'
-  | 'blues12Minor';
+  | 'iidim-V-i';
 
 export interface ProgressionStep {
-  /** Numeración romana con alteración y calidad (p. ej. "ii", "♭VII", "V7"). */
+  /** Numeración romana con alteración y calidad (p. ej. "ii", "♭VII", "V"). */
   roman: string;
   /** Semitonos de la fundamental sobre la tónica de la tonalidad. */
   offset: number;
@@ -35,9 +32,8 @@ export interface ProgressionTemplate {
 }
 
 /**
- * Pesos de popularidad de cada plantilla de progresión. Se ajustan aquí, no en el algoritmo.
- * Criterio: primero las progresiones más extendidas en música popular; las de jazz y blues
- * (que exigen séptimas) quedan después de las de tríadas. Sin empates a propósito.
+ * Pesos de popularidad de cada una de las 10 plantillas de progresión (5 mayores y 5 menores,
+ * definidas sobre tríadas). Se ajustan aquí, no en el algoritmo; sin empates a propósito.
  */
 export const PROGRESSION_WEIGHTS: Readonly<Record<ProgressionId, number>> = {
   'popI-V-vi-IV': 100,
@@ -49,10 +45,7 @@ export const PROGRESSION_WEIGHTS: Readonly<Record<ProgressionId, number>> = {
   andaluza: 89,
   'I-vi-IV-V': 87,
   'i-iv-v': 86,
-  'ii7-V7-Imaj7': 84,
   'iidim-V-i': 82,
-  blues12Major: 80,
-  blues12Minor: 78,
 };
 
 const step = (roman: string, offset: number, quality: ChordQualityId): ProgressionStep => ({
@@ -78,26 +71,11 @@ const RAW: readonly Omit<ProgressionTemplate, 'weight' | 'name'>[] = [
   { id: 'vi-IV-I-V', mode: 'major', steps: [vi, IV, I, V] },
   { id: 'ii-V-I', mode: 'major', steps: [ii, V, I] },
   { id: 'I-vi-IV-V', mode: 'major', steps: [I, vi, IV, V] },
-  {
-    id: 'ii7-V7-Imaj7',
-    mode: 'major',
-    steps: [step('ii7', 2, 'm7'), step('V7', 7, '7'), step('Imaj7', 0, 'maj7')],
-  },
-  {
-    id: 'blues12Major',
-    mode: 'major',
-    steps: [step('I7', 0, '7'), step('IV7', 5, '7'), step('V7', 7, '7')],
-  },
   { id: 'i-VII-VI-VII', mode: 'minor', steps: [i, bVII, bVI, bVII] },
   { id: 'i-VI-III-VII', mode: 'minor', steps: [i, bVI, bIII, bVII] },
   { id: 'andaluza', mode: 'minor', steps: [i, bVII, bVI, V] },
   { id: 'i-iv-v', mode: 'minor', steps: [i, iv, step('v', 7, 'm')] },
   { id: 'iidim-V-i', mode: 'minor', steps: [step('ii°', 2, 'dim'), V, i] },
-  {
-    id: 'blues12Minor',
-    mode: 'minor',
-    steps: [step('i7', 0, 'm7'), step('iv7', 5, 'm7'), step('V7', 7, '7')],
-  },
 ];
 
 export const PROGRESSIONS: readonly ProgressionTemplate[] = RAW.map((t) => ({
