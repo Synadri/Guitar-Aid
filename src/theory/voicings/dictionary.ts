@@ -12,6 +12,17 @@ import {
   type VoicingFamily,
 } from '../data/voicings/standard';
 import { type FretPosition, type StringNumber, positionToMidi } from '../fretboard';
+import {
+  adaptVoicingToTuning,
+  isOpenTuning,
+  rebindVoicingToTuning,
+  uniformSemitoneShift,
+} from './adapt';
+
+export interface ChordVoicingTarget {
+  root: PitchClass;
+  quality: ChordQualityId;
+}
 
 export interface Voicing {
   /** Identificador de la plantilla de origen. */
@@ -177,11 +188,7 @@ export function resolveMovableShape(
   );
 }
 
-/**
- * Devuelve todos los voicings disponibles en afinación estándar para un acorde `(root, quality)`.
- * Orden: primero formas abiertas (`open`), después formas de cejilla ordenadas por traste más bajo.
- */
-export function voicingsForChord(root: PitchClass, quality: ChordQualityId): Voicing[] {
+function standardVoicingsForChord(root: PitchClass, quality: ChordQualityId): Voicing[] {
   const openVoicings = OPEN_VOICING_SHAPES.filter(
     (s) => s.root === root && s.quality === quality,
   ).map((s) => resolveOpenShape(s, STANDARD_TUNING));
@@ -195,6 +202,62 @@ export function voicingsForChord(root: PitchClass, quality: ChordQualityId): Voi
     });
 
   return [...openVoicings, ...movableVoicings];
+}
+
+/**
+ * Devuelve todos los voicings disponibles para un acorde en la afinación indicada
+ * (por defecto `STANDARD_TUNING`).
+ *
+ * - En afinaciones con desplazamiento uniforme de `k` semitonos hacia abajo (`standard`, `halfDown`, `wholeDown`),
+ *   reutiliza los trastes del acorde `k` semitonos más agudo y recalcula sus notas MIDI en `tuning`.
+ * - En `dropD`, adapta cada voicing estándar sumando la diferencia por cuerda y conserva solo los que
+ *   cumplen todas las restricciones del diccionario.
+ * - En afinaciones abiertas (`openG`, `openD`, `dadgad`), devuelve `[]`.
+ *
+ * Acepta tanto `voicingsForChord(chord, tuning)` como `voicingsForChord(root, quality, tuning)`.
+ */
+export function voicingsForChord(chord: ChordVoicingTarget, tuning?: Tuning): Voicing[];
+export function voicingsForChord(
+  root: PitchClass,
+  quality: ChordQualityId,
+  tuning?: Tuning,
+): Voicing[];
+export function voicingsForChord(
+  rootOrChord: PitchClass | ChordVoicingTarget,
+  qualityOrTuning?: ChordQualityId | Tuning,
+  maybeTuning?: Tuning,
+): Voicing[] {
+  const root: PitchClass = typeof rootOrChord === 'number' ? rootOrChord : rootOrChord.root;
+  const quality: ChordQualityId =
+    typeof rootOrChord === 'number' ? (qualityOrTuning as ChordQualityId) : rootOrChord.quality;
+  const tuning: Tuning =
+    typeof rootOrChord === 'number'
+      ? (maybeTuning ?? STANDARD_TUNING)
+      : ((qualityOrTuning as Tuning | undefined) ?? STANDARD_TUNING);
+
+  const uniformShift = uniformSemitoneShift(tuning, STANDARD_TUNING);
+  if (uniformShift !== null) {
+    if (uniformShift === 0) {
+      return standardVoicingsForChord(root, quality);
+    }
+    const shapeRoot = pitchClassOf(root + uniformShift);
+    return standardVoicingsForChord(shapeRoot, quality).map((v) =>
+      rebindVoicingToTuning(v, root, tuning),
+    );
+  }
+
+  if (isOpenTuning(tuning, STANDARD_TUNING)) {
+    return [];
+  }
+
+  const adapted: Voicing[] = [];
+  for (const stdVoicing of standardVoicingsForChord(root, quality)) {
+    const candidate = adaptVoicingToTuning(stdVoicing, tuning, STANDARD_TUNING);
+    if (candidate !== null) {
+      adapted.push(candidate);
+    }
+  }
+  return adapted;
 }
 
 /** Formatea los 6 trastes de forma compacta (`x02010`, o `x-12-14-12-13-12` si hay trastes >= 10). */

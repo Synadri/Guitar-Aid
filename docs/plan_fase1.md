@@ -224,7 +224,7 @@ Se sigue el orden de la sección 10 de los requisitos: **teoría → estado → 
 | **T2** | `chords.ts` + `detectChords` + intervalos y grados | A♯ ≡ B♭, C-E-G → C, C-E-G-A → [C6, Am7] sin elegir, intervalos de Am7, conjunto sin acorde → `[]` | **3, 4, 5** |
 | **T3** | `scales.ts` + `rankScales` + `suggestions/*` + `progressions.ts` | Notas de A pentatónica menor, diatónicos con romanos, escalas relacionadas, casos de referencia del ranking | **6** → **9 completo** |
 | **T4a** | Diccionario de voicings estándar (formas abiertas y cejilla en las 12 calidades) + `pnpm voicings:print` (`docs/voicings.md`) | Integridad con `positionToMidi`, dedos desde `frets`, cobertura 12 × 12 | — |
-| **T4b** | Voicings drop 2/3, shells y adaptación a otras afinaciones (Eb, D, Drop D) | Integridad de nuevas familias y adaptación por afinación | — |
+| **T4b** | Adaptación de voicings a otras afinaciones (Eb, D, Drop D y abiertas) | Integridad con `positionToMidi(tuning, …)` y adaptación por afinación | — |
 | **S1** | `state/sandbox` + selectores de marcas, panel y sujeto de sugerencias | Capas, fijar/desfijar, marcas llenas/huecas, raíz, cambio de afinación | 1, 2, 7 (estado) |
 | **S2** | `state/settings` + persistencia | Serializa solo los ajustes; la selección no se guarda | 8 (estado) |
 | U1 | Mástil y piano estáticos (puros) con afinación, zurdo, C2–C7 | Render y eventos con Testing Library | — |

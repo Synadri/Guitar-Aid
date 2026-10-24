@@ -15,4 +15,5 @@ export * from './suggestions/forNote';
 export * from './suggestions/forScale';
 export * from './suggestions/forChord';
 export * from './data/voicings/standard';
+export * from './voicings/adapt';
 export * from './voicings/dictionary';

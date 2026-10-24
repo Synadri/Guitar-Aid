@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { pcsToMask } from '../core/pcset';
 import { type PitchClass, pitchClassOf } from '../core/pitch';
 import { CHORD_QUALITIES, getChordQuality } from '../data/chords';
-import { STANDARD_TUNING } from '../data/tunings';
+import { STANDARD_TUNING, type Tuning, getTuning } from '../data/tunings';
 import {
   MOVABLE_VOICING_SHAPES,
   OPEN_VOICING_SHAPES,
   STANDARD_VOICING_SHAPES,
 } from '../data/voicings/standard';
 import { DEFAULT_FRETS, type StringNumber, positionToMidi } from '../fretboard';
+import { uniformSemitoneShift } from './adapt';
 import {
   type Voicing,
+  formatCompactFrets,
   formatVoicingLine,
   formatVoicingsAsTab,
   generateVoicingsMarkdown,
@@ -24,10 +26,10 @@ import {
 
 const ALL_ROOTS: readonly PitchClass[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
-function verifyVoicingIntegrity(voicing: Voicing): void {
+function verifyVoicingIntegrity(voicing: Voicing, tuning: Tuning = STANDARD_TUNING): void {
   const quality = getChordQuality(voicing.quality);
 
-  // 1. Calcular las notas MIDI reales directamente con positionToMidi desde los trastes.
+  // 1. Calcular las notas MIDI reales directamente con positionToMidi(tuning, ...) desde los trastes.
   const realMidis: number[] = [];
   for (let i = 0; i < voicing.frets.length; i++) {
     const fret = voicing.frets[i];
@@ -35,7 +37,7 @@ function verifyVoicingIntegrity(voicing: Voicing): void {
       expect(fret).toBeGreaterThanOrEqual(0);
       expect(fret).toBeLessThanOrEqual(DEFAULT_FRETS);
       const string = (6 - i) as StringNumber;
-      realMidis.push(positionToMidi(STANDARD_TUNING, { string, fret }));
+      realMidis.push(positionToMidi(tuning, { string, fret }));
     }
   }
 
@@ -164,6 +166,98 @@ describe('voicings/dictionary — impresión de formas y tablatura', () => {
     expect(md).toContain('x02010 · A C E G · open');
     for (const q of CHORD_QUALITIES) {
       expect(md).toContain(`(${q.name})`);
+    }
+  });
+});
+
+describe('voicings/adapt — adaptación a otras afinaciones (T4b)', () => {
+  it('detecta el desplazamiento uniforme k comparando las cuerdas con la afinación estándar', () => {
+    expect(uniformSemitoneShift(STANDARD_TUNING)).toBe(0);
+    expect(uniformSemitoneShift(getTuning('halfDown')!)).toBe(1);
+    expect(uniformSemitoneShift(getTuning('wholeDown')!)).toBe(2);
+    expect(uniformSemitoneShift(getTuning('dropD')!)).toBeNull();
+    expect(uniformSemitoneShift(getTuning('openG')!)).toBeNull();
+  });
+
+  it('en Eb (halfDown) y D (wholeDown), cada calidad × raíz tiene al menos un voicing y sus notas reales con positionToMidi son las del acorde', () => {
+    for (const tuningId of ['halfDown', 'wholeDown'] as const) {
+      const tuning = getTuning(tuningId)!;
+      for (const quality of CHORD_QUALITIES) {
+        for (const root of ALL_ROOTS) {
+          const voicings = voicingsForChord({ root, quality: quality.id }, tuning);
+          expect(
+            voicings.length,
+            `En ${tuningId}, root=${root} quality=${quality.id} se quedó sin voicing`,
+          ).toBeGreaterThanOrEqual(1);
+          for (const v of voicings) {
+            verifyVoicingIntegrity(v, tuning);
+          }
+        }
+      }
+    }
+  });
+
+  it('en D (wholeDown), Re mayor incluye 022100 y en Eb (halfDown), Mi bemol mayor también', () => {
+    const wholeDown = getTuning('wholeDown')!;
+    const dMajorVoicings = voicingsForChord({ root: 2, quality: 'maj' }, wholeDown);
+    expect(dMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('022100');
+    for (const v of dMajorVoicings) {
+      verifyVoicingIntegrity(v, wholeDown);
+    }
+
+    const halfDown = getTuning('halfDown')!;
+    const ebMajorVoicings = voicingsForChord({ root: 3, quality: 'maj' }, halfDown);
+    expect(ebMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('022100');
+    for (const v of ebMajorVoicings) {
+      verifyVoicingIntegrity(v, halfDown);
+    }
+  });
+
+  it('en Drop D, Am sigue incluyendo x02210, E incluye 222100 y ningún voicing adaptado rompe una restricción', () => {
+    const dropD = getTuning('dropD')!;
+
+    const amVoicings = voicingsForChord({ root: 9, quality: 'm' }, dropD);
+    expect(amVoicings.map((v) => formatCompactFrets(v.frets))).toContain('x02210');
+
+    const eMajVoicings = voicingsForChord({ root: 4, quality: 'maj' }, dropD);
+    expect(eMajVoicings.map((v) => formatCompactFrets(v.frets))).toContain('222100');
+
+    let withoutVoicingCount = 0;
+    for (const quality of CHORD_QUALITIES) {
+      for (const root of ALL_ROOTS) {
+        const dropVoicings = voicingsForChord({ root, quality: quality.id }, dropD);
+        if (dropVoicings.length === 0) {
+          withoutVoicingCount++;
+        }
+        for (const v of dropVoicings) {
+          verifyVoicingIntegrity(v, dropD);
+        }
+
+        // Las formas estándar que no usan la cuerda 6 ('x') se mantienen idénticas.
+        const stdVoicings = voicingsForChord({ root, quality: quality.id }, STANDARD_TUNING);
+        for (const stdV of stdVoicings) {
+          if (stdV.frets[0] === 'x') {
+            const matching = dropVoicings.find((dv) => dv.id === stdV.id);
+            expect(matching?.frets).toEqual(stdV.frets);
+            expect(matching?.midis).toEqual(stdV.midis);
+          }
+        }
+      }
+    }
+
+    console.info(
+      `[Drop D] Combinaciones calidad × raíz sin voicing: ${withoutVoicingCount} / ${CHORD_QUALITIES.length * ALL_ROOTS.length}`,
+    );
+  });
+
+  it('en las afinaciones abiertas (openG, openD, dadgad) devuelve []', () => {
+    for (const tuningId of ['openG', 'openD', 'dadgad'] as const) {
+      const tuning = getTuning(tuningId)!;
+      for (const quality of CHORD_QUALITIES) {
+        for (const root of ALL_ROOTS) {
+          expect(voicingsForChord({ root, quality: quality.id }, tuning)).toEqual([]);
+        }
+      }
     }
   });
 });

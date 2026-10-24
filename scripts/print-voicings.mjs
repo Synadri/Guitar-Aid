@@ -20,10 +20,12 @@ registerHooks({
 
 const {
   CHORD_QUALITIES,
+  STANDARD_TUNING,
   formatChordName,
   formatVoicingLine,
   formatVoicingsAsTab,
   generateVoicingsMarkdown,
+  getTuning,
   parseChordSymbol,
   voicingsForChord,
 } = await import('../src/theory/index.ts');
@@ -37,19 +39,26 @@ writeFileSync(docsFile, generateVoicingsMarkdown(), 'utf8');
 const args = process.argv.slice(2).filter((arg) => arg !== '--');
 
 if (args.length > 0) {
-  for (const rawChord of args) {
-    const parsed = parseChordSymbol(rawChord);
-    if (!parsed) {
-      console.error(`Acorde no reconocido: "${rawChord}"`);
+  const [rawChord, rawTuning] = args;
+  const parsed = parseChordSymbol(rawChord);
+  if (!parsed) {
+    console.error(`Acorde no reconocido: "${rawChord}"`);
+    process.exitCode = 1;
+  } else {
+    const tuning = rawTuning ? getTuning(rawTuning) : STANDARD_TUNING;
+    if (!tuning) {
+      console.error(`Afinación no reconocida: "${rawTuning}"`);
       process.exitCode = 1;
-      continue;
+    } else {
+      const voicings = voicingsForChord({ root: parsed.root, quality: parsed.quality }, tuning);
+      for (const v of voicings) {
+        console.log(formatVoicingLine(v, parsed.mode));
+      }
+      if (voicings.length > 0) {
+        console.log('');
+        console.log(formatVoicingsAsTab(voicings));
+      }
     }
-    const voicings = voicingsForChord(parsed.root, parsed.quality);
-    for (const v of voicings) {
-      console.log(formatVoicingLine(v, parsed.mode));
-    }
-    console.log('');
-    console.log(formatVoicingsAsTab(voicings));
   }
 } else {
   for (const quality of CHORD_QUALITIES) {
