@@ -78,6 +78,16 @@ export interface ScaleType {
    * porque D dórico procede de C mayor). Ausente si la escala no es un modo de la familia (blues).
    */
   parentOffset?: number;
+  /**
+   * Escala relativa (mismas notas, otra tónica): tipo y semitonos de su tónica sobre la de esta
+   * (p. ej. mayor → menor natural a +9; menor natural → mayor a +3). Ausente si no tiene.
+   */
+  relative?: { type: ScaleTypeId; offset: number };
+  /**
+   * Escala heptatónica (misma tónica) de la que se toman los acordes diatónicos cuando esta no
+   * tiene siete notas (pentatónicas y blues). Ausente en las heptatónicas.
+   */
+  chordSource?: ScaleTypeId;
   /** Máscara de bits con la tónica en la clase 0 (rotar para transponer). */
   mask: PcMask;
 }
@@ -87,6 +97,7 @@ type RawScale = Omit<ScaleType, 'weight' | 'mask'>;
 const RAW_SCALES: readonly RawScale[] = [
   {
     id: 'major',
+    relative: { type: 'minor', offset: 9 },
     name: 'Mayor',
     aliases: ['Jónico'],
     intervals: [0, 2, 4, 5, 7, 9, 11],
@@ -95,6 +106,7 @@ const RAW_SCALES: readonly RawScale[] = [
   },
   {
     id: 'minor',
+    relative: { type: 'major', offset: 3 },
     name: 'Menor natural',
     aliases: ['Eólico'],
     intervals: [0, 2, 3, 5, 7, 8, 10],
@@ -159,6 +171,8 @@ const RAW_SCALES: readonly RawScale[] = [
   },
   {
     id: 'majorPentatonic',
+    chordSource: 'major',
+    relative: { type: 'minorPentatonic', offset: 9 },
     name: 'Pentatónica mayor',
     aliases: [],
     intervals: [0, 2, 4, 7, 9],
@@ -167,6 +181,8 @@ const RAW_SCALES: readonly RawScale[] = [
   },
   {
     id: 'minorPentatonic',
+    chordSource: 'minor',
+    relative: { type: 'majorPentatonic', offset: 3 },
     name: 'Pentatónica menor',
     aliases: [],
     intervals: [0, 3, 5, 7, 10],
@@ -176,6 +192,8 @@ const RAW_SCALES: readonly RawScale[] = [
   {
     // Pentatónica menor + ♭5 (blue note).
     id: 'blues',
+    chordSource: 'minor',
+    relative: { type: 'majorBlues', offset: 3 },
     name: 'Blues',
     aliases: ['Blues menor'],
     intervals: [0, 3, 5, 6, 7, 10],
@@ -184,6 +202,8 @@ const RAW_SCALES: readonly RawScale[] = [
   {
     // 1, 2, ♭3, 3, 5, 6 (decisiones.md, aclaración 6).
     id: 'majorBlues',
+    chordSource: 'major',
+    relative: { type: 'blues', offset: 9 },
     name: 'Blues mayor',
     aliases: [],
     intervals: [0, 2, 3, 4, 7, 9],
@@ -209,3 +229,15 @@ export function getScaleType(id: ScaleTypeId): ScaleType {
 export function scalePitchClasses(tonic: PitchClass, id: ScaleTypeId): PitchClass[] {
   return getScaleType(id).intervals.map((i) => ((tonic + i) % 12) as PitchClass);
 }
+
+/** Constantes de puntuación de `relatedScales` (los bonos separan los niveles; el peso desempata). */
+export const RELATED_SCALE_SCORING = {
+  /** Relativa mayor/menor (mismas notas, otra tónica). */
+  RELATIVE_BONUS: 1000,
+  /** Comparte escala madre (modos y pentatónicas de la misma tonalidad). */
+  SHARED_PARENT_BONUS: 400,
+  /** Misma tónica y difiere en pocas notas. */
+  CLOSE_VARIANT_BONUS: 200,
+  /** Máximo de notas distintas (suma de añadidas y quitadas) para ser variante cercana. */
+  CLOSE_VARIANT_MAX_DIFF: 2,
+} as const;

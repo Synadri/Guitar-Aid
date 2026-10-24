@@ -1,5 +1,6 @@
 import type { PitchClass } from '../core/pitch';
 import type { ChordQualityId } from '../data/chords';
+import type { ProgressionId } from '../data/progressions';
 import type { ScaleTypeId } from '../data/scales';
 
 /** Nota por clase de altura con peso de relevancia (1 = normal). */
@@ -29,7 +30,8 @@ export type ReasonCode =
   | 'sharedParentScale'
   | 'relativeScale'
   | 'closeScaleVariant'
-  | 'appearsInKey';
+  | 'appearsInKey'
+  | 'progressionCommonness';
 
 export interface Reason {
   code: ReasonCode;
@@ -58,4 +60,25 @@ export interface ScaleRef {
   type: ScaleTypeId;
   /** Nombre base (p. ej. "A Dórico") según el modo de enarmonía. */
   name: string;
+}
+
+/** Tonalidad (tónica + modo mayor/menor). */
+export interface KeyRef {
+  tonic: PitchClass;
+  mode: 'major' | 'minor';
+  /** Nombre base (p. ej. "C mayor", "A menor"). */
+  name: string;
+}
+
+/** Plantilla de progresión (los grados se resuelven contra una tonalidad). */
+export interface ProgressionRef {
+  id: ProgressionId;
+  /** Nombre en números romanos (p. ej. "I–V–vi–IV"). */
+  name: string;
+}
+
+/** Acorde diatónico: numeración romana + acorde concreto. */
+export interface DiatonicChord {
+  roman: string;
+  chord: ChordRef;
 }

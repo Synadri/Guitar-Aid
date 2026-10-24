@@ -10,3 +10,6 @@ export * from './analysis/types';
 export * from './analysis/detectChords';
 export * from './data/scales';
 export * from './analysis/rankScales';
+export * from './data/progressions';
+export * from './suggestions/forScale';
+export * from './suggestions/forChord';

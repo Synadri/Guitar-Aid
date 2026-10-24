@@ -109,6 +109,15 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - **Sin empates de peso:** todos los pesos son distintos para que el orden lo fije un dato explícito y no el orden del catálogo. Se resolvió el empate armónica/blues mayor con armónica 71 y blues mayor 70 por popularidad: la armónica es mucho más común (clásica, metal, flamenco, dominante de la menor) y el blues mayor es un nicho. Un test comprueba que no hay empates y que se mantiene esa diferencia.
 - `scalesContaining` ordena por peso; `scalesOnTonic` devuelve las 13 escalas de la tónica, por peso.
 
+## 2026-10-24 — Hito T3b: diatónicos, relacionadas, progresiones y aceptación
+
+- **`diatonicChords(scale)`:** tríadas apiladas en terceras sobre cada grado de escalas heptatónicas, con romanos (`I ii iii°`, `♭III`, `♭III+`…; ♭/♯ respecto a la mayor). **Solo tríadas:** las séptimas diatónicas (m7♭5, mMaj7, dim7) no están en el catálogo de acordes. Las pentatónicas y blues no tienen 7 notas: usan los acordes de su `chordSource` (dato en `scales.ts`: pentatónica menor y blues → menor natural; pentatónica mayor y blues mayor → mayor), necesario para el criterio 6.
+- **`relatedScales(scale)`:** tres razones, reutilizando los códigos ya existentes: `relativeScale` (dato `relative` en `scales.ts`: mayor↔menor, pentatónicas, blues↔blues mayor), `sharedParentScale` (misma escala madre mediante `family` y `parentOffset`; las del blues no tienen madre) y `closeScaleVariant` (misma tónica y como máximo 2 notas de diferencia, con `added` y `removed`). Una escala acumula todas las razones que le correspondan. Orden por nivel (`RELATED_SCALE_SCORING`: relativa 1000, madre 400, variante 200) y luego por peso; todas llevan `scaleCommonness`.
+- **Progresiones (`progressions.ts`):** 13 plantillas (7 mayores, 6 menores) con pasos `{ roman, offset, quality }`, definidas en datos. `PROGRESSION_WEIGHTS` por popularidad, sin empates (I–V–vi–IV 100, I–IV–V 97, i–♭VII–♭VI–♭VII 96, … blues menor 78). Las séptimas (ii7–V7–Imaj7, blues) quedan por debajo de las de tríadas.
+- **`progressionsFor(chord)`:** coincidencia exacta de fundamental y calidad en las 12 tonalidades. Razones nuevas: `progressionCommonness` (`{ weight }`) y el ya existente `appearsInKey` (`{ tonic, mode, degree }`). Orden: peso de la plantilla y tónica de la tonalidad (determinista, no hay preferencia por tonalidad). `progressionChords(plantilla, tónica)` devuelve los acordes que lo acompañan.
+- **Alcance omitido:** `chordsContaining` (sugerencia para una nota suelta, `suggestions/forNote`) no estaba en este hito y no se ha implementado.
+- **`acceptance.test.ts`:** cubre los criterios 1–6 (teoría) comprobando códigos y datos.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Diccionario de voicings para afinaciones abiertas:** un diccionario pequeño para Open G, Open D y DADGAD (la cejilla da el acorde mayor, más las formas menores y de séptima más comunes).
