@@ -276,17 +276,17 @@ describe('cambio de afinación', () => {
     const { get } = fresh();
     // En Drop D la cuerda 6 es D2 (MIDI 38). C2 (MIDI 36) no existe en ninguna afinación de guitarra.
     get().setTuning(dropD);
-    get().toggleFretPosition(pos(6, 0)); // D2 fijada en mástil (traste 0 de cuerda 6)
-    get().togglePianoKey(midi('C2')); // C2 desde piano
+    get().togglePianoKey(midi('C2')); // C2 desde piano (primera inserción)
+    get().toggleFretPosition(pos(6, 0)); // D2 fijada en mástil (traste 0 de cuerda 6, segunda inserción)
 
     // Pasar a estándar (la nota más grave del mástil es E2 = 40): D2 y C2 son imposibles
     get().setTuning(STANDARD_TUNING);
 
-    // 1. Aparece en unplayableNotes
+    // 1. Aparecen exactamente ['C2', 'D2'] en unplayableNotes (fijando lista exacta, sin arrayContaining)
     const model = infoPanelModel(get());
-    expect(model.unplayableNotes).toEqual(expect.arrayContaining(['D2', 'C2']));
+    expect(model.unplayableNotes).toEqual(['C2', 'D2']);
 
-    // 2. Sigue presente en pianoMarks
+    // 2. Siguen presentes en pianoMarks
     const pMarks = pianoMarks(get());
     expect(pMarks.find((m) => m.midi === midi('D2'))).toMatchObject({
       midi: midi('D2'),
@@ -299,9 +299,14 @@ describe('cambio de afinación', () => {
       label: 'C',
     });
 
-    // 3. En el mástil no queda ninguna posición (D2 perdió su traste al pasar a estándar)
-    const fbMarks = fretboardMarks(get());
-    expect(fbMarks.some((m) => m.label === 'D' || m.label === 'C')).toBe(false);
+    // 3. Con solo esas dos notas seleccionadas, el mástil debe quedar completamente vacío (sin depender de etiquetas)
+    expect(fretboardMarks(get())).toEqual([]);
+
+    // 4. Volver a Drop D: demuestra que el aviso se calcula dinámicamente y no se guarda
+    // D2 deja de aparecer en unplayableNotes y reaparece en el mástil (cuerda 6, traste 0)
+    get().setTuning(dropD);
+    expect(infoPanelModel(get()).unplayableNotes).toEqual(['C2']);
+    expect(fretboardMarks(get())).toEqual([{ string: 6, fret: 0, role: 'equivalent', label: 'D' }]);
   });
 
   it('criterio 7: Drop D mantiene las notas y recoloca las posiciones fijadas', () => {
