@@ -47,6 +47,21 @@ src/
 └── audio/       # Síntesis Web Audio (pluck) y planificación pura de acordes, arpegios y escalas.
 ```
 
+## Despliegue
+
+### GitHub Pages
+
+Se activa en **Settings → Pages → Source: GitHub Actions**. El flujo de trabajo en `.github/workflows/deploy.yml` se ejecuta automáticamente con cada `push` a `main` y bajo demanda (`workflow_dispatch`), compilando y desplegando la aplicación en GitHub Pages.
+
+### Opción local
+
+Se puede compilar y servir estáticamente en local con:
+
+```bash
+pnpm build
+npx serve dist
+```
+
 ## Documentación
 
 - [Requisitos de la Fase 1](docs/Requisitos.md)

@@ -168,7 +168,7 @@ Ejemplo de entrada:
 - tener una digitación coherente (como máximo 4 dedos, calculados desde `frets` contando la cejilla como uno);
 - cubrir las 12 calidades × 12 raíces con al menos un voicing por acorde.
 
-**Verificación ergonómica (`pnpm voicings:print`):** script que imprime todas las formas de un acorde (p. ej. `pnpm voicings:print Am7` → `x02010 · A C E G · open` + tablatura ASCII) y genera `docs/voicings.md` con la lista completa.
+**Verificación ergonómica (`pnpm voicings:print`):** script que imprime todas las formas de un acorde (p. ej. `pnpm voicings:print Am7` → `x02010 · A C E G · open` + tablatura ASCII) y genera [voicings.md](voicings.md) con la lista completa.
 
 **Otras afinaciones:**
 
@@ -223,7 +223,7 @@ Se sigue el orden de la sección 10 de los requisitos: **teoría → estado → 
 | **T1** | `core/` + `fretboard/` + `tunings.ts` | midi ↔ nombre, enarmonía por contexto, (cuerda, traste) ↔ midi, equivalentes, recolocación Drop D | **1, 2, 7** (teoría) |
 | **T2** | `chords.ts` + `detectChords` + intervalos y grados | A♯ ≡ B♭, C-E-G → C, C-E-G-A → [C6, Am7] sin elegir, intervalos de Am7, conjunto sin acorde → `[]` | **3, 4, 5** |
 | **T3** | `scales.ts` + `rankScales` + `suggestions/*` + `progressions.ts` | Notas de A pentatónica menor, diatónicos con romanos, escalas relacionadas, casos de referencia del ranking | **6** → **9 completo** |
-| **T4a** | Diccionario de voicings estándar (formas abiertas y cejilla en las 12 calidades) + `pnpm voicings:print` (`docs/voicings.md`) | Integridad con `positionToMidi`, dedos desde `frets`, cobertura 12 × 12 | — |
+| **T4a** | Diccionario de voicings estándar (formas abiertas y cejilla en las 12 calidades) + `pnpm voicings:print` ([voicings.md](voicings.md)) | Integridad con `positionToMidi`, dedos desde `frets`, cobertura 12 × 12 | — |
 | **T4b** | Adaptación de voicings a otras afinaciones (Eb, D, Drop D y abiertas) | Integridad con `positionToMidi(tuning, …)` y adaptación por afinación | — |
 | **S1** | `state/sandbox` + selectores de marcas, panel y sujeto de sugerencias | Capas, fijar/desfijar, marcas llenas/huecas, raíz, cambio de afinación | 1, 2, 7 (estado) |
 | **S2** | `state/settings` + persistencia | Serializa solo los ajustes; la selección no se guarda | 8 (estado) |

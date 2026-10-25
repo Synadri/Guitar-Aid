@@ -1,6 +1,6 @@
 # Guitar Aid — Documento de requisitos (Fase 1)
 
-Documento pensado para entregarse a un agente de desarrollo con IA (Antigravity IDE/CLI). El autor no escribirá código: todo lo necesario para construir la Fase 1 debe estar aquí. Ante cualquier discrepancia con plan_fase1.md, prevalece el plan.
+Documento pensado para entregarse a un agente de desarrollo con IA (Antigravity IDE/CLI). El autor no escribirá código: todo lo necesario para construir la Fase 1 debe estar aquí. Ante cualquier discrepancia con [plan_fase1.md](plan_fase1.md), prevalece el plan.
 
 ## 1. Visión
 
@@ -35,7 +35,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 
 - **Plataforma:** aplicación web, optimizada para ordenador (ratón y teclado). No hay requisito de móvil, pero el diseño no debe romperse en pantallas pequeñas.
 - **Sin backend.** Todo se ejecuta en el navegador; la configuración se guarda en el almacenamiento local del navegador.
-- **Stack sugerido** El stack está definido en plan_fase1.md.
+- **Stack sugerido** El stack está definido en [plan_fase1.md](plan_fase1.md).
 - **Regla importante:** la teoría musical (acordes, escalas, intervalos, sugerencias) debe vivir en un módulo independiente de la interfaz, con pruebas unitarias, para poder reutilizarlo en las fases de Tests y Canción.
 
 ## 4. Modelo de dominio
@@ -44,7 +44,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 - **Enarmonía:** la aplicación debe mostrar el nombre correcto según contexto (por ejemplo Bb en lugar de A# en tonalidad de F mayor). Si no hay contexto, preferencia configurable entre sostenidos y bemoles.
 - **Afinación:** lista ordenada de notas de las cuerdas al aire, de grave a aguda (6 cuerdas en esta fase).
 - **Posición en el mástil:** par (cuerda, traste). Cuerda 1 = la más aguda, cuerda 6 = la más grave. Traste 0 = cuerda al aire. Mástil de 0 a 24 trastes.
-- **Selección:** Modelo en capas especificado en la sección 2 de plan_fase1.md
+- **Selección:** Modelo en capas especificado en la sección 2 de [plan_fase1.md](plan_fase1.md)
 - **Acorde:** tónica más calidad (mayor, menor, 7, maj7, m7, dim, aug, sus2, sus4 como mínimo).
 - **Escala:** tónica más tipo (ver sección 6.4).
 
@@ -126,7 +126,7 @@ El catálogo debe definirse en datos (no en código disperso) para poder ampliar
 
 ### 6.5 Afinaciones
 
-Afinaciones incluidas en la Fase 1: estándar (E A D G B E), Drop D, DADGAD, Open G, Open D, medio tono abajo (Eb) y un tono abajo (D). La lista se define en datos para poder añadir más. Por ahora, las digitaciones sugeridas solo existen en estándar, Eb, D y Drop D, los detalles se definen en la sección 4 de plan_fase1.md. Cambiar de afinación **no borra la selección de notas**: se recolocan las notas en el mástil usando la nueva afinación cuando sea posible, y si una nota no existe en ninguna posición se avisa.
+Afinaciones incluidas en la Fase 1: estándar (E A D G B E), Drop D, DADGAD, Open G, Open D, medio tono abajo (Eb) y un tono abajo (D). La lista se define en datos para poder añadir más. Por ahora, las digitaciones sugeridas solo existen en estándar, Eb, D y Drop D, los detalles se definen en la sección 4 de [plan_fase1.md](plan_fase1.md). Cambiar de afinación **no borra la selección de notas**: se recolocan las notas en el mástil usando la nueva afinación cuando sea posible, y si una nota no existe en ninguna posición se avisa.
 
 ### 6.6 Sonido
 
@@ -170,7 +170,7 @@ La Fase 1 está terminada cuando:
 
 - Empieza por el módulo de teoría musical con sus pruebas, después el estado, después la interfaz.
 - Antes de escribir código, propón la estructura de carpetas y confirma el stack.
-- Entrega por hitos pequeños y verificables, los hitos y su orden están en plan_fase1.md, sección 6.
+- Entrega por hitos pequeños y verificables, los hitos y su orden están en [plan_fase1.md](plan_fase1.md), sección 6.
 - Cuando haya ambigüedad teórica (enarmonías, acordes con las mismas notas, escalas que encajan), devuelve siempre varios candidatos ordenados y explica el criterio.
 - Mantén los catálogos de acordes, escalas y afinaciones en archivos de datos separados.
 - Al terminar cada hito, indica cómo ejecutar y probar la aplicación.
