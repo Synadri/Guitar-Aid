@@ -167,6 +167,16 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
   5. La UI solo necesita interactuar con `settingsStore` para los ajustes.
 - **Criterios cubiertos:** criterio 8 (persistencia de orientación, instrumentos visibles y afinación al recargar) en `state/settings/settings.test.ts`.
 
+## 2026-10-25 — Hito U1: componentes puros de instrumentos (`Fretboard` y `Piano`) y galería de prueba
+
+- **Componentes puros sin conexión al store (`src/ui/instruments/`):** `Fretboard` y `Piano` reciben únicamente props (`tuning`, `frets`, `leftHanded`, `marks`, `onPositionClick` y `range`, `marks`, `onKeyClick`) e importan `FretMark`, `KeyMark` y `MarkRole` desde `state` (cumpliendo la regla de capas `ui → state → theory`).
+- **Geometría y orientación del mástil (`Fretboard.tsx`):** SVG horizontal con 6 cuerdas (cuerda 1 arriba más fina a cuerda 6 abajo más gruesa: `1.2..3.5 px`), cejuela, columna para traste 0 al exterior de la cejuela, nombre de afinación de cada cuerda al aire (`data-tuning-string="1..6"`) junto a la cejuela, 24 trastes por defecto y puntos de referencia simples en `3, 5, 7, 9, 15, 17, 19, 21` y dobles en `12` y `24`. Con `leftHanded`, una función `mirrorX` invierte el eje horizontal (`data-mirrored="true"`) dejando la cejuela y las etiquetas de afinación a la derecha, conservando el orden vertical de las cuerdas (1 arriba, 6 abajo) y emitiendo los mismos datos `{ string, fret }`.
+- **Geometría del piano (`Piano.tsx`):** rango por defecto `36..96` (C2–C7, 61 teclas: 36 blancas y 25 negras), renderizando primero todas las teclas blancas y encima las negras en los límites correspondientes (sin tecla negra entre Mi–Fa ni entre Si–Do). Cada Do muestra su etiqueta de octava (`C2..C7`) en la base de la tecla, separada verticalmente del círculo de marca para que no se solapen.
+- **Distinción visual y estructural de los 5 roles de marca:** además de clases CSS Modules específicas (`role_pinned`, `role_equivalent`, `role_tone`, `role_root`, `role_preview`) y atributos `data-role` / `data-mark-role`, cada rol se distingue sin depender solo del color: `pinned` como círculo lleno con borde continuo, `equivalent` como círculo hueco, `tone` como círculo lleno de borde simple, `root` con borde grueso y un segundo anillo interior concéntrico (`rootInnerRing`), y `preview` con trazo discontinuo (`stroke-dasharray`).
+- **Accesibilidad y teclado:** cada una de las 150 posiciones del mástil (`6 × 25`) y las 61 teclas del piano es un `<g role="button" tabIndex={0}>` enfocable con `aria-label` descriptivo (`"Cuerda 5, traste 7, E3"` en guitarra; `"E3"` en piano) que dispara `onPositionClick` / `onKeyClick` con clic, `Enter` o `Espacio`.
+- **Tema claro/oscuro con CSS Modules:** variables CSS locales en cada módulo con paleta de alto contraste para modo claro y `@media (prefers-color-scheme: dark)`.
+- **Página temporal de prueba (`src/ui/dev/Gallery.tsx`):** mostrada desde `App.tsx` durante U1 (se eliminará en U2), con estado local `useState` para probar las 7 afinaciones, el modo zurdo y la adición/eliminación de marcas `pinned`, precargada con `E3` `pinned` en `(5, 7)`, sus equivalentes `equivalent` y las notas de `Am7` (`A` como `root`, `C-E-G` como `tone`).
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Voicings agudos en las 3 primeras cuerdas (tríadas en cuerdas 1–3 e inversiones):**

@@ -1,0 +1,212 @@
+.container {
+  --fb-bg: #f8f5f0;
+  --fb-board: #eadfce;
+  --fb-board-border: #b8a386;
+  --fb-nut: #2d261e;
+  --fb-fret: #a39583;
+  --fb-string: #5c5346;
+  --fb-inlay: #c8b89e;
+  --fb-text: #2c251d;
+  --fb-muted-text: #6b5e4e;
+  --fb-focus: #005fcc;
+  --fb-hover: rgba(15, 118, 110, 0.14);
+
+  /* Roles de marca (modo claro) */
+  --mark-pinned-fill: #0f766e;
+  --mark-pinned-stroke: #064e3b;
+  --mark-pinned-text: #ffffff;
+
+  --mark-equivalent-fill: #f8f5f0;
+  --mark-equivalent-stroke: #0f766e;
+  --mark-equivalent-text: #0f514c;
+
+  --mark-tone-fill: #1d4ed8;
+  --mark-tone-stroke: #1e3a8a;
+  --mark-tone-text: #ffffff;
+
+  --mark-root-fill: #b45309;
+  --mark-root-stroke: #78350f;
+  --mark-root-ring: #fef3c7;
+  --mark-root-text: #ffffff;
+
+  --mark-preview-fill: #f3e8ff;
+  --mark-preview-stroke: #7e22ce;
+  --mark-preview-text: #4c1d95;
+
+  width: 100%;
+  overflow-x: auto;
+  background-color: var(--fb-bg);
+  border: 1px solid var(--fb-board-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    --fb-bg: #18181b;
+    --fb-board: #27231f;
+    --fb-board-border: #52473c;
+    --fb-nut: #e5e0d8;
+    --fb-fret: #6e6357;
+    --fb-string: #b8afa3;
+    --fb-inlay: #4a4138;
+    --fb-text: #f4f1ea;
+    --fb-muted-text: #a89f91;
+    --fb-focus: #60a5fa;
+    --fb-hover: rgba(45, 212, 191, 0.18);
+
+    /* Roles de marca (modo oscuro) */
+    --mark-pinned-fill: #14b8a6;
+    --mark-pinned-stroke: #99f6e4;
+    --mark-pinned-text: #042f2e;
+
+    --mark-equivalent-fill: #27231f;
+    --mark-equivalent-stroke: #2dd4bf;
+    --mark-equivalent-text: #99f6e4;
+
+    --mark-tone-fill: #3b82f6;
+    --mark-tone-stroke: #bfdbfe;
+    --mark-tone-text: #0f172a;
+
+    --mark-root-fill: #f59e0b;
+    --mark-root-stroke: #fef3c7;
+    --mark-root-ring: #451a03;
+    --mark-root-text: #1c1917;
+
+    --mark-preview-fill: #3b0764;
+    --mark-preview-stroke: #d8b4fe;
+    --mark-preview-text: #f3e8ff;
+  }
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  min-width: 820px;
+  height: auto;
+  user-select: none;
+}
+
+.board {
+  fill: var(--fb-board);
+  stroke: var(--fb-board-border);
+  stroke-width: 1.5;
+}
+
+.nut {
+  fill: var(--fb-nut);
+}
+
+.fretLine {
+  stroke: var(--fb-fret);
+  stroke-width: 1.5;
+}
+
+.stringLine {
+  stroke: var(--fb-string);
+  stroke-linecap: round;
+}
+
+.inlay {
+  fill: var(--fb-inlay);
+}
+
+.tuningLabel {
+  fill: var(--fb-text);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+}
+
+.fretNumber {
+  fill: var(--fb-muted-text);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: system-ui, sans-serif;
+}
+
+.position {
+  cursor: pointer;
+  outline: none;
+}
+
+.hitArea {
+  fill: transparent;
+  transition: fill 0.1s ease;
+}
+
+.position:hover .hitArea {
+  fill: var(--fb-hover);
+}
+
+.position:focus-visible .hitArea {
+  stroke: var(--fb-focus);
+  stroke-width: 2;
+  fill: var(--fb-hover);
+}
+
+.markLabel {
+  font-family: system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Formas y bordes por rol (distinguibles sin depender solo del color) */
+.role_pinned .markCircle {
+  fill: var(--mark-pinned-fill);
+  stroke: var(--mark-pinned-stroke);
+  stroke-width: 2;
+}
+
+.role_pinned .markLabel {
+  fill: var(--mark-pinned-text);
+}
+
+.role_equivalent .markCircle {
+  fill: var(--mark-equivalent-fill);
+  stroke: var(--mark-equivalent-stroke);
+  stroke-width: 2.5;
+}
+
+.role_equivalent .markLabel {
+  fill: var(--mark-equivalent-text);
+}
+
+.role_tone .markCircle {
+  fill: var(--mark-tone-fill);
+  stroke: var(--mark-tone-stroke);
+  stroke-width: 1.75;
+}
+
+.role_tone .markLabel {
+  fill: var(--mark-tone-text);
+}
+
+.role_root .markCircle {
+  fill: var(--mark-root-fill);
+  stroke: var(--mark-root-stroke);
+  stroke-width: 3.25;
+}
+
+.role_root .rootInnerRing {
+  fill: none;
+  stroke: var(--mark-root-ring);
+  stroke-width: 1.5;
+}
+
+.role_root .markLabel {
+  fill: var(--mark-root-text);
+}
+
+.role_preview .markCircle {
+  fill: var(--mark-preview-fill);
+  stroke: var(--mark-preview-stroke);
+  stroke-width: 2.25;
+  stroke-dasharray: 3.5 2;
+}
+
+.role_preview .markLabel {
+  fill: var(--mark-preview-text);
+}

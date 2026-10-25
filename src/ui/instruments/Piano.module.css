@@ -1,0 +1,193 @@
+.container {
+  --piano-bg: #f8f5f0;
+  --piano-border: #b8a386;
+  --piano-white-fill: #ffffff;
+  --piano-white-stroke: #8c8275;
+  --piano-white-hover: #edf7f6;
+  --piano-black-fill: #1f1d1a;
+  --piano-black-stroke: #0c0b09;
+  --piano-black-hover: #36322d;
+  --piano-octave-text: #574e42;
+  --piano-focus: #005fcc;
+
+  /* Roles de marca (modo claro) */
+  --mark-pinned-fill: #0f766e;
+  --mark-pinned-stroke: #064e3b;
+  --mark-pinned-text: #ffffff;
+
+  --mark-equivalent-fill: #ffffff;
+  --mark-equivalent-stroke: #0f766e;
+  --mark-equivalent-text: #0f514c;
+
+  --mark-tone-fill: #1d4ed8;
+  --mark-tone-stroke: #1e3a8a;
+  --mark-tone-text: #ffffff;
+
+  --mark-root-fill: #b45309;
+  --mark-root-stroke: #78350f;
+  --mark-root-ring: #fef3c7;
+  --mark-root-text: #ffffff;
+
+  --mark-preview-fill: #f3e8ff;
+  --mark-preview-stroke: #7e22ce;
+  --mark-preview-text: #4c1d95;
+
+  width: 100%;
+  overflow-x: auto;
+  background-color: var(--piano-bg);
+  border: 1px solid var(--piano-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    --piano-bg: #18181b;
+    --piano-border: #52473c;
+    --piano-white-fill: #e7e3dc;
+    --piano-white-stroke: #575047;
+    --piano-white-hover: #d4e8e5;
+    --piano-black-fill: #1c1917;
+    --piano-black-stroke: #090807;
+    --piano-black-hover: #332e2a;
+    --piano-octave-text: #3f3830;
+    --piano-focus: #60a5fa;
+
+    /* Roles de marca (modo oscuro) */
+    --mark-pinned-fill: #14b8a6;
+    --mark-pinned-stroke: #042f2e;
+    --mark-pinned-text: #042f2e;
+
+    --mark-equivalent-fill: #18181b;
+    --mark-equivalent-stroke: #2dd4bf;
+    --mark-equivalent-text: #99f6e4;
+
+    --mark-tone-fill: #3b82f6;
+    --mark-tone-stroke: #0f172a;
+    --mark-tone-text: #ffffff;
+
+    --mark-root-fill: #f59e0b;
+    --mark-root-stroke: #451a03;
+    --mark-root-ring: #fef3c7;
+    --mark-root-text: #1c1917;
+
+    --mark-preview-fill: #3b0764;
+    --mark-preview-stroke: #d8b4fe;
+    --mark-preview-text: #f3e8ff;
+  }
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  min-width: 820px;
+  height: auto;
+  user-select: none;
+}
+
+.key {
+  cursor: pointer;
+  outline: none;
+}
+
+.whiteKeyRect {
+  fill: var(--piano-white-fill);
+  stroke: var(--piano-white-stroke);
+  stroke-width: 1;
+  transition: fill 0.1s ease;
+}
+
+.whiteKey:hover .whiteKeyRect {
+  fill: var(--piano-white-hover);
+}
+
+.blackKeyRect {
+  fill: var(--piano-black-fill);
+  stroke: var(--piano-black-stroke);
+  stroke-width: 1;
+  transition: fill 0.1s ease;
+}
+
+.blackKey:hover .blackKeyRect {
+  fill: var(--piano-black-hover);
+}
+
+.key:focus-visible .whiteKeyRect,
+.key:focus-visible .blackKeyRect {
+  stroke: var(--piano-focus);
+  stroke-width: 2.5;
+}
+
+.octaveLabel {
+  fill: var(--piano-octave-text);
+  font-family: system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.markLabel {
+  font-family: system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Formas y bordes por rol */
+.role_pinned .markCircle {
+  fill: var(--mark-pinned-fill);
+  stroke: var(--mark-pinned-stroke);
+  stroke-width: 2;
+}
+
+.role_pinned .markLabel {
+  fill: var(--mark-pinned-text);
+}
+
+.role_equivalent .markCircle {
+  fill: var(--mark-equivalent-fill);
+  stroke: var(--mark-equivalent-stroke);
+  stroke-width: 2.25;
+}
+
+.role_equivalent .markLabel {
+  fill: var(--mark-equivalent-text);
+}
+
+.role_tone .markCircle {
+  fill: var(--mark-tone-fill);
+  stroke: var(--mark-tone-stroke);
+  stroke-width: 1.75;
+}
+
+.role_tone .markLabel {
+  fill: var(--mark-tone-text);
+}
+
+.role_root .markCircle {
+  fill: var(--mark-root-fill);
+  stroke: var(--mark-root-stroke);
+  stroke-width: 3;
+}
+
+.role_root .rootInnerRing {
+  fill: none;
+  stroke: var(--mark-root-ring);
+  stroke-width: 1.4;
+}
+
+.role_root .markLabel {
+  fill: var(--mark-root-text);
+}
+
+.role_preview .markCircle {
+  fill: var(--mark-preview-fill);
+  stroke: var(--mark-preview-stroke);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+.role_preview .markLabel {
+  fill: var(--mark-preview-text);
+}
