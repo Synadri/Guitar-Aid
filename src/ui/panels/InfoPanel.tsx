@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import { chordDisplayName, pcName, type NameMode, type PitchClass } from '../../theory';
@@ -31,6 +32,13 @@ export function InfoPanel({
   rootOverride,
   onRootChange,
 }: InfoPanelProps) {
+  const baseId = useId();
+  const rootHeadingId = `${baseId}-root-heading`;
+  const notesHeadingId = `${baseId}-notes-heading`;
+  const chordsHeadingId = `${baseId}-chords-heading`;
+  const contextHeadingId = `${baseId}-context-heading`;
+  const warningsHeadingId = `${baseId}-warnings-heading`;
+
   const resolvedRootOverride: PitchClass | null =
     rootOverride !== undefined
       ? rootOverride
@@ -66,7 +74,8 @@ export function InfoPanel({
     }
   };
 
-  const hasSelection = model.notes !== null || model.context !== null;
+  const hasNotes = model.notes !== null && model.notes.rows.length > 0;
+  const hasSelection = hasNotes || model.context !== null;
   const showChordAnalysis = model.notes !== null && model.notes.rows.length >= 3;
 
   return (
@@ -80,35 +89,38 @@ export function InfoPanel({
         <h2 className={styles.title}>{INFO_PANEL_TEXTS.heading}</h2>
       </div>
 
-      <div className={styles.rootControl}>
-        <div className={styles.rootRow}>
-          <label className={styles.rootLabel}>
-            {INFO_PANEL_TEXTS.rootLabel}
-            <select
-              className={styles.select}
-              aria-label={INFO_PANEL_TEXTS.rootLabel}
-              value={selectValue}
-              onChange={(e) => handleRootSelectChange(e.target.value)}
-            >
-              <option value="auto">{INFO_PANEL_TEXTS.rootAutoOption}</option>
-              {PITCH_CLASSES.map((pc) => (
-                <option key={pc} value={String(pc)}>
-                  {pcName(pc, nameMode)}
-                </option>
-              ))}
-            </select>
-          </label>
+      <section
+        className={styles.section}
+        aria-labelledby={rootHeadingId}
+        data-testid="root-section"
+      >
+        <h3 id={rootHeadingId} className={styles.sectionTitle}>
+          {INFO_PANEL_TEXTS.rootHeading}
+        </h3>
+        <div className={styles.rootControl}>
+          <div className={styles.rootRow}>
+            <label className={styles.rootLabel}>
+              {INFO_PANEL_TEXTS.rootLabel}
+              <select
+                className={styles.select}
+                aria-label={INFO_PANEL_TEXTS.rootLabel}
+                value={selectValue}
+                onChange={(e) => handleRootSelectChange(e.target.value)}
+              >
+                <option value="auto">{INFO_PANEL_TEXTS.rootAutoOption}</option>
+                {PITCH_CLASSES.map((pc) => (
+                  <option key={pc} value={String(pc)}>
+                    {pcName(pc, nameMode)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className={styles.effectiveRoot} data-testid="effective-root">
+            {INFO_PANEL_TEXTS.effectiveRootLabel}: <strong>{effectiveRootDisplay}</strong>
+          </p>
         </div>
-        <p className={styles.effectiveRoot} data-testid="effective-root">
-          {INFO_PANEL_TEXTS.effectiveRootLabel}: <strong>{effectiveRootDisplay}</strong>
-        </p>
-      </div>
-
-      {model.unplayableNotes.length > 0 && (
-        <div className={styles.warning} role="note" data-testid="unplayable-warning">
-          {INFO_PANEL_TEXTS.unplayableWarning(model.unplayableNotes)}
-        </div>
-      )}
+      </section>
 
       {!hasSelection && (
         <p className={styles.empty} data-testid="info-empty">
@@ -116,70 +128,112 @@ export function InfoPanel({
         </p>
       )}
 
-      {model.notes && (
-        <div className={styles.section} data-testid="notes-section">
-          <h3 className={styles.sectionTitle}>{INFO_PANEL_TEXTS.selectedNotesHeading}</h3>
-          <ul className={styles.noteList} data-testid="selected-notes-list">
-            {model.notes.rows.map((row) => (
-              <li key={row.midi} className={styles.noteItem} data-testid="selected-note-row">
-                <span className={styles.noteName}>{row.name}</span>
-                <span className={styles.noteDetails}>
-                  {row.fromRoot && (
-                    <span data-testid="note-from-root">
-                      Raíz: {row.fromRoot.long} ({row.fromRoot.short} · {row.fromRoot.degree})
-                    </span>
-                  )}
-                  <span data-testid="note-from-previous">
-                    {row.fromPrevious
-                      ? `Anterior: +${row.fromPrevious.semitones} st (${row.fromPrevious.short} · ${row.fromPrevious.long})`
-                      : 'Anterior: —'}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+      {hasNotes && model.notes && (
+        <section
+          className={styles.section}
+          aria-labelledby={notesHeadingId}
+          data-testid="notes-section"
+        >
+          <h3 id={notesHeadingId} className={styles.sectionTitle}>
+            {INFO_PANEL_TEXTS.selectedNotesHeading}
+          </h3>
+          <div
+            className={styles.scrollArea}
+            tabIndex={0}
+            role="region"
+            aria-label={INFO_PANEL_TEXTS.notesScrollLabel}
+            data-testid="notes-scroll-area"
+          >
+            <table className={styles.notesTable} data-testid="selected-notes-list">
+              <thead>
+                <tr>
+                  <th scope="col">{INFO_PANEL_TEXTS.noteColumnHeader}</th>
+                  <th scope="col">{INFO_PANEL_TEXTS.fromRootColumnHeader}</th>
+                  <th scope="col">{INFO_PANEL_TEXTS.fromPreviousColumnHeader}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {model.notes.rows.map((row) => (
+                  <tr key={row.midi} className={styles.noteRow} data-testid="selected-note-row">
+                    <td className={styles.noteName}>{row.name}</td>
+                    <td className={styles.noteCell} data-testid="note-from-root">
+                      {row.fromRoot
+                        ? `${row.fromRoot.long} (${row.fromRoot.short} · ${row.fromRoot.degree})`
+                        : '—'}
+                    </td>
+                    <td className={styles.noteCell} data-testid="note-from-previous">
+                      {row.fromPrevious
+                        ? `+${row.fromPrevious.semitones} st (${row.fromPrevious.short} · ${row.fromPrevious.long})`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
-          {showChordAnalysis && (
-            <div className={styles.section} data-testid="chord-analysis-section">
-              <h3 className={styles.sectionTitle}>{INFO_PANEL_TEXTS.chordsHeading}</h3>
-              {model.notes.chords.length > 0 ? (
-                <ul className={styles.chordList} data-testid="chord-candidates">
-                  {model.notes.chords.map((candidate) => {
-                    const displayName = chordDisplayName(candidate.value, nameMode);
-                    const reasonsText = candidate.reasons
-                      .map((r) => formatReason(r, nameMode))
-                      .join(' · ');
-                    return (
-                      <li
-                        key={`${candidate.value.root}-${candidate.value.quality}-${candidate.value.bass ?? 'root'}`}
-                        className={styles.chordItem}
-                        data-testid="chord-candidate"
-                      >
-                        <span className={styles.chordName} data-testid="chord-candidate-name">
-                          {displayName}
-                        </span>
-                        <span className={styles.chordReasons} data-testid="chord-candidate-reasons">
-                          {reasonsText}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className={styles.noChord} data-testid="no-chord-recognized">
-                  {INFO_PANEL_TEXTS.noChordRecognized}
-                </p>
-              )}
+      {showChordAnalysis && model.notes && (
+        <section
+          className={`${styles.section} ${styles.chordsSection}`}
+          aria-labelledby={chordsHeadingId}
+          data-testid="chord-analysis-section"
+        >
+          <h3 id={chordsHeadingId} className={styles.sectionTitle}>
+            {INFO_PANEL_TEXTS.chordsHeading}
+          </h3>
+          {model.notes.chords.length > 0 ? (
+            <div
+              className={`${styles.scrollArea} ${styles.chordScrollArea}`}
+              tabIndex={0}
+              role="region"
+              aria-label={INFO_PANEL_TEXTS.chordsScrollLabel}
+              data-testid="chords-scroll-area"
+            >
+              <ul className={styles.chordList} data-testid="chord-candidates">
+                {model.notes.chords.map((candidate) => {
+                  const displayName = chordDisplayName(candidate.value, nameMode);
+                  const reasonsText = candidate.reasons
+                    .map((r) => formatReason(r, nameMode))
+                    .join(' · ');
+                  return (
+                    <li
+                      key={`${candidate.value.root}-${candidate.value.quality}-${candidate.value.bass ?? 'root'}`}
+                      className={styles.chordItem}
+                      data-testid="chord-candidate"
+                    >
+                      <strong className={styles.chordName} data-testid="chord-candidate-name">
+                        {displayName}
+                      </strong>
+                      <span className={styles.chordReasons} data-testid="chord-candidate-reasons">
+                        {reasonsText}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
+          ) : (
+            <p className={styles.noChord} data-testid="no-chord-recognized">
+              {INFO_PANEL_TEXTS.noChordRecognized}
+            </p>
           )}
-        </div>
+        </section>
       )}
 
       {model.context && (
-        <div className={styles.section} data-testid="context-section">
-          <h3 className={styles.sectionTitle}>
-            {INFO_PANEL_TEXTS.contextHeading}: <span>{model.context.title}</span>
+        <section
+          className={styles.section}
+          aria-labelledby={contextHeadingId}
+          data-testid="context-section"
+        >
+          <h3 id={contextHeadingId} className={styles.sectionTitle}>
+            {INFO_PANEL_TEXTS.contextHeading}
           </h3>
+          <p className={styles.contextTitle} data-testid="context-title">
+            {model.context.title}
+          </p>
           <ul className={styles.contextToneList} data-testid="context-tones-list">
             {model.context.tones.map((tone) => (
               <li key={tone.pc} className={styles.contextToneItem} data-testid="context-tone">
@@ -193,7 +247,22 @@ export function InfoPanel({
               </li>
             ))}
           </ul>
-        </div>
+        </section>
+      )}
+
+      {model.unplayableNotes.length > 0 && (
+        <section
+          className={styles.section}
+          aria-labelledby={warningsHeadingId}
+          data-testid="warnings-section"
+        >
+          <h3 id={warningsHeadingId} className={styles.sectionTitle}>
+            {INFO_PANEL_TEXTS.warningsHeading}
+          </h3>
+          <div className={styles.warning} role="note" data-testid="unplayable-warning">
+            {INFO_PANEL_TEXTS.unplayableWarning(model.unplayableNotes)}
+          </div>
+        </section>
       )}
     </section>
   );

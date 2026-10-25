@@ -53,14 +53,21 @@ export function formatReason(reason: Reason, nameMode: NameMode = 'sharps'): str
 export const INFO_PANEL_TEXTS = {
   regionLabel: 'Información de la selección',
   heading: 'Información',
+  rootHeading: 'Raíz',
   rootLabel: 'Raíz',
   rootAutoOption: 'Automática',
   effectiveRootLabel: 'Raíz efectiva',
   emptyPrompt: 'Pulsa una posición en el mástil o una tecla del piano para ver su información.',
   selectedNotesHeading: 'Notas seleccionadas',
-  chordsHeading: 'Análisis de acordes',
+  noteColumnHeader: 'Nota',
+  fromRootColumnHeader: 'Intervalo desde la raíz',
+  fromPreviousColumnHeader: 'Desde la anterior',
+  notesScrollLabel: 'Lista de notas, con scroll',
+  chordsHeading: 'Acordes posibles',
+  chordsScrollLabel: 'Lista de acordes posibles, con scroll',
   noChordRecognized: 'No se reconoce ningún acorde',
-  contextHeading: 'Contexto seleccionado',
+  contextHeading: 'Contexto del menú',
+  warningsHeading: 'Avisos',
   unplayableWarning: (notes: readonly string[]) =>
     `No se puede tocar en esta afinación: ${notes.join(', ')}`,
 } as const;

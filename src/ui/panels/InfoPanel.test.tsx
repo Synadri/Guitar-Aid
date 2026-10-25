@@ -83,7 +83,7 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     expect(candidateItems[1]?.textContent).toContain('con el bajo en C');
 
     // Fijar la raíz en A (pitch class 9) desde el selector
-    const rootSelect = within(panel).getByLabelText<HTMLSelectElement>('Raíz');
+    const rootSelect = within(panel).getByRole<HTMLSelectElement>('combobox', { name: 'Raíz' });
     fireEvent.change(rootSelect, { target: { value: '9' } });
     expect(sandboxStore.getState().rootOverride).toBe(9);
     expect(getCandidateNames()).toEqual(['Am7', 'C6/A']);
@@ -103,7 +103,8 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     });
 
     const panel = screen.getByRole('region', { name: 'Información de la selección' });
-    const tones = within(panel).getAllByTestId('context-tone');
+    const contextSection = within(panel).getByRole('region', { name: 'Contexto del menú' });
+    const tones = within(contextSection).getAllByTestId('context-tone');
     expect(tones).toHaveLength(4);
 
     const expected: [string, string, string][] = [
@@ -129,10 +130,11 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'D3' }));
 
     const panel = screen.getByRole('region', { name: 'Información de la selección' });
-    expect(within(panel).getByTestId('no-chord-recognized').textContent).toBe(
+    const chordsSection = within(panel).getByRole('region', { name: 'Acordes posibles' });
+    expect(within(chordsSection).getByTestId('no-chord-recognized').textContent).toBe(
       'No se reconoce ningún acorde',
     );
-    expect(within(panel).queryAllByTestId('chord-candidate')).toHaveLength(0);
+    expect(within(chordsSection).queryAllByTestId('chord-candidate')).toHaveLength(0);
   });
 
   it('(e) una o dos notas → sin análisis de acorde', () => {
@@ -144,13 +146,13 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     // 1 nota
     fireEvent.click(screen.getByRole('button', { name: 'C3' }));
     expect(within(panel).getAllByTestId('selected-note-row')).toHaveLength(1);
-    expect(within(panel).queryByTestId('chord-analysis-section')).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Acordes posibles' })).toBeNull();
     expect(within(panel).queryByText('No se reconoce ningún acorde')).toBeNull();
 
     // 2 notas
     fireEvent.click(screen.getByRole('button', { name: 'E3' }));
     expect(within(panel).getAllByTestId('selected-note-row')).toHaveLength(2);
-    expect(within(panel).queryByTestId('chord-analysis-section')).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Acordes posibles' })).toBeNull();
     expect(within(panel).queryByText('No se reconoce ningún acorde')).toBeNull();
   });
 
@@ -163,7 +165,7 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     fireEvent.click(pos57);
 
     // Fijar raíz en C (0) desde el selector del panel
-    const rootSelect = screen.getByLabelText('Raíz');
+    const rootSelect = screen.getByRole('combobox', { name: 'Raíz' });
     fireEvent.change(rootSelect, { target: { value: '0' } });
 
     const labelsSelect = screen.getByLabelText('Etiquetas');
@@ -223,7 +225,8 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'D2' }));
 
     const panel = screen.getByRole('region', { name: 'Información de la selección' });
-    const warning = within(panel).getByTestId('unplayable-warning');
+    const warningsSection = within(panel).getByRole('region', { name: 'Avisos' });
+    const warning = within(warningsSection).getByTestId('unplayable-warning');
     expect(warning.textContent).toBe('No se puede tocar en esta afinación: D2');
   });
 
@@ -255,8 +258,62 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     const { sandboxStore, settingsStore } = createIsolatedStores();
     render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
 
-    const rootSelect = screen.getByLabelText<HTMLSelectElement>('Raíz');
+    const rootSelect = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Raíz' });
     expect(rootSelect.options).toHaveLength(13);
     expect(rootSelect.options[0]?.textContent).toBe('Automática');
+  });
+
+  it('(k) con 12 notas el panel muestra las 12 filas en la tabla y las secciones vacías no aparecen', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    const panel = screen.getByRole('region', { name: 'Información de la selección' });
+
+    // Inicialmente solo aparece la sección "Raíz"; el resto están vacías y no se renderizan
+    expect(within(panel).getByRole('region', { name: 'Raíz' })).toBeDefined();
+    expect(within(panel).queryByRole('region', { name: 'Notas seleccionadas' })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Acordes posibles' })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Contexto del menú' })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Avisos' })).toBeNull();
+
+    // Seleccionar 12 notas en el piano (C3..B3, todas dentro del rango de afinación estándar)
+    const chromaticOctave = [
+      'C3',
+      'C♯3',
+      'D3',
+      'D♯3',
+      'E3',
+      'F3',
+      'F♯3',
+      'G3',
+      'G♯3',
+      'A3',
+      'A♯3',
+      'B3',
+    ];
+    for (const note of chromaticOctave) {
+      fireEvent.click(screen.getByRole('button', { name: note }));
+    }
+
+    const notesSection = within(panel).getByRole('region', { name: 'Notas seleccionadas' });
+    const scrollRegion = within(notesSection).getByRole('region', {
+      name: 'Lista de notas, con scroll',
+    });
+    expect(scrollRegion.getAttribute('tabindex')).toBe('0');
+
+    const table = within(scrollRegion).getByRole('table');
+    const columnHeaders = within(table)
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent);
+    expect(columnHeaders).toEqual(['Nota', 'Intervalo desde la raíz', 'Desde la anterior']);
+
+    const rows = within(table).getAllByTestId('selected-note-row');
+    expect(rows).toHaveLength(12);
+    expect(rows.map((r) => r.querySelector('td')?.textContent)).toEqual(chromaticOctave);
+
+    // "Acordes posibles" aparece al haber >= 3 notas, pero "Contexto del menú" y "Avisos" siguen vacías y ocultas
+    expect(within(panel).getByRole('region', { name: 'Acordes posibles' })).toBeDefined();
+    expect(within(panel).queryByRole('region', { name: 'Contexto del menú' })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Avisos' })).toBeNull();
   });
 });

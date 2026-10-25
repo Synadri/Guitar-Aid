@@ -1,4 +1,12 @@
 .panel {
+  --info-accent: #2563eb;
+  --info-accent-bg: rgba(37, 99, 235, 0.05);
+  --info-focus: #2563eb;
+  --info-table-header-bg: #efe9df;
+  --info-row-border: rgba(180, 164, 142, 0.45);
+  --info-warning-bg: rgba(217, 119, 6, 0.14);
+  --info-warning-border: rgba(217, 119, 6, 0.55);
+
   background-color: var(--app-card, #ffffff);
   border: 1px solid var(--app-border, #d6c8b4);
   border-radius: 8px;
@@ -6,8 +14,21 @@
   color: var(--app-text, #1f1b16);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.2rem;
   box-sizing: border-box;
+  min-width: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel {
+    --info-accent: #60a5fa;
+    --info-accent-bg: rgba(96, 165, 250, 0.08);
+    --info-focus: #60a5fa;
+    --info-table-header-bg: #2d2924;
+    --info-row-border: rgba(90, 80, 68, 0.55);
+    --info-warning-bg: rgba(245, 158, 11, 0.16);
+    --info-warning-border: rgba(245, 158, 11, 0.6);
+  }
 }
 
 .header {
@@ -16,13 +37,45 @@
   justify-content: space-between;
   gap: 0.75rem;
   border-bottom: 1px solid var(--app-border, #d6c8b4);
-  padding-bottom: 0.6rem;
+  padding-bottom: 0.55rem;
 }
 
 .title {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-muted, #5c5245);
+  border-bottom: 1px solid var(--app-border, #d6c8b4);
+  padding-bottom: 0.35rem;
+}
+
+.chordsSection {
+  border-left: 3px solid var(--info-accent);
+  padding-left: 0.75rem;
+  background-color: var(--info-accent-bg);
+  border-radius: 0 6px 6px 0;
+  padding-top: 0.45rem;
+  padding-right: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.chordsSection .sectionTitle {
+  color: var(--app-text, #1f1b16);
 }
 
 .rootControl {
@@ -32,7 +85,7 @@
   background-color: var(--app-control-bg, #fcfaf7);
   border: 1px solid var(--app-border, #d6c8b4);
   border-radius: 6px;
-  padding: 0.65rem 0.75rem;
+  padding: 0.6rem 0.75rem;
 }
 
 .rootRow {
@@ -60,43 +113,79 @@
   cursor: pointer;
 }
 
+.select:focus-visible {
+  outline: 2px solid var(--info-focus);
+  outline-offset: 2px;
+}
+
 .effectiveRoot {
   margin: 0;
   font-size: 0.82rem;
   color: var(--app-muted, #5c5245);
 }
 
-.warning {
-  background-color: rgba(217, 119, 6, 0.14);
-  border: 1px solid rgba(217, 119, 6, 0.55);
-  color: var(--app-text, #1f1b16);
+.scrollArea {
+  max-height: 17.5rem;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--app-border, #d6c8b4);
   border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+  background-color: var(--app-control-bg, #fcfaf7);
 }
 
-.empty {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--app-muted, #5c5245);
-  line-height: 1.4;
+.scrollArea:focus-visible {
+  outline: 2px solid var(--info-focus);
+  outline-offset: 2px;
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.chordScrollArea {
+  max-height: 14rem;
 }
 
-.sectionTitle {
-  margin: 0;
-  font-size: 0.9rem;
+.notesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.notesTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--info-table-header-bg);
+  color: var(--app-text, #1f1b16);
   font-weight: 700;
+  font-size: 0.74rem;
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid var(--app-border, #d6c8b4);
+  white-space: nowrap;
+}
+
+.noteRow td {
+  padding: 0.32rem 0.5rem;
+  border-bottom: 1px solid var(--info-row-border);
+  vertical-align: baseline;
+}
+
+.noteRow:last-child td {
+  border-bottom: none;
+}
+
+.noteName {
+  font-weight: 700;
+  font-size: 0.86rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text, #1f1b16);
 }
 
-.noteList,
+.noteCell {
+  color: var(--app-muted, #5c5245);
+  font-size: 0.78rem;
+}
+
 .chordList,
 .contextToneList {
   list-style: none;
@@ -104,49 +193,64 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
 }
 
-.noteItem,
-.chordItem,
+.contextToneList {
+  gap: 0.35rem;
+}
+
+.chordItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.65rem;
+  padding: 0.42rem 0.6rem;
+  border-bottom: 1px solid var(--info-row-border);
+  font-size: 0.85rem;
+}
+
+.chordItem:last-child {
+  border-bottom: none;
+}
+
+.chordName,
+.toneName {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--app-text, #1f1b16);
+}
+
+.chordReasons {
+  color: var(--app-muted, #5c5245);
+  font-size: 0.8rem;
+}
+
+.noChord {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--app-muted, #5c5245);
+  font-style: italic;
+}
+
+.contextTitle {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--app-text, #1f1b16);
+}
+
 .contextToneItem {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.4rem 0.75rem;
+  gap: 0.35rem 0.75rem;
   background-color: var(--app-control-bg, #fcfaf7);
   border: 1px solid var(--app-border, #d6c8b4);
   border-radius: 6px;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.86rem;
-}
-
-.noteName,
-.chordName,
-.toneName {
-  font-weight: 700;
-  font-size: 0.92rem;
-}
-
-.noteDetails {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  color: var(--app-muted, #5c5245);
-  font-size: 0.82rem;
-}
-
-.chordReasons {
-  color: var(--app-muted, #5c5245);
-  font-size: 0.82rem;
-}
-
-.noChord {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--app-muted, #5c5245);
-  font-style: italic;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.84rem;
 }
 
 .toneMeta {
@@ -154,5 +258,34 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--app-muted, #5c5245);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+}
+
+.warning {
+  background-color: var(--info-warning-bg);
+  border: 1px solid var(--info-warning-border);
+  color: var(--app-text, #1f1b16);
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--app-muted, #5c5245);
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .panel {
+    padding: 0.85rem;
+    gap: 1rem;
+  }
+
+  .notesTable thead th,
+  .noteRow td {
+    padding: 0.28rem 0.38rem;
+  }
 }
