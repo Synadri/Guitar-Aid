@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getTuning, STANDARD_TUNING } from '../../theory';
 import type { FretMark, KeyMark, MarkRole } from '../../state';
-import { Fretboard, Piano } from './index';
+import { Fretboard, PIANO_VERTICAL_LOW_AT_TOP, Piano } from './index';
 
 afterEach(() => {
   cleanup();
@@ -147,6 +147,88 @@ describe('Fretboard (componente puro)', () => {
     const previewCircle = container.querySelector('[data-mark-role="preview"] circle')!;
     expect(previewCircle.getAttribute('stroke-dasharray')).toBeTruthy();
   });
+
+  it('en vertical, Fretboard tiene 150 posiciones, cejuela arriba, cuerda 6 a la izquierda y 1 a la derecha, se refleja con leftHanded, etiquetas sin rotar y mismos datos y aria-label que en horizontal', () => {
+    const onHorizontalClick = vi.fn();
+    const { container: hContainer, unmount: unmountH } = render(
+      <Fretboard
+        tuning={STANDARD_TUNING}
+        orientation="horizontal"
+        onPositionClick={onHorizontalClick}
+      />,
+    );
+    const hGroup = screen.getByRole('group', { name: 'Mástil de guitarra' });
+    const hLabels = within(hGroup)
+      .getAllByRole('button')
+      .map((el) => el.getAttribute('aria-label'));
+    fireEvent.click(within(hGroup).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
+    expect(
+      hContainer.querySelector('[data-testid="fretboard"]')?.getAttribute('data-orientation'),
+    ).toBe('horizontal');
+    unmountH();
+
+    const onVerticalClick = vi.fn();
+    const marks: FretMark[] = [
+      { string: 5, fret: 7, role: 'pinned', label: 'E' },
+      { string: 6, fret: 5, role: 'root', label: 'A' },
+    ];
+    const { container, rerender } = render(
+      <Fretboard
+        tuning={STANDARD_TUNING}
+        orientation="vertical"
+        marks={marks}
+        onPositionClick={onVerticalClick}
+      />,
+    );
+
+    const wrapper = screen.getByTestId('fretboard');
+    expect(wrapper.getAttribute('data-orientation')).toBe('vertical');
+
+    const vGroup = screen.getByRole('group', { name: 'Mástil de guitarra' });
+    const vPositions = within(vGroup).getAllByRole('button');
+    expect(vPositions).toHaveLength(150);
+    expect(vPositions.map((el) => el.getAttribute('aria-label'))).toEqual(hLabels);
+
+    // Cejuela arriba y trastes hacia abajo (traste 1 más arriba que traste 12)
+    const nutY = Number(screen.getByTestId('fretboard-nut').getAttribute('y'));
+    const inlay3Y = Number(container.querySelector('[data-inlay-fret="3"]')?.getAttribute('cy'));
+    const inlay9Y = Number(container.querySelector('[data-inlay-fret="9"]')?.getAttribute('cy'));
+    expect(nutY).toBeLessThan(inlay3Y);
+    expect(inlay3Y).toBeLessThan(inlay9Y);
+
+    // Cuerda 6 (más grave) a la izquierda y cuerda 1 (más aguda) a la derecha
+    const line6 = container.querySelector('[data-string-line="6"]')!;
+    const line1 = container.querySelector('[data-string-line="1"]')!;
+    expect(Number(line6.getAttribute('x1'))).toBeLessThan(Number(line1.getAttribute('x1')));
+
+    // Con leftHanded, el mástil vertical se refleja de izquierda a derecha (cuerda 1 a la izquierda y 6 a la derecha)
+    rerender(
+      <Fretboard
+        tuning={STANDARD_TUNING}
+        orientation="vertical"
+        leftHanded={true}
+        marks={marks}
+        onPositionClick={onVerticalClick}
+      />,
+    );
+    expect(screen.getByTestId('fretboard').getAttribute('data-mirrored')).toBe('true');
+    const mirroredLine6 = container.querySelector('[data-string-line="6"]')!;
+    const mirroredLine1 = container.querySelector('[data-string-line="1"]')!;
+    expect(Number(mirroredLine1.getAttribute('x1'))).toBeLessThan(
+      Number(mirroredLine6.getAttribute('x1')),
+    );
+
+    // Las etiquetas de texto están derechas (sin transform rotate)
+    for (const textEl of Array.from(container.querySelectorAll('text'))) {
+      expect(textEl.getAttribute('transform')).toBeNull();
+    }
+
+    // Clic en (5, 7) devuelve los mismos datos que en horizontal
+    fireEvent.click(within(vGroup).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
+    expect(onVerticalClick).toHaveBeenCalledTimes(1);
+    expect(onVerticalClick).toHaveBeenLastCalledWith(onHorizontalClick.mock.calls[0]?.[0]);
+    expect(onVerticalClick).toHaveBeenLastCalledWith({ string: 5, fret: 7 });
+  });
 });
 
 describe('Piano (componente puro)', () => {
@@ -201,5 +283,64 @@ describe('Piano (componente puro)', () => {
       expect(keyEl.getAttribute('data-role')).toBe(mark.role);
       expect(keyEl.textContent).toContain(mark.label);
     }
+  });
+
+  it('en vertical, Piano tiene 61 teclas como barras horizontales con agudas arriba y graves abajo (PIANO_VERTICAL_LOW_AT_TOP = false), etiquetas derechas y mismos datos (MIDI 52) y aria-label que en horizontal', () => {
+    expect(PIANO_VERTICAL_LOW_AT_TOP).toBe(false);
+
+    const onHorizontalKeyClick = vi.fn();
+    const { unmount: unmountH } = render(
+      <Piano orientation="horizontal" onKeyClick={onHorizontalKeyClick} />,
+    );
+    const hGroup = screen.getByRole('group', { name: 'Teclado de piano' });
+    const hLabels = within(hGroup)
+      .getAllByRole('button')
+      .map((el) => el.getAttribute('aria-label'));
+    fireEvent.click(within(hGroup).getByRole('button', { name: 'E3' }));
+    unmountH();
+
+    const onVerticalKeyClick = vi.fn();
+    const marks: KeyMark[] = [
+      { midi: 52, role: 'tone', label: 'E' },
+      { midi: 57, role: 'root', label: 'A' },
+    ];
+    const { container } = render(
+      <Piano orientation="vertical" marks={marks} onKeyClick={onVerticalKeyClick} />,
+    );
+
+    const wrapper = screen.getByTestId('piano');
+    expect(wrapper.getAttribute('data-orientation')).toBe('vertical');
+
+    const vGroup = screen.getByRole('group', { name: 'Teclado de piano' });
+    const vKeys = within(vGroup).getAllByRole('button');
+    expect(vKeys).toHaveLength(61);
+    expect(vKeys.map((el) => el.getAttribute('aria-label'))).toEqual(hLabels);
+
+    // Barras horizontales: las blancas son más largas (width) que altas (height) y más largas que las negras
+    const whiteRectC2 = container.querySelector('[data-midi="36"] rect')!;
+    const blackRectCs2 = container.querySelector('[data-midi="37"] rect')!;
+    const whiteRectC7 = container.querySelector('[data-midi="96"] rect')!;
+
+    const whiteWidth = Number(whiteRectC2.getAttribute('width'));
+    const whiteHeight = Number(whiteRectC2.getAttribute('height'));
+    const blackWidth = Number(blackRectCs2.getAttribute('width'));
+    expect(whiteWidth).toBeGreaterThan(whiteHeight);
+    expect(whiteWidth).toBeGreaterThan(blackWidth);
+
+    // Notas agudas arriba (menor Y) y graves abajo (mayor Y)
+    const yC7 = Number(whiteRectC7.getAttribute('y'));
+    const yC2 = Number(whiteRectC2.getAttribute('y'));
+    expect(yC7).toBeLessThan(yC2);
+
+    // Etiquetas de texto derechas (sin rotación)
+    for (const textEl of Array.from(container.querySelectorAll('text'))) {
+      expect(textEl.getAttribute('transform')).toBeNull();
+    }
+
+    // Clic en E3 devuelve MIDI 52 igual que en horizontal
+    fireEvent.click(within(vGroup).getByRole('button', { name: 'E3' }));
+    expect(onVerticalKeyClick).toHaveBeenCalledTimes(1);
+    expect(onVerticalKeyClick).toHaveBeenLastCalledWith(onHorizontalKeyClick.mock.calls[0]?.[0]);
+    expect(onVerticalKeyClick).toHaveBeenLastCalledWith(52);
   });
 });

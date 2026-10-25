@@ -7,7 +7,7 @@
   --piano-black-fill: #1f1d1a;
   --piano-black-stroke: #0c0b09;
   --piano-black-hover: #36322d;
-  --piano-octave-text: #574e42;
+  --piano-octave-text: #4a4136;
   --piano-focus: #005fcc;
 
   /* Roles de marca (modo claro) */
@@ -34,11 +34,18 @@
 
   width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
   background-color: var(--piano-bg);
   border: 1px solid var(--piano-border);
   border-radius: 8px;
   padding: 0.5rem;
   box-sizing: border-box;
+}
+
+.containerVertical {
+  width: auto;
+  flex: 0 0 auto;
+  overflow-y: visible;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,6 +91,13 @@
   min-width: 820px;
   height: auto;
   user-select: none;
+}
+
+.svgVertical {
+  min-width: 0;
+  width: 170px;
+  max-width: 100%;
+  height: auto;
 }
 
 .key {

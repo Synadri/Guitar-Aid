@@ -1,7 +1,14 @@
 import type { KeyboardEvent } from 'react';
 import { midiToName, pitchClassOf, type NameMode, type PitchClass } from '../../theory';
-import { DEFAULT_PIANO_RANGE, type KeyMark, type MarkRole } from '../../state';
+import { DEFAULT_PIANO_RANGE, type KeyMark, type MarkRole, type Orientation } from '../../state';
 import styles from './Piano.module.css';
+
+/**
+ * Dirección vertical del teclado de piano:
+ * - `false` (por defecto): notas agudas arriba y notas graves abajo.
+ * - `true`: invertir la dirección para situar las notas graves arriba y las agudas abajo.
+ */
+export const PIANO_VERTICAL_LOW_AT_TOP = false;
 
 export interface PianoRange {
   from: number;
@@ -10,6 +17,7 @@ export interface PianoRange {
 
 export interface PianoProps {
   range?: PianoRange;
+  orientation?: Orientation;
   marks?: readonly KeyMark[];
   nameMode?: NameMode;
   onKeyClick?: (midi: number) => void;
@@ -37,64 +45,125 @@ interface KeyLayout {
   pc: PitchClass;
   isBlack: boolean;
   x: number;
+  y: number;
   width: number;
   height: number;
   centerX: number;
+  centerY: number;
 }
 
 function buildKeyLayouts(
   from: number,
   to: number,
+  orientation: Orientation,
 ): {
   whiteKeys: KeyLayout[];
   blackKeys: KeyLayout[];
   totalWidth: number;
+  totalHeight: number;
 } {
-  const whiteKeys: KeyLayout[] = [];
-  const blackKeys: KeyLayout[] = [];
+  const isVertical = orientation === 'vertical';
+  const rawKeys: {
+    midi: number;
+    pc: PitchClass;
+    isBlack: boolean;
+    centerFromLow: number;
+    thickness: number;
+    length: number;
+  }[] = [];
   let whiteCount = 0;
 
   for (let midi = from; midi <= to; midi++) {
     const pc = pitchClassOf(midi);
     const isBlack = BLACK_PCS.has(pc);
     if (!isBlack) {
-      const x = PAD_X + whiteCount * WHITE_WIDTH;
-      whiteKeys.push({
+      const centerFromLow = (whiteCount + 0.5) * WHITE_WIDTH;
+      rawKeys.push({
         midi,
         pc,
         isBlack: false,
-        x,
-        width: WHITE_WIDTH,
-        height: WHITE_HEIGHT,
-        centerX: x + WHITE_WIDTH / 2,
+        centerFromLow,
+        thickness: WHITE_WIDTH,
+        length: WHITE_HEIGHT,
       });
       whiteCount++;
     } else {
-      const centerX = PAD_X + whiteCount * WHITE_WIDTH;
-      blackKeys.push({
+      const centerFromLow = whiteCount * WHITE_WIDTH;
+      rawKeys.push({
         midi,
         pc,
         isBlack: true,
-        x: centerX - BLACK_WIDTH / 2,
-        width: BLACK_WIDTH,
-        height: BLACK_HEIGHT,
-        centerX,
+        centerFromLow,
+        thickness: BLACK_WIDTH,
+        length: BLACK_HEIGHT,
       });
     }
   }
 
-  const totalWidth = PAD_X * 2 + Math.max(1, whiteCount) * WHITE_WIDTH;
-  return { whiteKeys, blackKeys, totalWidth };
+  const totalSpan = Math.max(1, whiteCount) * WHITE_WIDTH;
+  const whiteKeys: KeyLayout[] = [];
+  const blackKeys: KeyLayout[] = [];
+
+  for (const k of rawKeys) {
+    if (isVertical) {
+      const axisCenter = PIANO_VERTICAL_LOW_AT_TOP
+        ? PAD_Y + k.centerFromLow
+        : PAD_Y + (totalSpan - k.centerFromLow);
+      const layout: KeyLayout = {
+        midi: k.midi,
+        pc: k.pc,
+        isBlack: k.isBlack,
+        x: PAD_X,
+        y: axisCenter - k.thickness / 2,
+        width: k.length,
+        height: k.thickness,
+        centerX: PAD_X + k.length / 2,
+        centerY: axisCenter,
+      };
+      if (k.isBlack) {
+        blackKeys.push(layout);
+      } else {
+        whiteKeys.push(layout);
+      }
+    } else {
+      const axisCenter = PAD_X + k.centerFromLow;
+      const layout: KeyLayout = {
+        midi: k.midi,
+        pc: k.pc,
+        isBlack: k.isBlack,
+        x: axisCenter - k.thickness / 2,
+        y: PAD_Y,
+        width: k.thickness,
+        height: k.length,
+        centerX: axisCenter,
+        centerY: PAD_Y + k.length / 2,
+      };
+      if (k.isBlack) {
+        blackKeys.push(layout);
+      } else {
+        whiteKeys.push(layout);
+      }
+    }
+  }
+
+  const totalWidth = isVertical ? PAD_X * 2 + WHITE_HEIGHT : PAD_X * 2 + totalSpan;
+  const totalHeight = isVertical ? PAD_Y * 2 + totalSpan : PAD_Y * 2 + WHITE_HEIGHT;
+  return { whiteKeys, blackKeys, totalWidth, totalHeight };
 }
 
 export function Piano({
   range = DEFAULT_PIANO_RANGE,
+  orientation = 'horizontal',
   marks = [],
   nameMode = 'sharps',
   onKeyClick,
 }: PianoProps) {
-  const { whiteKeys, blackKeys, totalWidth } = buildKeyLayouts(range.from, range.to);
-  const totalHeight = PAD_Y * 2 + WHITE_HEIGHT;
+  const isVertical = orientation === 'vertical';
+  const { whiteKeys, blackKeys, totalWidth, totalHeight } = buildKeyLayouts(
+    range.from,
+    range.to,
+    orientation,
+  );
 
   const marksByMidi = new Map<number, KeyMark>();
   for (const m of marks) {
@@ -118,7 +187,18 @@ export function Piano({
     const roleClass = mark ? ROLE_CLASS[mark.role] : undefined;
     const isC = key.pc === 0;
     const octaveLabel = isC ? midiToName(key.midi, 'sharps') : undefined;
-    const markCy = key.isBlack ? PAD_Y + BLACK_HEIGHT - 18 : PAD_Y + WHITE_HEIGHT - 32;
+    const octaveX = isVertical ? PAD_X + WHITE_HEIGHT - 14 : key.centerX;
+    const octaveY = isVertical ? key.centerY : PAD_Y + WHITE_HEIGHT - 9;
+    const markCx = isVertical
+      ? key.isBlack
+        ? PAD_X + BLACK_HEIGHT - 18
+        : PAD_X + WHITE_HEIGHT - 38
+      : key.centerX;
+    const markCy = isVertical
+      ? key.centerY
+      : key.isBlack
+        ? PAD_Y + BLACK_HEIGHT - 18
+        : PAD_Y + WHITE_HEIGHT - 32;
     const markRadius = key.isBlack ? 7.5 : 9.5;
 
     return (
@@ -139,7 +219,7 @@ export function Piano({
         <rect
           className={key.isBlack ? styles.blackKeyRect : styles.whiteKeyRect}
           x={key.x}
-          y={PAD_Y}
+          y={key.y}
           width={key.width}
           height={key.height}
           rx={key.isBlack ? 2 : 3}
@@ -147,8 +227,8 @@ export function Piano({
         {octaveLabel && (
           <text
             className={styles.octaveLabel}
-            x={key.centerX}
-            y={PAD_Y + WHITE_HEIGHT - 9}
+            x={octaveX}
+            y={octaveY}
             textAnchor="middle"
             dominantBaseline="central"
             data-octave-label={octaveLabel}
@@ -160,7 +240,7 @@ export function Piano({
           <g className={styles.mark} data-mark-role={mark.role}>
             <circle
               className={styles.markCircle}
-              cx={key.centerX}
+              cx={markCx}
               cy={markCy}
               r={markRadius}
               strokeDasharray={mark.role === 'preview' ? '3 2' : undefined}
@@ -168,7 +248,7 @@ export function Piano({
             {mark.role === 'root' && (
               <circle
                 className={styles.rootInnerRing}
-                cx={key.centerX}
+                cx={markCx}
                 cy={markCy}
                 r={markRadius - 2.5}
               />
@@ -176,7 +256,7 @@ export function Piano({
             {mark.label !== undefined && (
               <text
                 className={styles.markLabel}
-                x={key.centerX}
+                x={markCx}
                 y={markCy}
                 textAnchor="middle"
                 dominantBaseline="central"
@@ -191,12 +271,17 @@ export function Piano({
   };
 
   return (
-    <div className={styles.container} data-testid="piano">
+    <div
+      className={`${styles.container} ${isVertical ? styles.containerVertical : ''}`}
+      data-testid="piano"
+      data-orientation={orientation}
+    >
       <svg
-        className={styles.svg}
+        className={`${styles.svg} ${isVertical ? styles.svgVertical : ''}`}
         viewBox={`0 0 ${totalWidth} ${totalHeight}`}
         role="group"
         aria-label="Teclado de piano"
+        data-orientation={orientation}
       >
         {/* Primero las teclas blancas y encima las negras */}
         {whiteKeys.map(renderKey)}

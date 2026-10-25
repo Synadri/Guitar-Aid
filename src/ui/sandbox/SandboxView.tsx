@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -19,6 +19,7 @@ import {
   selectedVoicing,
   settingsStore as defaultSettingsStore,
   type LabelMode,
+  type Orientation,
   type SandboxStore,
   type SettingsStore,
 } from '../../state';
@@ -42,6 +43,8 @@ export interface SandboxViewProps {
   audioEngine?: AudioEngine;
 }
 
+export const SINGLE_INSTRUMENT_NOTICE = 'Debe quedar al menos un instrumento visible';
+
 const LABEL_OPTIONS: readonly { value: LabelMode; label: string }[] = [
   { value: 'note', label: 'Nota' },
   { value: 'interval', label: 'Intervalo' },
@@ -54,17 +57,39 @@ const NAME_MODE_OPTIONS: readonly { value: NameMode; label: string }[] = [
   { value: 'flats', label: 'Bemoles' },
 ];
 
+const ORIENTATION_OPTIONS: readonly { value: Orientation; label: string }[] = [
+  { value: 'horizontal', label: 'Horizontal' },
+  { value: 'vertical', label: 'Vertical' },
+];
+
+function isFormFieldElement(target: EventTarget | Element | null): boolean {
+  if (!target || typeof (target as Element).tagName !== 'string') return false;
+  const el = target as HTMLElement;
+  const tag = el.tagName.toUpperCase();
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+    return true;
+  }
+  if (el.isContentEditable) {
+    return true;
+  }
+  return false;
+}
+
 export function SandboxView({
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
   audioEngine = defaultAudioEngine,
 }: SandboxViewProps = {}) {
+  const viewNoticeId = useId();
+
   useEffect(() => {
     return bindSettingsToSandbox(settingsStore, sandboxStore);
   }, [settingsStore, sandboxStore]);
 
   // Ajustes (fuente de verdad de preferencias)
   const tuning = useStore(settingsStore, (s) => s.tuning);
+  const orientation = useStore(settingsStore, (s) => s.orientation);
+  const visibleInstruments = useStore(settingsStore, (s) => s.visibleInstruments);
   const showAllPositions = useStore(settingsStore, (s) => s.showAllPositions);
   const leftHanded = useStore(settingsStore, (s) => s.leftHanded);
   const nameMode = useStore(settingsStore, (s) => s.nameMode);
@@ -72,6 +97,9 @@ export function SandboxView({
   const soundEnabled = useStore(settingsStore, (s) => s.soundEnabled);
   const volume = useStore(settingsStore, (s) => s.volume);
   const setTuning = useStore(settingsStore, (s) => s.setTuning);
+  const setOrientation = useStore(settingsStore, (s) => s.setOrientation);
+  const setVisibleInstruments = useStore(settingsStore, (s) => s.setVisibleInstruments);
+  const setLeftHanded = useStore(settingsStore, (s) => s.setLeftHanded);
   const setShowAllPositions = useStore(settingsStore, (s) => s.setShowAllPositions);
   const setLabels = useStore(settingsStore, (s) => s.setLabels);
   const setNameMode = useStore(settingsStore, (s) => s.setNameMode);
@@ -93,6 +121,27 @@ export function SandboxView({
   const toggleFretPosition = useStore(sandboxStore, (s) => s.toggleFretPosition);
   const togglePianoKey = useStore(sandboxStore, (s) => s.togglePianoKey);
   const clear = useStore(sandboxStore, (s) => s.clear);
+
+  // Atajos globales de teclado (Requisitos §7): C limpia selección y M alterna sonido.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      if (isFormFieldElement(e.target) || isFormFieldElement(document.activeElement)) return;
+
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        sandboxStore.getState().clear();
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const nextSound = !settingsStore.getState().soundEnabled;
+        settingsStore.getState().setSoundEnabled(nextSound);
+        audioEngine.setSoundEnabled(nextSound);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sandboxStore, settingsStore, audioEngine]);
 
   const markState = {
     tuning,
@@ -183,8 +232,12 @@ export function SandboxView({
     playEvents(scaleEvents(context.root, scaleType.intervals), audioEngine);
   };
 
+  const isFretboardSwitchDisabled = !visibleInstruments.piano;
+  const isPianoSwitchDisabled = !visibleInstruments.fretboard;
+  const hasSingleInstrumentVisible = isFretboardSwitchDisabled || isPianoSwitchDisabled;
+
   return (
-    <div className={styles.sandbox}>
+    <div className={styles.sandbox} data-orientation={orientation}>
       <header className={styles.toolbar}>
         <label className={styles.controlLabel}>
           Afinación
@@ -237,15 +290,91 @@ export function SandboxView({
         <label className={styles.controlLabel}>
           <input
             type="checkbox"
+            aria-label="Mostrar todas las posiciones"
             checked={showAllPositions}
             onChange={(e) => setShowAllPositions(e.target.checked)}
           />
           Mostrar todas las posiciones
         </label>
 
-        <label className={styles.controlLabel}>
+        <fieldset className={styles.viewGroup} data-testid="view-group">
+          <legend className={styles.viewGroupLegend}>Vista</legend>
+
+          <label className={styles.controlLabel}>
+            Orientación
+            <select
+              className={styles.select}
+              aria-label="Orientación"
+              value={orientation}
+              onChange={(e) => setOrientation(e.target.value as Orientation)}
+            >
+              {ORIENTATION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={styles.controlLabel}>
+            <input
+              type="checkbox"
+              aria-label="Zurdo"
+              checked={leftHanded}
+              onChange={(e) => setLeftHanded(e.target.checked)}
+            />
+            Zurdo
+          </label>
+
+          <label
+            className={`${styles.controlLabel} ${isFretboardSwitchDisabled ? styles.controlLabelDisabled : ''}`}
+            title={isFretboardSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
+          >
+            <input
+              type="checkbox"
+              aria-label="Mostrar guitarra"
+              checked={visibleInstruments.fretboard}
+              disabled={isFretboardSwitchDisabled}
+              title={isFretboardSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
+              aria-describedby={isFretboardSwitchDisabled ? viewNoticeId : undefined}
+              onChange={(e) => setVisibleInstruments({ fretboard: e.target.checked })}
+            />
+            Mostrar guitarra
+          </label>
+
+          <label
+            className={`${styles.controlLabel} ${isPianoSwitchDisabled ? styles.controlLabelDisabled : ''}`}
+            title={isPianoSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
+          >
+            <input
+              type="checkbox"
+              aria-label="Mostrar piano"
+              checked={visibleInstruments.piano}
+              disabled={isPianoSwitchDisabled}
+              title={isPianoSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
+              aria-describedby={isPianoSwitchDisabled ? viewNoticeId : undefined}
+              onChange={(e) => setVisibleInstruments({ piano: e.target.checked })}
+            />
+            Mostrar piano
+          </label>
+
+          {hasSingleInstrumentVisible && (
+            <span
+              id={viewNoticeId}
+              className={styles.viewNotice}
+              data-testid="single-instrument-notice"
+            >
+              {SINGLE_INSTRUMENT_NOTICE}
+            </span>
+          )}
+        </fieldset>
+
+        <label className={styles.controlLabel} title="Alternar sonido (atajo: M)">
           <input
             type="checkbox"
+            aria-label="Sonido"
+            aria-keyshortcuts="M"
+            title="Alternar sonido (atajo: M)"
             checked={soundEnabled}
             onChange={(e) => {
               const enabled = e.target.checked;
@@ -313,30 +442,51 @@ export function SandboxView({
           )}
         </div>
 
-        <button type="button" className={styles.clearButton} onClick={clear}>
+        <button
+          type="button"
+          className={styles.clearButton}
+          onClick={clear}
+          title="Limpiar selección (atajo: C)"
+          aria-keyshortcuts="C"
+        >
           Limpiar
         </button>
+
+        <p className={styles.shortcutsHint} data-testid="shortcuts-hint">
+          Atajos: <kbd className={styles.kbd}>C</kbd> limpiar selección ·{' '}
+          <kbd className={styles.kbd}>M</kbd> alternar sonido
+        </p>
       </header>
 
       <SandboxContextPickers sandboxStore={sandboxStore} settingsStore={settingsStore} />
 
       <div className={styles.workspace}>
-        <div className={styles.instruments}>
-          <Fretboard
-            tuning={tuning}
-            frets={DEFAULT_FRETS}
-            leftHanded={leftHanded}
-            marks={fretMarks}
-            nameMode={nameMode}
-            onPositionClick={handlePositionClick}
-          />
+        <div
+          className={`${styles.instruments} ${orientation === 'vertical' ? styles.instrumentsVertical : ''}`}
+          data-testid="instruments-area"
+          data-orientation={orientation}
+        >
+          {visibleInstruments.fretboard && (
+            <Fretboard
+              tuning={tuning}
+              frets={DEFAULT_FRETS}
+              leftHanded={leftHanded}
+              orientation={orientation}
+              marks={fretMarks}
+              nameMode={nameMode}
+              onPositionClick={handlePositionClick}
+            />
+          )}
 
-          <Piano
-            range={DEFAULT_PIANO_RANGE}
-            marks={keyMarks}
-            nameMode={nameMode}
-            onKeyClick={handleKeyClick}
-          />
+          {visibleInstruments.piano && (
+            <Piano
+              range={DEFAULT_PIANO_RANGE}
+              orientation={orientation}
+              marks={keyMarks}
+              nameMode={nameMode}
+              onKeyClick={handleKeyClick}
+            />
+          )}
         </div>
 
         <aside className={styles.sidePanel}>

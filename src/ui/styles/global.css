@@ -4,8 +4,9 @@
   --app-card: #ffffff;
   --app-border: #d6c8b4;
   --app-text: #1f1b16;
-  --app-muted: #5c5245;
+  --app-muted: #52483c;
   --app-control-bg: #fcfaf7;
+  --app-focus: #005fcc;
   --fb-bg: #f8f5f0;
   --fb-text: #2c251d;
 }
@@ -16,8 +17,9 @@
     --app-card: #1a1917;
     --app-border: #3a342c;
     --app-text: #f4f1ea;
-    --app-muted: #b0a698;
+    --app-muted: #bfb6a8;
     --app-control-bg: #26231f;
+    --app-focus: #60a5fa;
     --fb-bg: #18181b;
     --fb-text: #f4f1ea;
   }
@@ -31,4 +33,11 @@ body {
   color: var(--app-text);
   color-scheme: light dark;
   font-family: system-ui, sans-serif;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--app-focus);
+  outline-offset: 2px;
 }
