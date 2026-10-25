@@ -255,6 +255,7 @@ export function createSettingsStore(
       }),
       {
         name: storageName,
+        version: 0,
         storage: createJSONStorage(() => storage),
         partialize: (state): PersistedSettings => ({
           tuningId: state.tuning.id,

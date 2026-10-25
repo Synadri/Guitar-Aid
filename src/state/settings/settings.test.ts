@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getTuning, STANDARD_TUNING } from '../../theory';
 import { createSandboxStore, sandboxStore } from '../sandbox';
 import {
@@ -10,7 +10,6 @@ import {
 } from './store';
 
 const dropD = getTuning('dropD')!;
-const halfDown = getTuning('halfDown')!;
 
 function createTestSettings(initialOverrides = {}) {
   const storage = createMemoryStorage();
@@ -246,59 +245,7 @@ describe('Hito S2 — Criterio 8: persistencia en storage', () => {
 });
 
 describe('Hito S2 — Fija una sola fuente de verdad (Settings ↔ Sandbox)', () => {
-  it('al cambiar afinación en settingsStore, sandboxStore actualiza su afinación y recoloca las notas', () => {
-    const storage = createMemoryStorage();
-    const sandbox = createSandboxStore();
-    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
-
-    // Fijamos notas en la guitarra en afinación estándar
-    // cuerda 6 traste 5 = A2 (MIDI 45)
-    // cuerda 4 traste 2 = E3 (MIDI 52)
-    sandbox.getState().toggleFretPosition({ string: 6, fret: 5 });
-    sandbox.getState().toggleFretPosition({ string: 4, fret: 2 });
-    expect(sandbox.getState().notes).toHaveLength(2);
-
-    // Cambiar la afinación en settings (la fuente de verdad de la configuración)
-    settings.getState().setTuning(dropD);
-
-    // El sandbox debe haberse actualizado automáticamente a Drop D
-    expect(sandbox.getState().tuning.id).toBe('dropD');
-    // En Drop D, A2 en cuerda 6 pasa al traste 7 (criterio 7)
-    expect(sandbox.getState().notes[0]!.pinned).toEqual([{ string: 6, fret: 7 }]);
-    expect(sandbox.getState().notes[1]!.pinned).toEqual([{ string: 4, fret: 2 }]);
-  });
-
-  it('al cambiar afinación en sandboxStore, settingsStore sincroniza y persiste el cambio', () => {
-    const storage = createMemoryStorage();
-    const sandbox = createSandboxStore();
-    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
-
-    sandbox.getState().setTuning(halfDown);
-
-    expect(settings.getState().tuning.id).toBe('halfDown');
-
-    // Comprobar que además se persistió en storage
-    const raw = storage.getItem(SETTINGS_STORAGE_KEY);
-    const parsed = JSON.parse(raw!);
-    expect(parsed.state.tuningId).toBe('halfDown');
-  });
-
-  it('al cambiar showAllPositions en cualquiera de los dos stores, el otro se actualiza', () => {
-    const storage = createMemoryStorage();
-    const sandbox = createSandboxStore();
-    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
-
-    expect(settings.getState().showAllPositions).toBe(true);
-    expect(sandbox.getState().showAllPositions).toBe(true);
-
-    settings.getState().setShowAllPositions(false);
-    expect(sandbox.getState().showAllPositions).toBe(false);
-
-    sandbox.getState().setShowAllPositions(true);
-    expect(settings.getState().showAllPositions).toBe(true);
-  });
-
-  it('al inicializar con una afinación previamente guardada, sandboxStore arranca sincronizado', () => {
+  it('Arranque: con dropD ya guardado en el almacenamiento, un store nuevo hace que el Sandbox esté en Drop D sin llamar a nada más', () => {
     const storage = createMemoryStorage();
     storage.setItem(
       'saved:settings',
@@ -315,9 +262,97 @@ describe('Hito S2 — Fija una sola fuente de verdad (Settings ↔ Sandbox)', ()
       syncWithSandbox: sandbox,
     });
 
+    // Sin ninguna llamada manual por parte de la UI, el Sandbox arranca en Drop D
     expect(settings.getState().tuning.id).toBe('dropD');
     expect(sandbox.getState().tuning.id).toBe('dropD');
     expect(sandbox.getState().showAllPositions).toBe(false);
+  });
+
+  it('Cambio desde los ajustes: fija E3, cambia la afinación desde settingsStore, y el Sandbox recoloca la nota (una sola vez)', () => {
+    const storage = createMemoryStorage();
+    const sandbox = createSandboxStore();
+    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
+
+    // Fijamos E3 en cuerda 6, traste 12 en afinación estándar (MIDI 52)
+    sandbox.getState().toggleFretPosition({ string: 6, fret: 12 });
+    expect(sandbox.getState().notes[0]!.pinned).toEqual([{ string: 6, fret: 12 }]);
+
+    // Espiamos sandbox.getState().setTuning para certificar que la recolocación ocurre exactamente UNA sola vez
+    const originalSetTuning = sandbox.getState().setTuning;
+    const setTuningSpy = vi.fn((...args: Parameters<typeof originalSetTuning>) =>
+      originalSetTuning(...args),
+    );
+    sandbox.setState({ setTuning: setTuningSpy });
+
+    // Cambiar la afinación desde settingsStore (la puerta de entrada de ajustes)
+    settings.getState().setTuning(dropD);
+
+    // 1. Se invocó la recolocación en el Sandbox exactamente una sola vez (sin bucles ni recolocaciones dobles)
+    expect(setTuningSpy).toHaveBeenCalledTimes(1);
+
+    // 2. El Sandbox queda en Drop D y E3 se ha recolocado al traste 14 de la cuerda 6
+    expect(sandbox.getState().tuning.id).toBe('dropD');
+    expect(sandbox.getState().notes[0]!.pinned).toEqual([{ string: 6, fret: 14 }]);
+  });
+
+  it('Cambio desde el Sandbox: llamar a setTuning en el Sandbox deja los ajustes en la misma afinación sin rebote ni recolocación doble', () => {
+    const storage = createMemoryStorage();
+    const sandbox = createSandboxStore();
+    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
+
+    // Fijamos E3 en cuerda 6 traste 12 en estándar (MIDI 52)
+    sandbox.getState().toggleFretPosition({ string: 6, fret: 12 });
+    expect(sandbox.getState().notes[0]!.pinned).toEqual([{ string: 6, fret: 12 }]);
+
+    // Espiamos sandbox.getState().setTuning para certificar que solo se invoca la llamada directa (sin eco desde settings)
+    const originalSandboxSetTuning = sandbox.getState().setTuning;
+    const sandboxSetTuningSpy = vi.fn((...args: Parameters<typeof originalSandboxSetTuning>) =>
+      originalSandboxSetTuning(...args),
+    );
+    sandbox.setState({ setTuning: sandboxSetTuningSpy });
+
+    // Espiamos settingsStore.getState().setTuning para certificar que la sincronización hacia ajustes es única
+    const originalSettingsSetTuning = settings.getState().setTuning;
+    const settingsSetTuningSpy = vi.fn((...args: Parameters<typeof originalSettingsSetTuning>) =>
+      originalSettingsSetTuning(...args),
+    );
+    settings.setState({ setTuning: settingsSetTuningSpy });
+
+    // Llamada directa a setTuning en el Sandbox
+    sandbox.getState().setTuning(dropD);
+
+    // 1. sandbox.setTuning se ejecutó exactamente una sola vez (la directa, sin ningún rebote posterior)
+    expect(sandboxSetTuningSpy).toHaveBeenCalledTimes(1);
+
+    // 2. Las notas fijadas se recolocaron una sola vez (E3 pasa de traste 12 a traste 14)
+    expect(sandbox.getState().notes[0]!.pinned).toEqual([{ string: 6, fret: 14 }]);
+
+    // 3. settings.setTuning se invocó una sola vez para sincronizar
+    expect(settingsSetTuningSpy).toHaveBeenCalledTimes(1);
+
+    // 4. Los ajustes quedan exactamente en la misma afinación que el Sandbox
+    expect(settings.getState().tuning.id).toBe(sandbox.getState().tuning.id);
+    expect(settings.getState().tuning.id).toBe('dropD');
+
+    // 5. Se persistió el cambio en el almacenamiento
+    const raw = storage.getItem(SETTINGS_STORAGE_KEY);
+    const parsed = JSON.parse(raw!);
+    expect(parsed.state.tuningId).toBe('dropD');
+  });
+
+  it('al cambiar showAllPositions en cualquiera de los dos stores, el otro se actualiza', () => {
+    const storage = createMemoryStorage();
+    const sandbox = createSandboxStore();
+    const settings = createSettingsStore({ storage, syncWithSandbox: sandbox });
+
+    expect(settings.getState().showAllPositions).toBe(true);
+    expect(sandbox.getState().showAllPositions).toBe(true);
+
+    settings.getState().setShowAllPositions(false);
+    expect(sandbox.getState().showAllPositions).toBe(false);
+
+    sandbox.getState().setShowAllPositions(true);
+    expect(settings.getState().showAllPositions).toBe(true);
   });
 
   it('el singleton settingsStore de la aplicación está conectado a sandboxStore', () => {
