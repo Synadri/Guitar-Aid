@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getScaleType } from '../theory';
 import {
+  MASTER_HEADROOM,
   MAX_VOICES,
   PEAK_GAIN,
   arpeggioEvents,
   chordEvents,
   createAudioEngine,
+  cutoffHz,
+  loudnessGain,
   midiToFrequency,
   playEvents,
   scaleEvents,
@@ -13,6 +16,7 @@ import {
   type AudioNodeLike,
   type AudioParamLike,
   type BiquadFilterNodeLike,
+  type DynamicsCompressorNodeLike,
   type GainNodeLike,
   type OscillatorNodeLike,
 } from './index';
@@ -70,10 +74,20 @@ interface MockFilter extends BiquadFilterNodeLike {
   disconnected: boolean;
 }
 
+interface MockCompressor extends DynamicsCompressorNodeLike {
+  threshold: MockParam;
+  knee: MockParam;
+  ratio: MockParam;
+  attack: MockParam;
+  release: MockParam;
+  connectedTo: AudioNodeLike[];
+}
+
 function createSimulatedAudioContext(initialState: AudioContextState = 'running') {
   const oscillators: MockOscillator[] = [];
   const gains: MockGain[] = [];
   const filters: MockFilter[] = [];
+  const compressors: MockCompressor[] = [];
   let currentTime = 0;
   let state: AudioContextState = initialState;
 
@@ -141,6 +155,23 @@ function createSimulatedAudioContext(initialState: AudioContextState = 'running'
       gains.push(gainNode);
       return gainNode;
     },
+    createDynamicsCompressor() {
+      const comp: MockCompressor = {
+        threshold: createMockParam(-24),
+        knee: createMockParam(30),
+        ratio: createMockParam(12),
+        attack: createMockParam(0.003),
+        release: createMockParam(0.25),
+        connectedTo: [],
+        connect(target: AudioNodeLike) {
+          comp.connectedTo.push(target);
+          return target;
+        },
+        disconnect() {},
+      };
+      compressors.push(comp);
+      return comp;
+    },
     createBiquadFilter() {
       const filterNode: MockFilter = {
         type: 'lowpass',
@@ -165,6 +196,8 @@ function createSimulatedAudioContext(initialState: AudioContextState = 'running'
     oscillators,
     gains,
     filters,
+    compressors,
+    destination,
     resume,
     setTime(t: number) {
       currentTime = t;
@@ -251,12 +284,12 @@ describe('audio — síntesis pluck, motor y planificación pura (U6)', () => {
     // La ganancia de la envolvente de la voz y la ganancia maestra están escaladas por el volumen (0.8)
     const masterGain = sim.gains[0]!;
     const envGainA4 = sim.gains[2]!;
-    expect(masterGain.gain.value).toBeCloseTo(0.8, 5);
-    expect(envGainA4.gain.value).toBeCloseTo(PEAK_GAIN * 0.8, 5);
+    expect(masterGain.gain.value).toBeCloseTo(0.8 * MASTER_HEADROOM, 5);
+    expect(envGainA4.gain.value).toBeCloseTo(PEAK_GAIN * 0.8 * loudnessGain(69), 5);
 
     // Al bajar el volumen a la mitad (0.4), la ganancia de la siguiente nota (E3 = 52) se reduce a la mitad
     engine.setVolume(0.4);
-    expect(masterGain.gain.value).toBeCloseTo(0.4, 5);
+    expect(masterGain.gain.value).toBeCloseTo(0.4 * MASTER_HEADROOM, 5);
 
     const oscCountBeforeE3 = sim.oscillators.length;
     const gainCountBeforeE3 = sim.gains.length;
@@ -265,8 +298,12 @@ describe('audio — síntesis pluck, motor y planificación pura (U6)', () => {
     const fundamentalE3 = sim.oscillators[oscCountBeforeE3]!;
     const envGainE3 = sim.gains[gainCountBeforeE3 + 1]!;
     expect(fundamentalE3.frequency.value).toBeCloseTo(164.81, 2);
-    expect(envGainE3.gain.value).toBeCloseTo(PEAK_GAIN * 0.4, 5);
-    expect(envGainE3.gain.value).toBeCloseTo(envGainA4.gain.value / 2, 5);
+    // Comparación por proporciones: a la mitad de volumen, la misma nota suena a la mitad
+    expect(envGainE3.gain.value).toBeCloseTo(PEAK_GAIN * 0.4 * loudnessGain(52), 5);
+    expect(envGainE3.gain.value / envGainA4.gain.value).toBeCloseTo(
+      (0.4 * loudnessGain(52)) / (0.8 * loudnessGain(69)),
+      5,
+    );
 
     // Con volumen 0 o sonido desactivado ya con contexto creado, tampoco crea nuevos nodos
     const oscCountAfterE3 = sim.oscillators.length;
@@ -343,5 +380,74 @@ describe('audio — síntesis pluck, motor y planificación pura (U6)', () => {
     oldestOfBatchFundamental.finish();
     expect(oldestOfBatchFundamental.disconnected).toBe(true);
     expect(oldestOfBatchEnvGain.disconnected).toBe(true);
+  });
+
+  it('(a) loudnessGain vale 1 en C4, no crece con la altura y está acotada con las proporciones esperadas', () => {
+    expect(loudnessGain(60)).toBe(1);
+    for (let m = 36; m < 96; m++) {
+      expect(loudnessGain(m + 1)).toBeLessThanOrEqual(loudnessGain(m) + 1e-12);
+    }
+    for (let m = 36; m <= 96; m++) {
+      expect(loudnessGain(m)).toBeGreaterThanOrEqual(0.2);
+      expect(loudnessGain(m)).toBeLessThanOrEqual(4);
+    }
+    const low = loudnessGain(36) / loudnessGain(60);
+    const high = loudnessGain(96) / loudnessGain(60);
+    expect(low).toBeGreaterThanOrEqual(1.5);
+    expect(low).toBeLessThanOrEqual(4);
+    expect(high).toBeGreaterThanOrEqual(0.25);
+    expect(high).toBeLessThanOrEqual(0.7);
+  });
+
+  it('(b) cutoffHz no decrece con la altura y está acotado entre 800 y 8000 Hz', () => {
+    for (let m = 36; m <= 96; m++) {
+      expect(cutoffHz(m)).toBeGreaterThanOrEqual(800);
+      expect(cutoffHz(m)).toBeLessThanOrEqual(8000);
+      if (m > 36) expect(cutoffHz(m)).toBeGreaterThanOrEqual(cutoffHz(m - 1));
+    }
+  });
+
+  it('(c) la ganancia pico de la voz sigue loudnessGain (C2 > C4 > C6) y ninguna supera 0,5 con volumen máximo', () => {
+    const peaks: Record<number, number> = {};
+    for (const midi of [36, 60, 84]) {
+      const sim = createSimulatedAudioContext();
+      const engine = createAudioEngine({ createContext: () => sim.ctx, initialVolume: 1 });
+      engine.playNote(midi);
+      peaks[midi] = sim.gains[2]!.gain.value; // gains[0] maestra, [1] armónica, [2] envolvente
+      expect(peaks[midi]).toBeLessThanOrEqual(0.5);
+    }
+    expect(peaks[36]!).toBeGreaterThan(peaks[60]!);
+    expect(peaks[84]!).toBeLessThan(peaks[60]!);
+    expect(peaks[36]! / peaks[60]!).toBeCloseTo(loudnessGain(36) / loudnessGain(60), 5);
+    expect(peaks[84]! / peaks[60]!).toBeCloseTo(loudnessGain(84) / loudnessGain(60), 5);
+    expect(peaks[36]! / peaks[60]!).toBeGreaterThanOrEqual(1.5);
+  });
+
+  it('(d) la cadena es voces → ganancia maestra (≤ 0,7) → limitador → destino', () => {
+    const sim = createSimulatedAudioContext();
+    const engine = createAudioEngine({ createContext: () => sim.ctx, initialVolume: 1 });
+    engine.playNote(60);
+    const master = sim.gains[0]!;
+    const limiter = sim.compressors[0]!;
+    expect(master.gain.value).toBeLessThanOrEqual(0.7);
+    expect(master.connectedTo).toContain(limiter);
+    expect(limiter.connectedTo).toContain(sim.destination);
+    expect(limiter.threshold.value).toBeLessThanOrEqual(-6);
+    expect(limiter.ratio.value).toBeGreaterThanOrEqual(10);
+    expect(limiter.attack.value).toBeLessThanOrEqual(0.01);
+  });
+
+  it('(e) un acorde de seis cuerdas conecta seis voces dentro del límite y las desconecta al terminar', () => {
+    const sim = createSimulatedAudioContext();
+    const engine = createAudioEngine({ createContext: () => sim.ctx, initialVolume: 1 });
+    const voices = playEvents(chordEvents([40, 47, 52, 56, 59, 64]), engine);
+    expect(voices).toHaveLength(6);
+    expect(engine.getActiveVoiceCount()).toBe(6);
+    expect(engine.getActiveVoiceCount()).toBeLessThanOrEqual(MAX_VOICES);
+    expect(sim.oscillators).toHaveLength(12);
+    for (let i = 0; i < 12; i += 2) sim.oscillators[i]!.finish();
+    expect(engine.getActiveVoiceCount()).toBe(0);
+    expect(sim.oscillators.every((o) => o.disconnected)).toBe(true);
+    expect(sim.filters.every((f) => f.disconnected)).toBe(true);
   });
 });

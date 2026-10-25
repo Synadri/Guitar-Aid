@@ -231,6 +231,16 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
   - **Al pulsar en los instrumentos:** añadir o fijar una posición en el mástil o activar una tecla en el piano reproduce su nota MIDI; desfijar una posición ya fijada o desactivar una tecla activa no reproduce sonido; con `"Sonido"` desactivado no suena nada.
   - **Modos de `"Reproducir"` según la capa en foco (`resolveFocus`):** con notas pulsadas (`focus === 'notes'`) o con un acorde del menú (`context.kind === 'chord'`) ofrece los botones `"Acorde"` y `"Arpegio"` (usando las notas reales de `selectedVoicing` si hay digitación disponible o `chordFallbackMidis` en la octava 3 en afinaciones abiertas sin digitación); con una escala del menú (`context.kind === 'scale'`) ofrece el botón `"Escala"`.
 
+### U6 — ajuste del equilibrio de volumen (graves casi inaudibles, agudos estridentes, acordes saturados)
+
+Cambios solo de equilibrio sonoro en `src/audio` (sin cambiar la interfaz pública ni los eventos de reproducción). Todas las constantes están en un único bloque de `src/audio/pluck.ts`, para afinarlas de oído:
+
+- **`loudnessGain(midi)`** (1,0 en C4): interpolación lineal en dB por semitono, `LOUDNESS_LOW_DB = +9` en C2 (×2,8) y `LOUDNESS_HIGH_DB = −10` en C7 (×0,32), acotada a `[LOUDNESS_MIN_GAIN = 0,2, LOUDNESS_MAX_GAIN = 4]`. *Por qué:* el oído es mucho menos sensible en graves (la ponderación A da ≈ −26 dB en 65 Hz) y más sensible en 2–5 kHz; se aplica solo en parte (≈ un tercio en graves) para no deformar la dinámica ni forzar altavoces pequeños.
+- **`PEAK_GAIN = 0,15`** (antes 0,35): con el refuerzo de C2 (×2,8) la pico por voz queda en ≈ 0,42 < 0,5 con volumen máximo.
+- **Armónicos:** `BASS_HARMONIC_GAIN_RATIO = 0,7` (≤ G3, `BASS_MIDI = 55`), `HARMONIC_GAIN_RATIO = 0,25` (G4, `MID_MIDI = 67`) y `TREBLE_HARMONIC_GAIN_RATIO = 0,05` (≥ C6, `TREBLE_MIDI = 84`), interpolados por semitono; además el oscilador principal es de diente de sierra por debajo de `SAWTOOTH_BELOW_HZ = 200` (triangular por encima). *Por qué:* un altavoz pequeño no reproduce la fundamental de un C2 (65 Hz), pero sí sus armónicos, y el oído reconstruye la altura; los agudos, ya muy audibles, se dejan casi puros.
+- **`cutoffHz(midi)`:** frecuencia × (6 en C2 → 10 en C7, lineal por semitono), acotado a `[800, 8000] Hz` (`CUTOFF_*`), en vez del corte fijo `frecuencia × 4` con mínimo 900 Hz. *Por qué:* mantener un brillo parecido en todo el registro sin dejar pasar armónicos estridentes en agudos.
+- **Salida:** voces → ganancia maestra `volumen × MASTER_HEADROOM (0,7)` → `DynamicsCompressor` como limitador (`LIMITER_THRESHOLD_DB = −12`, `KNEE = 0`, `RATIO = 20`, `ATTACK = 3 ms`, `RELEASE = 100 ms`) → destino. *Por qué:* un acorde de seis cuerdas suma voces y saturaba; el margen y el limitador lo evitan. El volumen del usuario sigue escalando todo el conjunto y con volumen 0 no se crean nodos. `AudioContextLike.createDynamicsCompressor` es opcional: sin él la maestra conecta directa al destino.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Voicings agudos en las 3 primeras cuerdas (tríadas en cuerdas 1–3 e inversiones):**

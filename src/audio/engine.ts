@@ -1,5 +1,11 @@
 import {
   DEFAULT_NOTE_DURATION,
+  LIMITER_ATTACK,
+  LIMITER_KNEE_DB,
+  LIMITER_RATIO,
+  LIMITER_RELEASE,
+  LIMITER_THRESHOLD_DB,
+  MASTER_HEADROOM,
   MAX_VOICES,
   pluckNote,
   type AudioContextLike,
@@ -98,9 +104,22 @@ export function createAudioEngine(options: AudioEngineOptions = {}): AudioEngine
       if (!ctx) return null;
       try {
         masterGain = ctx.createGain();
-        masterGain.gain.value = volume;
-        masterGain.gain.setValueAtTime?.(volume, ctx.currentTime);
-        masterGain.connect(ctx.destination);
+        const level = volume * MASTER_HEADROOM;
+        masterGain.gain.value = level;
+        masterGain.gain.setValueAtTime?.(level, ctx.currentTime);
+        // voces → ganancia maestra (con margen) → limitador → destino
+        const limiter = ctx.createDynamicsCompressor?.();
+        if (limiter) {
+          limiter.threshold.value = LIMITER_THRESHOLD_DB;
+          limiter.knee.value = LIMITER_KNEE_DB;
+          limiter.ratio.value = LIMITER_RATIO;
+          limiter.attack.value = LIMITER_ATTACK;
+          limiter.release.value = LIMITER_RELEASE;
+          masterGain.connect(limiter);
+          limiter.connect(ctx.destination);
+        } else {
+          masterGain.connect(ctx.destination);
+        }
       } catch {
         ctx = null;
         masterGain = null;
@@ -181,8 +200,9 @@ export function createAudioEngine(options: AudioEngineOptions = {}): AudioEngine
     volume = clampVolume(nextVolume, volume);
     if (ctx && masterGain) {
       try {
-        masterGain.gain.value = volume;
-        masterGain.gain.setValueAtTime?.(volume, ctx.currentTime);
+        const level = volume * MASTER_HEADROOM;
+        masterGain.gain.value = level;
+        masterGain.gain.setValueAtTime?.(level, ctx.currentTime);
       } catch {
         // Fallo silencioso
       }

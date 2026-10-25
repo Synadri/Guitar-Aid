@@ -10,11 +10,68 @@ export const ATTACK_TIME = 0.008;
 /** Rampa de liberación rápida sin chasquidos al cortar una voz (en segundos). */
 export const STOP_RELEASE_TIME = 0.015;
 
-/** Ganancia pico base de cada voz (escalada por el volumen 0..1). */
-export const PEAK_GAIN = 0.35;
+/**
+ * ── Equilibrio de volumen y timbre (afinables de oído) ──────────────────────
+ * Todas las constantes de esta sección se pueden retocar sin tocar la lógica.
+ */
 
-/** Nivel relativo del segundo armónico respecto a la fundamental. */
+/**
+ * Ganancia pico base de cada voz en C4 (escalada por el volumen 0..1 y por
+ * `loudnessGain`). Con el máximo refuerzo grave (×~2,8 en C2) la pico queda
+ * en ~0,42, por debajo de 0,5.
+ */
+export const PEAK_GAIN = 0.15;
+
+/** Nota MIDI de referencia de la compensación (C4): ganancia 1,0. */
+export const LOUDNESS_REF_MIDI = 60;
+/** Nota MIDI del extremo grave de la compensación (C2). */
+export const LOUDNESS_LOW_MIDI = 36;
+/** Nota MIDI del extremo agudo de la compensación (C7). */
+export const LOUDNESS_HIGH_MIDI = 96;
+/** Refuerzo en dB en C2 (el oído oye muy poco por debajo de ~100 Hz). */
+export const LOUDNESS_LOW_DB = 9;
+/** Atenuación en dB en C7 (negativa; los agudos resultan molestos). */
+export const LOUDNESS_HIGH_DB = -10;
+/** Cota inferior de `loudnessGain`. */
+export const LOUDNESS_MIN_GAIN = 0.2;
+/** Cota superior de `loudnessGain`. */
+export const LOUDNESS_MAX_GAIN = 4;
+
+/** Nivel relativo del segundo armónico en el registro medio (G4 = 67). */
 export const HARMONIC_GAIN_RATIO = 0.25;
+/** Nivel relativo del segundo armónico en graves (≤ `BASS_MIDI`, ~200 Hz). */
+export const BASS_HARMONIC_GAIN_RATIO = 0.7;
+/** Nivel relativo del segundo armónico en agudos (≥ `TREBLE_MIDI`): casi puros. */
+export const TREBLE_HARMONIC_GAIN_RATIO = 0.05;
+/** Nota MIDI (G3 ≈ 196 Hz) por debajo de la cual la nota es "grave". */
+export const BASS_MIDI = 55;
+/** Nota MIDI del registro medio donde el armónico vale `HARMONIC_GAIN_RATIO`. */
+export const MID_MIDI = 67;
+/** Nota MIDI (C6) a partir de la cual la nota es "aguda y pura". */
+export const TREBLE_MIDI = 84;
+/** Margen de la ganancia maestra (máx. 0,7): `volumen × MASTER_HEADROOM`. */
+export const MASTER_HEADROOM = 0.7;
+/** Umbral del limitador (dB): bajo, para que actúe en acordes densos. */
+export const LIMITER_THRESHOLD_DB = -12;
+/** Rodilla del limitador (dB): 0 = dura. */
+export const LIMITER_KNEE_DB = 0;
+/** Relación de compresión del limitador (alta ≈ limitador). */
+export const LIMITER_RATIO = 20;
+/** Ataque del limitador (s): rápido. */
+export const LIMITER_ATTACK = 0.003;
+/** Liberación del limitador (s). */
+export const LIMITER_RELEASE = 0.1;
+/** Frecuencia (Hz) por debajo de la cual el oscilador principal es diente de sierra. */
+export const SAWTOOTH_BELOW_HZ = 200;
+
+/** Corte del filtro = frecuencia × multiplicador; multiplicador en C2 (grave). */
+export const CUTOFF_MULT_LOW = 6;
+/** Multiplicador del corte en C7 (agudo). Interpolado linealmente por semitonos. */
+export const CUTOFF_MULT_HIGH = 10;
+/** Cota inferior del corte del filtro (Hz). */
+export const CUTOFF_MIN_HZ = 800;
+/** Cota superior del corte del filtro (Hz). */
+export const CUTOFF_MAX_HZ = 8000;
 
 /** Valor positivo mínimo para rampas exponenciales de Web Audio. */
 export const MIN_EXPONENTIAL_GAIN = 0.0001;
@@ -25,6 +82,69 @@ export const MIN_EXPONENTIAL_GAIN = 0.0001;
  */
 export function midiToFrequency(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/**
+ * Ganancia lineal de compensación por nota (1,0 en C4).
+ *
+ * Razón: la sensibilidad del oído depende de la frecuencia (curvas isofónicas,
+ * de las que deriva la ponderación A): a volumen moderado, los graves
+ * (C2 ≈ 65 Hz) se perciben decenas de dB más flojos que los medios, mientras
+ * que la zona de 2–5 kHz es la más sensible y resulta estridente. Se aplica
+ * solo en parte (una fracción de la ponderación A, interpolando linealmente
+ * en dB por semitono) para no deformar la dinámica: +9 dB en C2 y −10 dB en C7.
+ * Queda acotada entre `LOUDNESS_MIN_GAIN` y `LOUDNESS_MAX_GAIN`.
+ */
+export function loudnessGain(midi: number): number {
+  const m = Number.isFinite(midi) ? midi : LOUDNESS_REF_MIDI;
+  let db: number;
+  if (m <= LOUDNESS_REF_MIDI) {
+    const t = (LOUDNESS_REF_MIDI - m) / (LOUDNESS_REF_MIDI - LOUDNESS_LOW_MIDI);
+    db = lerp(0, LOUDNESS_LOW_DB, Math.min(1, t));
+  } else {
+    const t = (m - LOUDNESS_REF_MIDI) / (LOUDNESS_HIGH_MIDI - LOUDNESS_REF_MIDI);
+    db = lerp(0, LOUDNESS_HIGH_DB, Math.min(1, t));
+  }
+  const gain = Math.pow(10, db / 20);
+  return Math.min(LOUDNESS_MAX_GAIN, Math.max(LOUDNESS_MIN_GAIN, gain));
+}
+
+/**
+ * Corte del filtro paso bajo (Hz) según la altura: entre 6 y 10 veces la
+ * frecuencia (crece con la altura), acotado entre 800 y 8000 Hz.
+ */
+export function cutoffHz(midi: number): number {
+  const t = Math.min(
+    1,
+    Math.max(0, (midi - LOUDNESS_LOW_MIDI) / (LOUDNESS_HIGH_MIDI - LOUDNESS_LOW_MIDI)),
+  );
+  const cutoff = midiToFrequency(midi) * lerp(CUTOFF_MULT_LOW, CUTOFF_MULT_HIGH, t);
+  return Math.min(CUTOFF_MAX_HZ, Math.max(CUTOFF_MIN_HZ, cutoff));
+}
+
+/**
+ * Nivel relativo de la 2ª armónica según la altura: más rica en graves (para
+ * que se oigan en altavoces pequeños) y casi pura en agudos.
+ */
+export function harmonicGainRatio(midi: number): number {
+  if (midi <= BASS_MIDI) return BASS_HARMONIC_GAIN_RATIO;
+  if (midi >= TREBLE_MIDI) return TREBLE_HARMONIC_GAIN_RATIO;
+  if (midi <= MID_MIDI) {
+    return lerp(
+      BASS_HARMONIC_GAIN_RATIO,
+      HARMONIC_GAIN_RATIO,
+      (midi - BASS_MIDI) / (MID_MIDI - BASS_MIDI),
+    );
+  }
+  return lerp(
+    HARMONIC_GAIN_RATIO,
+    TREBLE_HARMONIC_GAIN_RATIO,
+    (midi - MID_MIDI) / (TREBLE_MIDI - MID_MIDI),
+  );
 }
 
 /** Subconjunto estructural de AudioParam compatible con Web Audio API y con dobles de prueba. */
@@ -52,6 +172,14 @@ export interface BiquadFilterNodeLike extends AudioNodeLike {
   Q?: AudioParamLike;
 }
 
+export interface DynamicsCompressorNodeLike extends AudioNodeLike {
+  threshold: AudioParamLike;
+  knee: AudioParamLike;
+  ratio: AudioParamLike;
+  attack: AudioParamLike;
+  release: AudioParamLike;
+}
+
 export interface OscillatorNodeLike extends AudioNodeLike {
   type: OscillatorType;
   frequency: AudioParamLike;
@@ -68,6 +196,8 @@ export interface AudioContextLike {
   createOscillator: () => OscillatorNodeLike;
   createGain: () => GainNodeLike;
   createBiquadFilter: () => BiquadFilterNodeLike;
+  /** Opcional: si falta, el motor conecta la ganancia maestra directamente al destino. */
+  createDynamicsCompressor?: () => DynamicsCompressorNodeLike;
 }
 
 export interface PluckOptions {
@@ -116,12 +246,12 @@ export function pluckNote(
     options.duration ?? DEFAULT_NOTE_DURATION,
   );
   const stopTime = startTime + duration;
-  const peakGain = Math.max(MIN_EXPONENTIAL_GAIN, PEAK_GAIN * volume);
+  const peakGain = Math.max(MIN_EXPONENTIAL_GAIN, PEAK_GAIN * volume * loudnessGain(options.midi));
 
   try {
     // 1. Oscilador principal (triangular en la frecuencia fundamental)
     const fundamentalOsc = ctx.createOscillator();
-    fundamentalOsc.type = 'triangle';
+    fundamentalOsc.type = frequency < SAWTOOTH_BELOW_HZ ? 'sawtooth' : 'triangle';
     fundamentalOsc.frequency.value = frequency;
     fundamentalOsc.frequency.setValueAtTime?.(frequency, startTime);
 
@@ -133,13 +263,14 @@ export function pluckNote(
     harmonicOsc.frequency.setValueAtTime?.(harmonicFreq, startTime);
 
     const harmonicGain = ctx.createGain();
-    harmonicGain.gain.value = HARMONIC_GAIN_RATIO;
-    harmonicGain.gain.setValueAtTime?.(HARMONIC_GAIN_RATIO, startTime);
+    const harmonicRatio = harmonicGainRatio(options.midi);
+    harmonicGain.gain.value = harmonicRatio;
+    harmonicGain.gain.setValueAtTime?.(harmonicRatio, startTime);
 
     // 3. Filtro paso bajo para redondear el timbre
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    const cutoff = Math.min(8000, Math.max(900, frequency * 4));
+    const cutoff = cutoffHz(options.midi);
     filter.frequency.value = cutoff;
     filter.frequency.setValueAtTime?.(cutoff, startTime);
     filter.frequency.exponentialRampToValueAtTime?.(Math.max(300, frequency * 1.5), stopTime);
