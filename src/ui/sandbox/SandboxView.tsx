@@ -15,6 +15,7 @@ import {
 } from '../../state';
 import { Fretboard, Piano } from '../instruments';
 import { SandboxInfoPanel } from '../panels';
+import { SandboxContextPickers } from '../pickers';
 import styles from './SandboxView.module.css';
 
 export interface SandboxViewProps {
@@ -140,6 +141,8 @@ export function SandboxView({
           Limpiar
         </button>
       </header>
+
+      <SandboxContextPickers sandboxStore={sandboxStore} settingsStore={settingsStore} />
 
       <div className={styles.workspace}>
         <div className={styles.instruments}>

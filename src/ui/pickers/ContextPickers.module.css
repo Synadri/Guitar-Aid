@@ -1,0 +1,129 @@
+.pickersRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background-color: var(--app-card, #ffffff);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+}
+
+.group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  background-color: var(--app-control-bg, #fcfaf7);
+}
+
+.groupActive {
+  border-color: #c96a1b;
+}
+
+.groupLegend {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-muted, #5c5245);
+  padding: 0 0.25rem;
+}
+
+.controlLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.select {
+  background-color: var(--app-card, #ffffff);
+  color: var(--app-text, #1f1b16);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.applyButton,
+.removeButton,
+.navButton {
+  background-color: var(--app-card, #ffffff);
+  color: var(--app-text, #1f1b16);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.applyButton:hover:not(:disabled),
+.removeButton:hover:not(:disabled),
+.navButton:hover:not(:disabled) {
+  border-color: var(--app-muted, #5c5245);
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voicingBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--app-card, #ffffff);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+}
+
+.voicingBar:focus-visible {
+  outline: 2px solid #c96a1b;
+  outline-offset: 2px;
+}
+
+.chordBadge {
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background-color: var(--app-control-bg, #fcfaf7);
+  border: 1px solid var(--app-border, #d6c8b4);
+}
+
+.voicingIndicator {
+  font-weight: 600;
+}
+
+.voicingShape {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background-color: var(--app-control-bg, #fcfaf7);
+  border: 1px solid var(--app-border, #d6c8b4);
+}
+
+.voicingFamily {
+  color: var(--app-muted, #5c5245);
+  font-weight: 600;
+}
+
+.voicingEmpty {
+  margin: 0;
+  color: var(--app-muted, #5c5245);
+  font-weight: 500;
+}
