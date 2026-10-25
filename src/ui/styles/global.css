@@ -1,0 +1,34 @@
+:root {
+  color-scheme: light dark;
+  --app-bg: #f3efe8;
+  --app-card: #ffffff;
+  --app-border: #d6c8b4;
+  --app-text: #1f1b16;
+  --app-muted: #5c5245;
+  --app-control-bg: #fcfaf7;
+  --fb-bg: #f8f5f0;
+  --fb-text: #2c251d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-bg: #0f0f12;
+    --app-card: #1a1917;
+    --app-border: #3a342c;
+    --app-text: #f4f1ea;
+    --app-muted: #b0a698;
+    --app-control-bg: #26231f;
+    --fb-bg: #18181b;
+    --fb-text: #f4f1ea;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}

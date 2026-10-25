@@ -1,0 +1,158 @@
+.panel {
+  background-color: var(--app-card, #ffffff);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  color: var(--app-text, #1f1b16);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--app-border, #d6c8b4);
+  padding-bottom: 0.6rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.rootControl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background-color: var(--app-control-bg, #fcfaf7);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+}
+
+.rootRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.rootLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.select {
+  background-color: var(--app-card, #ffffff);
+  color: var(--app-text, #1f1b16);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.effectiveRoot {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--app-muted, #5c5245);
+}
+
+.warning {
+  background-color: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.55);
+  color: var(--app-text, #1f1b16);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--app-muted, #5c5245);
+  line-height: 1.4;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--app-text, #1f1b16);
+}
+
+.noteList,
+.chordList,
+.contextToneList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.noteItem,
+.chordItem,
+.contextToneItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  background-color: var(--app-control-bg, #fcfaf7);
+  border: 1px solid var(--app-border, #d6c8b4);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.86rem;
+}
+
+.noteName,
+.chordName,
+.toneName {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.noteDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--app-muted, #5c5245);
+  font-size: 0.82rem;
+}
+
+.chordReasons {
+  color: var(--app-muted, #5c5245);
+  font-size: 0.82rem;
+}
+
+.noChord {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--app-muted, #5c5245);
+  font-style: italic;
+}
+
+.toneMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--app-muted, #5c5245);
+  font-size: 0.82rem;
+}

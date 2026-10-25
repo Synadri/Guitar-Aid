@@ -8,6 +8,7 @@ import {
   intervalName,
   midiInterval,
   midiToName,
+  midiToPositions,
   pcInterval,
   pcName,
   pitchClassOf,
@@ -167,11 +168,15 @@ export function contextInfo(state: InfoState, mode: NameMode = 'sharps'): Contex
 /** Modelo del panel de información (ambas capas; la UI decide cómo mostrarlas). */
 export function infoPanelModel(state: InfoState, mode: NameMode = 'sharps'): InfoPanelModel {
   const active = new Set(state.notes.map((n) => n.midi));
+  const unplayableSet = new Set(state.unplayableMidis.filter((m) => active.has(m)));
+  for (const n of state.notes) {
+    if (midiToPositions(state.tuning, n.midi).length === 0) {
+      unplayableSet.add(n.midi);
+    }
+  }
   return {
     notes: notesInfo(state, mode),
     context: contextInfo(state, mode),
-    unplayableNotes: state.unplayableMidis
-      .filter((m) => active.has(m))
-      .map((m) => midiToName(m, mode)),
+    unplayableNotes: [...unplayableSet].map((m) => midiToName(m, mode)),
   };
 }

@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getTuning, STANDARD_TUNING } from '../../theory';
 import type { FretMark, KeyMark, MarkRole } from '../../state';
 import { Fretboard, Piano } from './index';
-import { Gallery } from '../dev/Gallery';
 
 afterEach(() => {
   cleanup();
@@ -202,43 +201,5 @@ describe('Piano (componente puro)', () => {
       expect(keyEl.getAttribute('data-role')).toBe(mark.role);
       expect(keyEl.textContent).toContain(mark.label);
     }
-  });
-});
-
-describe('Gallery (página de prueba U1)', () => {
-  it('muestra el mástil y el piano con E3 pinned en (5, 7), sus equivalentes y Am7 con A como root, y permite alternar afinación, zurdo y marcas pinned', () => {
-    const { container } = render(<Gallery />);
-
-    // Posición (5, 7) está pinned y sus equivalentes de E3 (como (6, 12) y (4, 2)) son equivalent
-    const pos57 = container.querySelector('[data-string="5"][data-fret="7"]')!;
-    expect(pos57.getAttribute('data-role')).toBe('pinned');
-
-    const pos612 = container.querySelector('[data-string="6"][data-fret="12"]')!;
-    expect(pos612.getAttribute('data-role')).toBe('equivalent');
-
-    // A al aire (5, 0) es root y C (5, 3) es tone (de Am7)
-    const pos50 = container.querySelector('[data-string="5"][data-fret="0"]')!;
-    expect(pos50.getAttribute('data-role')).toBe('root');
-
-    const pos53 = container.querySelector('[data-string="5"][data-fret="3"]')!;
-    expect(pos53.getAttribute('data-role')).toBe('tone');
-
-    // Un clic en una posición añade o quita una marca pinned local
-    const pos12 = container.querySelector('[data-string="1"][data-fret="2"]')!; // F#4
-    expect(pos12.getAttribute('data-role')).toBeNull();
-    fireEvent.click(pos12);
-    expect(pos12.getAttribute('data-role')).toBe('pinned');
-    fireEvent.click(pos12);
-    expect(pos12.getAttribute('data-role')).toBeNull();
-
-    // Cambiar afinación a Drop D actualiza el nombre de la cuerda 6 a D
-    const select = screen.getByLabelText('Afinación');
-    fireEvent.change(select, { target: { value: 'dropD' } });
-    expect(container.querySelector('[data-tuning-string="6"]')?.textContent).toBe('D');
-
-    // Interruptor de zurdo refleja el mástil
-    const checkbox = screen.getByLabelText('Modo zurdo');
-    fireEvent.click(checkbox);
-    expect(screen.getByTestId('fretboard').getAttribute('data-mirrored')).toBe('true');
   });
 });

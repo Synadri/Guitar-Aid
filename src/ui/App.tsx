@@ -1,10 +1,11 @@
+import './styles/global.css';
 import styles from './App.module.css';
-import { Gallery } from './dev/Gallery';
+import { SandboxView } from './sandbox';
 
 export function App() {
   return (
     <main className={styles.app}>
-      <Gallery />
+      <SandboxView />
     </main>
   );
 }

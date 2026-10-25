@@ -113,6 +113,16 @@ function resolveDefaultStorage(): StateStorage {
   return createMemoryStorage();
 }
 
+interface BindingEntry {
+  count: number;
+  dispose: () => void;
+}
+
+const activeBindings = new WeakMap<
+  StoreApi<SettingsStore>,
+  WeakMap<StoreApi<SandboxStore>, BindingEntry>
+>();
+
 /**
  * Conecta bidireccionalmente el store de ajustes (fuente de verdad persistida)
  * con el store del sandbox (estado de selección en memoria).
@@ -122,6 +132,7 @@ function resolveDefaultStorage(): StateStorage {
  * 2. Al cambiar la afinación en ajustes, el sandbox recoloca sus notas automáticamente.
  * 3. Al cambiar la afinación en el sandbox (tests o acciones directas), ajustes persiste el cambio.
  * 4. La UI interactúa con una sola fuente de verdad sin tener que coordinar dos llamadas.
+ * 5. Es idempotente por par `(settings, sandbox)` con recuento de referencias.
  */
 export function bindSettingsToSandbox(
   settings: StoreApi<SettingsStore>,
@@ -134,6 +145,27 @@ export function bindSettingsToSandbox(
   }
   if (sandbox.getState().showAllPositions !== currentSettings.showAllPositions) {
     sandbox.getState().setShowAllPositions(currentSettings.showAllPositions);
+  }
+
+  let bySandbox = activeBindings.get(settings);
+  if (!bySandbox) {
+    bySandbox = new WeakMap();
+    activeBindings.set(settings, bySandbox);
+  }
+
+  let entry = bySandbox.get(sandbox);
+  if (entry) {
+    entry.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      entry!.count -= 1;
+      if (entry!.count <= 0) {
+        bySandbox!.delete(sandbox);
+        entry!.dispose();
+      }
+    };
   }
 
   let lastSettingsTuningId = settings.getState().tuning.id;
@@ -177,9 +209,24 @@ export function bindSettingsToSandbox(
     }
   });
 
+  entry = {
+    count: 1,
+    dispose: () => {
+      unsubSettings();
+      unsubSandbox();
+    },
+  };
+  bySandbox.set(sandbox, entry);
+
+  let released = false;
   return () => {
-    unsubSettings();
-    unsubSandbox();
+    if (released) return;
+    released = true;
+    entry.count -= 1;
+    if (entry.count <= 0) {
+      bySandbox.delete(sandbox);
+      entry.dispose();
+    }
   };
 }
 

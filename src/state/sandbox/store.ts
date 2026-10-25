@@ -140,10 +140,15 @@ export function createSandboxStore(overrides: Partial<SandboxState> = {}): Store
     togglePianoKey: (midi) =>
       set((s) => {
         const exists = s.notes.some((n) => n.midi === midi);
+        const notes: SelectedNote[] = exists
+          ? s.notes.filter((n) => n.midi !== midi)
+          : [...s.notes, { midi, pinned: [], origin: 'piano' }];
+        const unplayableMidis = notes
+          .filter((n) => midiToPositions(s.tuning, n.midi).length === 0)
+          .map((n) => n.midi);
         return {
-          notes: exists
-            ? s.notes.filter((n) => n.midi !== midi)
-            : [...s.notes, { midi, pinned: [], origin: 'piano' }],
+          notes,
+          unplayableMidis,
           focus: 'notes',
         };
       }),
