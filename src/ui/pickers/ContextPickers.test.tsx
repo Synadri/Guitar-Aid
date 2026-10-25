@@ -431,4 +431,87 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     const navigator = screen.getByRole('region', { name: 'Navegador de digitaciones' });
     expect(within(navigator).getByTestId('voicing-chord-name').textContent).toBe('B♭m7');
   });
+
+  it('(k) los desplegables reflejan siempre el contexto activo (menú, sugerencia aplicada o “Quitar”) y tras “Quitar” vuelven a sus valores por defecto, conservando “Aplicar”', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    const chordRoot = screen.getByLabelText<HTMLSelectElement>('Tónica del acorde');
+    const chordQuality = screen.getByLabelText<HTMLSelectElement>('Calidad del acorde');
+    const scaleRoot = screen.getByLabelText<HTMLSelectElement>('Tónica de la escala');
+    const scaleType = screen.getByLabelText<HTMLSelectElement>('Tipo de escala');
+    const applyChordBtn = screen.getByTestId('apply-chord');
+    const applyScaleBtn = screen.getByTestId('apply-scale');
+    const removeBtn = screen.getByRole('button', { name: 'Quitar' });
+
+    // Valores por defecto sin contexto activo: C mayor (0, maj) y C Mayor / Jónico (0, major)
+    expect(chordRoot.value).toBe('0');
+    expect(chordQuality.value).toBe('maj');
+    expect(scaleRoot.value).toBe('0');
+    expect(scaleType.value).toBe('major');
+
+    // 1. Vía menú: elegir D (2) + m7
+    fireEvent.change(chordRoot, { target: { value: '2' } });
+    fireEvent.change(chordQuality, { target: { value: 'm7' } });
+    expect(chordRoot.value).toBe('2');
+    expect(chordQuality.value).toBe('m7');
+    expect(scaleRoot.value).toBe('0');
+    expect(scaleType.value).toBe('major');
+
+    // 2. Vía sugerencia aplicada desde el panel de sugerencias (p. ej. pasar a Escalas y aplicar la primera sugerencia, D Menor natural)
+    const suggestionsPanel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
+    fireEvent.click(within(suggestionsPanel).getByRole('button', { name: 'Escalas' }));
+    const firstScaleSuggestion = within(suggestionsPanel).getAllByTestId('suggestion-button')[0]!;
+    fireEvent.click(firstScaleSuggestion);
+
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'scale',
+      root: 2,
+      type: 'minor',
+    });
+    // Los desplegables de escala reflejan D (2) + minor, y los de acorde vuelven a los valores por defecto (0, maj)
+    expect(scaleRoot.value).toBe('2');
+    expect(scaleType.value).toBe('minor');
+    expect(chordRoot.value).toBe('0');
+    expect(chordQuality.value).toBe('maj');
+
+    // 3. Aplicar una sugerencia de acorde (p. ej. en modo Acordes, aplicar el primer acorde diatónico Dm)
+    fireEvent.click(within(suggestionsPanel).getByRole('button', { name: 'Acordes' }));
+    const firstChordSuggestion = within(suggestionsPanel).getAllByTestId('suggestion-button')[0]!;
+    fireEvent.click(firstChordSuggestion);
+
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'chord',
+      root: 2,
+      quality: 'm',
+    });
+    expect(chordRoot.value).toBe('2');
+    expect(chordQuality.value).toBe('m');
+    expect(scaleRoot.value).toBe('0');
+    expect(scaleType.value).toBe('major');
+
+    // 4. Tras “Quitar”, ambos grupos vuelven a sus valores por defecto
+    fireEvent.click(removeBtn);
+    expect(sandboxStore.getState().context).toBeNull();
+    expect(chordRoot.value).toBe('0');
+    expect(chordQuality.value).toBe('maj');
+    expect(scaleRoot.value).toBe('0');
+    expect(scaleType.value).toBe('major');
+
+    // 5. Los botones “Aplicar” permiten volver a aplicar la selección mostrada tras “Quitar”
+    fireEvent.click(applyChordBtn);
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'chord',
+      root: 0,
+      quality: 'maj',
+    });
+    fireEvent.click(removeBtn);
+    expect(sandboxStore.getState().context).toBeNull();
+    fireEvent.click(applyScaleBtn);
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'scale',
+      root: 0,
+      type: 'major',
+    });
+  });
 });

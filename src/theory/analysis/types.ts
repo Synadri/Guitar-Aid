@@ -24,6 +24,7 @@ export type ReasonCode =
   | 'scaleContainsAllNotes'
   | 'tonicMatches'
   | 'noteRoleInChord'
+  | 'chordExtraNotes'
   | 'scaleContainsNote'
   | 'scaleExtraNotes'
   | 'scaleCommonness'

@@ -27,8 +27,17 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
   },
   scaleContainsAllNotes: (params) => `contiene las ${params?.n ?? 0} notas`,
   tonicMatches: () => 'la tónica coincide',
-  noteRoleInChord: (params) =>
-    `es ${params?.intervalLong ?? 'nota del acorde'} (${params?.degree ?? ''})`,
+  noteRoleInChord: (params) => {
+    const interval =
+      params?.intervalLong ?? params?.interval ?? params?.category ?? 'nota del acorde';
+    const degree = params?.degree ?? params?.role ?? '';
+    return degree ? `es ${interval} (${degree})` : `es ${interval}`;
+  },
+  chordExtraNotes: (params) => {
+    const count = Number(params?.count ?? 0);
+    if (count === 0) return 'sin notas sobrantes';
+    return count === 1 ? '1 nota adicional' : `${count} notas adicionales`;
+  },
   scaleContainsNote: (params) => `contiene la nota (grado ${params?.degree ?? ''})`,
   scaleExtraNotes: (params) => {
     const count = Number(params?.count ?? 0);
@@ -36,10 +45,27 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
     return count === 1 ? '1 nota adicional' : `${count} notas adicionales`;
   },
   scaleCommonness: () => 'escala de uso frecuente',
-  sharedParentScale: () => 'comparte escala madre',
+  sharedParentScale: (params, nameMode) => {
+    if (params?.parentTonic !== undefined) {
+      const parentTonic = Number(params.parentTonic) as PitchClass;
+      return `comparte escala madre (${pcName(parentTonic, nameMode)})`;
+    }
+    return 'comparte escala madre';
+  },
   relativeScale: () => 'escala relativa',
   closeScaleVariant: () => 'variante cercana',
-  appearsInKey: (params) => `grado ${params?.degree ?? ''} en ${params?.key ?? ''}`,
+  appearsInKey: (params, nameMode) => {
+    const degree = params?.degree ?? '';
+    if (params?.key !== undefined && params.key !== '') {
+      return `grado ${degree} en ${params.key}`;
+    }
+    if (params?.tonic !== undefined) {
+      const tonic = Number(params.tonic) as PitchClass;
+      const modeText = params?.mode === 'minor' ? 'menor' : 'mayor';
+      return `grado ${degree} en ${pcName(tonic, nameMode)} ${modeText}`;
+    }
+    return `grado ${degree}`;
+  },
   progressionCommonness: () => 'progresión habitual',
 };
 
@@ -70,4 +96,29 @@ export const INFO_PANEL_TEXTS = {
   warningsHeading: 'Avisos',
   unplayableWarning: (notes: readonly string[]) =>
     `No se puede tocar en esta afinación: ${notes.join(', ')}`,
+} as const;
+
+/** Textos fijos del panel de sugerencias. */
+export const SUGGESTIONS_PANEL_TEXTS = {
+  regionLabel: 'Sugerencias teóricas',
+  heading: 'Sugerencias',
+  modeGroupLabel: 'Modo de sugerencias',
+  chordsModeLabel: 'Acordes',
+  scalesModeLabel: 'Escalas',
+  tabsLabel: 'Capa analizada',
+  notesTabLabel: 'Notas pulsadas',
+  contextTabLabel: 'Menú',
+  emptyPrompt: 'Selecciona una nota, un acorde o una escala para ver sugerencias teóricas.',
+  noSuggestions: 'No hay sugerencias disponibles para esta selección.',
+  chordsListLabel: 'Sugerencias de acordes',
+  scalesListLabel: 'Sugerencias de escalas',
+  scalesOnTonicListLabel: (tonicName: string) => `Escalas con tónica ${tonicName}`,
+  scalesContainingListLabel: (tonicName: string) => `Escalas que contienen ${tonicName}`,
+  progressionsListLabel: 'Progresiones que incluyen el acorde',
+  showMoreButton: 'Ver más',
+  diatonicDegreeReason: (roman: string, scaleName: string) => `grado ${roman} de ${scaleName}`,
+  withinScaleReason: (roman: string, scaleName: string) =>
+    `formado con notas de ${scaleName} (${roman})`,
+  progressionChordReason: (roman: string, keyName: string, templateName: string) =>
+    `grado ${roman} en ${keyName} (${templateName})`,
 } as const;

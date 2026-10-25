@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -54,67 +53,33 @@ export function ContextPickers({
   nameMode = 'sharps',
   onSelectContext,
 }: ContextPickersProps) {
-  const [localChordRoot, setLocalChordRoot] = useState<PitchClass>(
-    context?.kind === 'chord' ? context.root : 0,
-  );
-  const [localChordQuality, setLocalChordQuality] = useState<ChordQualityId>(
-    context?.kind === 'chord' ? context.quality : 'maj',
-  );
-  const [localScaleRoot, setLocalScaleRoot] = useState<PitchClass>(
-    context?.kind === 'scale' ? context.root : 0,
-  );
-  const [localScaleType, setLocalScaleType] = useState<ScaleTypeId>(
-    context?.kind === 'scale' ? context.type : 'major',
-  );
-
-  const displayedChordRoot: PitchClass = context?.kind === 'chord' ? context.root : localChordRoot;
-  const displayedChordQuality: ChordQualityId =
-    context?.kind === 'chord' ? context.quality : localChordQuality;
-  const displayedScaleRoot: PitchClass = context?.kind === 'scale' ? context.root : localScaleRoot;
-  const displayedScaleType: ScaleTypeId = context?.kind === 'scale' ? context.type : localScaleType;
+  const displayedChordRoot: PitchClass = context?.kind === 'chord' ? context.root : 0;
+  const displayedChordQuality: ChordQualityId = context?.kind === 'chord' ? context.quality : 'maj';
+  const displayedScaleRoot: PitchClass = context?.kind === 'scale' ? context.root : 0;
+  const displayedScaleType: ScaleTypeId = context?.kind === 'scale' ? context.type : 'major';
 
   const handleChordRootChange = (root: PitchClass) => {
-    const quality = displayedChordQuality;
-    setLocalChordRoot(root);
-    setLocalChordQuality(quality);
-    onSelectContext({ kind: 'chord', root, quality });
+    onSelectContext({ kind: 'chord', root, quality: displayedChordQuality });
   };
 
   const handleChordQualityChange = (quality: ChordQualityId) => {
-    const root = displayedChordRoot;
-    setLocalChordRoot(root);
-    setLocalChordQuality(quality);
-    onSelectContext({ kind: 'chord', root, quality });
+    onSelectContext({ kind: 'chord', root: displayedChordRoot, quality });
   };
 
   const handleApplyChord = () => {
-    const root = displayedChordRoot;
-    const quality = displayedChordQuality;
-    setLocalChordRoot(root);
-    setLocalChordQuality(quality);
-    onSelectContext({ kind: 'chord', root, quality });
+    onSelectContext({ kind: 'chord', root: displayedChordRoot, quality: displayedChordQuality });
   };
 
   const handleScaleRootChange = (root: PitchClass) => {
-    const type = displayedScaleType;
-    setLocalScaleRoot(root);
-    setLocalScaleType(type);
-    onSelectContext({ kind: 'scale', root, type });
+    onSelectContext({ kind: 'scale', root, type: displayedScaleType });
   };
 
   const handleScaleTypeChange = (type: ScaleTypeId) => {
-    const root = displayedScaleRoot;
-    setLocalScaleRoot(root);
-    setLocalScaleType(type);
-    onSelectContext({ kind: 'scale', root, type });
+    onSelectContext({ kind: 'scale', root: displayedScaleRoot, type });
   };
 
   const handleApplyScale = () => {
-    const root = displayedScaleRoot;
-    const type = displayedScaleType;
-    setLocalScaleRoot(root);
-    setLocalScaleType(type);
-    onSelectContext({ kind: 'scale', root, type });
+    onSelectContext({ kind: 'scale', root: displayedScaleRoot, type: displayedScaleType });
   };
 
   return (

@@ -1,7 +1,9 @@
 import type { Degree, IntervalLongName } from '../core/interval';
+import { pcsToMask, rotateMask } from '../core/pcset';
 import type { NameMode, PitchClass } from '../core/pitch';
 import { pcName } from '../core/spelling';
 import { CHORD_QUALITIES, chordTones } from '../data/chords';
+import { popcount } from '../analysis/scaleUtils';
 import type { Candidate, ChordRef, Reason } from '../analysis/types';
 
 export { scalesContaining, scalesOnTonic } from '../analysis/rankScales';
@@ -21,6 +23,12 @@ export interface ChordContainingMatch {
 
 /** Bonificación (< 1 punto de peso) cuando la nota actúa como fundamental del acorde. */
 export const CHORD_CONTAINING_ROOT_BONUS = 0.5;
+
+/** Constantes de puntuación para `chordsContainingAll`. */
+export const CHORDS_CONTAINING_ALL_SCORING = {
+  ROOT_MATCH_BONUS: 10000,
+  EXTRA_NOTE_PENALTY: 100,
+} as const;
 
 function roleCategory(semitones: number): NoteRoleCategory {
   if (semitones === 0) return 'fundamental';
@@ -101,6 +109,105 @@ export function chordsContaining(
   rows.sort(
     (a, b) =>
       b.weight - a.weight || Number(b.isRoot) - Number(a.isRoot) || a.qi - b.qi || a.root - b.root,
+  );
+
+  return rows.map((r) => r.cand);
+}
+
+/**
+ * Acordes del catálogo (en las 12 raíces) que contienen todas las clases de altura dadas en `pcs`.
+ *
+ * Orden:
+ * 1. la raíz del acorde coincide con `root` (si se proporciona);
+ * 2. menos notas sobrantes en el acorde (`extra = totalTones - presentTones`);
+ * 3. peso de la calidad en el catálogo;
+ * 4. desempate determinista por orden de catálogo y clase de altura de la raíz.
+ *
+ * Devuelve `[]` si `pcs` está vacío o si ningún acorde del catálogo contiene todas las notas.
+ */
+export function chordsContainingAll(
+  pcs: readonly PitchClass[],
+  root?: PitchClass,
+  mode: NameMode = 'sharps',
+): Candidate<ChordRef>[] {
+  const inputMask = pcsToMask(pcs);
+  const n = popcount(inputMask);
+  if (n === 0) return [];
+
+  const rows: {
+    cand: Candidate<ChordRef>;
+    rootMatch: boolean;
+    extra: number;
+    weight: number;
+    qi: number;
+    chordRoot: PitchClass;
+  }[] = [];
+
+  CHORD_QUALITIES.forEach((q, qi) => {
+    for (let r = 0; r < 12; r++) {
+      const chordRoot = r as PitchClass;
+      const chordMask = rotateMask(q.allowedMask, chordRoot);
+      if ((inputMask & chordMask) !== inputMask) continue;
+
+      const totalTones = q.intervals.length;
+      const extra = totalTones - n;
+      const rootMatch = root !== undefined && chordRoot === root;
+
+      const reasons: Reason[] = [{ code: 'containsChordTones', params: { n, of: totalTones } }];
+
+      if (n === 1) {
+        const singlePc = pcs.find((p) => (inputMask & (1 << p)) !== 0)!;
+        const tone = chordTones(chordRoot, q.id, mode).find((t) => t.pc === singlePc);
+        if (tone) {
+          reasons.push({
+            code: 'noteRoleInChord',
+            params: {
+              pc: singlePc,
+              role: tone.degree,
+              degree: tone.degree,
+              category: roleCategory(tone.semitones),
+              interval: tone.intervalLong,
+            },
+          });
+        }
+      }
+
+      if (rootMatch) {
+        reasons.push({ code: 'rootMatches', params: { root: chordRoot } });
+      }
+      reasons.push({ code: 'chordExtraNotes', params: { count: extra } });
+
+      const score =
+        (rootMatch ? CHORDS_CONTAINING_ALL_SCORING.ROOT_MATCH_BONUS : 0) -
+        extra * CHORDS_CONTAINING_ALL_SCORING.EXTRA_NOTE_PENALTY +
+        q.weight;
+
+      rows.push({
+        cand: {
+          value: {
+            root: chordRoot,
+            quality: q.id,
+            name: `${pcName(chordRoot, mode)}${q.symbol}`,
+          },
+          score,
+          reasons,
+        },
+        rootMatch,
+        extra,
+        weight: q.weight,
+        qi,
+        chordRoot,
+      });
+    }
+  });
+
+  rows.sort(
+    (a, b) =>
+      Number(b.rootMatch) - Number(a.rootMatch) ||
+      a.extra - b.extra ||
+      b.weight - a.weight ||
+      a.qi - b.qi ||
+      a.chordRoot - b.chordRoot,
   );
 
   return rows.map((r) => r.cand);

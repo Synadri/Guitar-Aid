@@ -3,7 +3,7 @@ import type { PitchClass } from '../core/pitch';
 import { CHORD_QUALITIES, chordPitchClasses } from '../data/chords';
 import { getProgression, PROGRESSIONS, PROGRESSION_WEIGHTS } from '../data/progressions';
 import type { ScaleRef } from '../analysis/types';
-import { chordsContaining } from './forNote';
+import { chordsContaining, chordsContainingAll } from './forNote';
 import { progressionChords, progressionsFor } from './forChord';
 import { chordsWithinScale, diatonicChords, relatedScales } from './forScale';
 
@@ -87,6 +87,71 @@ describe('chordsContaining', () => {
       .filter((c) => weightOf(c.value.chord.quality) === 88)
       .map((c) => c.value.chord.name);
     expect(w88.slice(0, 2)).toEqual(['Cm7', 'C6']);
+  });
+});
+
+describe('chordsContainingAll', () => {
+  const E = 4 as PitchClass;
+
+  it('C+E incluye C, Cmaj7, Am, C6, Am7 y Fmaj7 y no incluye Em', () => {
+    const res = chordsContainingAll([C, E], C);
+    const names = res.map((c) => c.value.name);
+    expect(names).toEqual(expect.arrayContaining(['C', 'Cmaj7', 'Am', 'C6', 'Am7', 'Fmaj7']));
+    expect(names).not.toContain('Em');
+    for (const c of res) {
+      const pcs = chordPitchClasses(c.value.root, c.value.quality);
+      expect(pcs).toContain(C);
+      expect(pcs).toContain(E);
+      expect(codes(c)).toContain('containsChordTones');
+      expect(codes(c)).toContain('chordExtraNotes');
+    }
+  });
+
+  it('el orden pone primero la raíz coincidente, luego menos notas sobrantes y luego el peso de la calidad', () => {
+    // Sin raíz explícita: menos notas sobrantes (tríadas de 3 notas → 1 sobrante) antes que cuatríadas (2 sobrantes) y novenas (3 sobrantes)
+    const withoutRoot = chordsContainingAll([C, E]);
+    const extraOf = (q: string) => CHORD_QUALITIES.find((x) => x.id === q)!.intervals.length - 2;
+    const weightOf = (q: string) => CHORD_QUALITIES.find((x) => x.id === q)!.weight;
+
+    for (let i = 1; i < withoutRoot.length; i++) {
+      const prev = withoutRoot[i - 1]!.value;
+      const curr = withoutRoot[i]!.value;
+      const ePrev = extraOf(prev.quality);
+      const eCurr = extraOf(curr.quality);
+      expect(ePrev).toBeLessThanOrEqual(eCurr);
+      if (ePrev === eCurr) {
+        expect(weightOf(prev.quality)).toBeGreaterThanOrEqual(weightOf(curr.quality));
+      }
+    }
+
+    // Con raíz C: primero los acordes con raíz C (ordenados por menos sobrantes: C y Caug antes que C7/Cmaj7/C6, y estos antes que C9), luego el resto también por menos sobrantes
+    const withRoot = chordsContainingAll([C, E], C);
+    expect(withRoot[0]!.value.name).toBe('C');
+    const cRootNames = withRoot.filter((c) => c.value.root === C).map((c) => c.value.name);
+    expect(cRootNames).toEqual(['C', 'Caug', 'C7', 'Cmaj7', 'C6', 'C9']);
+    expect(withRoot.slice(0, cRootNames.length).map((c) => c.value.name)).toEqual(cRootNames);
+
+    const nonRoot = withRoot.slice(cRootNames.length);
+    for (let i = 1; i < nonRoot.length; i++) {
+      expect(extraOf(nonRoot[i - 1]!.value.quality)).toBeLessThanOrEqual(
+        extraOf(nonRoot[i]!.value.quality),
+      );
+    }
+  });
+
+  it('una sola nota da el mismo conjunto de acordes que chordsContaining', () => {
+    const fromSingle = chordsContaining(C).map(
+      (c) => `${c.value.chord.root}:${c.value.chord.quality}`,
+    );
+    const fromAll = chordsContainingAll([C]).map((c) => `${c.value.root}:${c.value.quality}`);
+    expect(new Set(fromAll)).toEqual(new Set(fromSingle));
+    expect(fromAll).toHaveLength(fromSingle.length);
+  });
+
+  it('pcs sin ningún acorde (o vacío) → []', () => {
+    // Cluster cromático de 4 semitonos seguidos: ningún acorde del catálogo los contiene todos
+    expect(chordsContainingAll([0, 1, 2, 3] as PitchClass[])).toEqual([]);
+    expect(chordsContainingAll([])).toEqual([]);
   });
 });
 

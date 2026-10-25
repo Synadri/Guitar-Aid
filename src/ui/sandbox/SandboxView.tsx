@@ -14,7 +14,7 @@ import {
   type SettingsStore,
 } from '../../state';
 import { Fretboard, Piano } from '../instruments';
-import { SandboxInfoPanel } from '../panels';
+import { SandboxInfoPanel, SandboxSuggestionsPanel } from '../panels';
 import { SandboxContextPickers } from '../pickers';
 import styles from './SandboxView.module.css';
 
@@ -165,6 +165,7 @@ export function SandboxView({
 
         <aside className={styles.sidePanel}>
           <SandboxInfoPanel sandboxStore={sandboxStore} settingsStore={settingsStore} />
+          <SandboxSuggestionsPanel sandboxStore={sandboxStore} settingsStore={settingsStore} />
         </aside>
       </div>
     </div>
