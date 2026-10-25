@@ -254,6 +254,56 @@ describe('sujeto de las sugerencias', () => {
 });
 
 describe('cambio de afinación', () => {
+  it('test de ida y vuelta: fijar E3 en estándar, pasar a Drop D, volver a estándar y comprobar que la posición original se conserva', () => {
+    const { get } = fresh();
+    // Fijamos E3 en cuerda 5 traste 7 (criterio 1) y en cuerda 6 traste 12
+    get().toggleFretPosition(pos(5, 7));
+    get().toggleFretPosition(pos(6, 12));
+    expect(get().notes[0]!.pinned).toEqual([pos(5, 7), pos(6, 12)]);
+
+    // Pasar a Drop D: la 5ª cuerda no cambia; en la 6ª pasa al traste 14
+    get().setTuning(dropD);
+    expect(get().tuning.id).toBe('dropD');
+    expect(get().notes[0]!.pinned).toEqual([pos(5, 7), pos(6, 14)]);
+
+    // Volver a estándar: ambas posiciones vuelven exactamente a la posición original
+    get().setTuning(STANDARD_TUNING);
+    expect(get().tuning.id).toBe('standard');
+    expect(get().notes[0]!.pinned).toEqual([pos(5, 7), pos(6, 12)]);
+  });
+
+  it('test de la nota imposible: una nota que no existe en la nueva afinación sigue en pianoMarks y aparece en unplayableNotes', () => {
+    const { get } = fresh();
+    // En Drop D la cuerda 6 es D2 (MIDI 38). C2 (MIDI 36) no existe en ninguna afinación de guitarra.
+    get().setTuning(dropD);
+    get().toggleFretPosition(pos(6, 0)); // D2 fijada en mástil (traste 0 de cuerda 6)
+    get().togglePianoKey(midi('C2')); // C2 desde piano
+
+    // Pasar a estándar (la nota más grave del mástil es E2 = 40): D2 y C2 son imposibles
+    get().setTuning(STANDARD_TUNING);
+
+    // 1. Aparece en unplayableNotes
+    const model = infoPanelModel(get());
+    expect(model.unplayableNotes).toEqual(expect.arrayContaining(['D2', 'C2']));
+
+    // 2. Sigue presente en pianoMarks
+    const pMarks = pianoMarks(get());
+    expect(pMarks.find((m) => m.midi === midi('D2'))).toMatchObject({
+      midi: midi('D2'),
+      role: 'tone',
+      label: 'D',
+    });
+    expect(pMarks.find((m) => m.midi === midi('C2'))).toMatchObject({
+      midi: midi('C2'),
+      role: 'tone',
+      label: 'C',
+    });
+
+    // 3. En el mástil no queda ninguna posición (D2 perdió su traste al pasar a estándar)
+    const fbMarks = fretboardMarks(get());
+    expect(fbMarks.some((m) => m.label === 'D' || m.label === 'C')).toBe(false);
+  });
+
   it('criterio 7: Drop D mantiene las notas y recoloca las posiciones fijadas', () => {
     const { get } = fresh();
     get().toggleFretPosition(pos(6, 5)); // A2

@@ -154,6 +154,18 @@ Tres capas: `src/theory` (TS puro), `src/state` (depende solo de theory) y `src/
 - **Cambio de afinación:** se usa `relocatePosition` para cada posición fijada (se eliminan duplicados). Las notas sin ninguna posición en la nueva afinación se conservan (siguen en el piano) y se listan en `unplayableMidis` para el aviso (`infoPanelModel().unplayableNotes`, solo las que siguen seleccionadas).
 - **Criterios cubiertos en estado:** 1, 2 y 7 (más 3–6 vía selectores) en `state/sandbox/sandbox.test.ts`.
 
+## 2026-10-25 — Hito S2: ajustes persistidos y única fuente de verdad
+
+- **Store (`state/settings/store.ts`):** Zustand vanilla con middleware `persist` (`createJSONStorage`), fábrica `createSettingsStore(options)` (almacenamiento en memoria para tests aislados) y singleton `settingsStore`. Incluye todos los ajustes de Requisitos §6.7: `tuning` (`STANDARD_TUNING`), `orientation` (`'horizontal'`), `visibleInstruments` (`{ fretboard: true, piano: true }`), `leftHanded` (`false`), `nameMode` (`'sharps'`), `labels` (`'note'`), `suggestionsMode` (`'chords'`), `volume` (`0.8`, acotado a `0..1`), `soundEnabled` (`true`) y `showAllPositions` (`true`).
+- **Serialización limpia y defensiva (`partialize` / `merge`):** se serializan solo los ajustes (`PersistedSettings`), nunca funciones ni selecciones transitorias (`notes`, `context`, `preview`, `rootOverride`, `voicingIndex`), cumpliendo "la selección no se guarda". `tuning` se persiste como `tuningId: string` y al rehidratar se resuelve con `getTuning(id) ?? STANDARD_TUNING`. Si storage contiene datos corruptos o antiguos, se aplican fallbacks seguros (p. ej. si ambos instrumentos estaban en `false`, se restablecen a `true`).
+- **Única fuente de verdad (`bindSettingsToSandbox`):** `settingsStore` es la fuente de verdad canónica de las preferencias y la persistencia. Se descarta la idea original de S1 ("la UI llamará a `setTuning` al cargar y al cambiar"). La conexión automática entre ambos stores asegura que:
+  1. Al arrancar o rehidratar de storage, `sandboxStore` adopta de inmediato la afinación y `showAllPositions` guardados.
+  2. Al cambiar la afinación en `settingsStore`, `sandboxStore` actualiza su afinación y recoloca automáticamente las notas fijadas (`relocatePosition`), actualiza `unplayableMidis` y reinicia `voicingIndex`.
+  3. Al cambiar la afinación en `sandboxStore`, `settingsStore` actualiza y persiste el cambio.
+  4. La sincronización usa guardas de ID que previenen llamadas redundantes y bucles infinitos.
+  5. La UI solo necesita interactuar con `settingsStore` para los ajustes.
+- **Criterios cubiertos:** criterio 8 (persistencia de orientación, instrumentos visibles y afinación al recargar) en `state/settings/settings.test.ts`.
+
 ## Ideas posteriores (fuera de la Fase 1)
 
 - **Voicings agudos en las 3 primeras cuerdas (tríadas en cuerdas 1–3 e inversiones):**
