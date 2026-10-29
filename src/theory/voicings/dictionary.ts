@@ -10,6 +10,7 @@ import {
   type OpenVoicingShape,
   type SixStringFrets,
   type VoicingFamily,
+  type VoicingInversion,
 } from '../data/voicings/standard';
 import { type FretPosition, type StringNumber, positionToMidi } from '../fretboard';
 import {
@@ -31,8 +32,10 @@ export interface Voicing {
   root: PitchClass;
   /** Calidad del acorde. */
   quality: ChordQualityId;
-  /** Familia del voicing ('open', 'barre-E', 'barre-A'). */
+  /** Familia del voicing ('open', 'barre-E', 'barre-A', 'strings-1-4', 'strings-1-3'). */
   family: VoicingFamily;
+  /** Inversión del voicing ('root', '1st', '2nd', '3rd'). */
+  inversion: VoicingInversion;
   /** Cuerda de referencia de la raíz (6 = más grave, 1 = más aguda). */
   rootString: StringNumber;
   /** Trastes absolutos de la cuerda 6 a la 1 ('x' = muteada, 0 = al aire). */
@@ -109,6 +112,7 @@ function buildVoicing(
     root: PitchClass;
     quality: ChordQualityId;
     family: VoicingFamily;
+    inversion?: VoicingInversion;
     rootString: StringNumber;
     frets: SixStringFrets;
   },
@@ -129,6 +133,7 @@ function buildVoicing(
 
   return {
     ...meta,
+    inversion: meta.inversion ?? 'root',
     positions,
     midis,
     fingers: requiredFingers(meta.frets),
@@ -146,6 +151,7 @@ export function resolveOpenShape(
       root: shape.root,
       quality: shape.quality,
       family: shape.family,
+      inversion: shape.inversion ?? 'root',
       rootString: shape.rootString,
       frets: shape.frets,
     },
@@ -154,9 +160,9 @@ export function resolveOpenShape(
 }
 
 /**
- * Transpone una forma móvil de cejilla a la raíz `root` en la afinación indicada.
- * El traste de la raíz se sitúa en la primera posición del mástil donde todas las
- * cuerdas pulsadas quedan en traste >= 1 (cejilla real, sin solaparse con la cejuela al aire).
+ * Transpone una forma móvil a la raíz `root` en la afinación indicada.
+ * Para cejillas (barre-E y barre-A), las cuerdas pulsadas se sitúan en traste >= 1.
+ * Para cuerdas 1–4 y 1–3, se permiten posiciones en traste >= 0.
  */
 export function resolveMovableShape(
   shape: MovableVoicingShape,
@@ -169,7 +175,8 @@ export function resolveMovableShape(
 
   const numericOffsets = shape.frets.filter((f): f is number => typeof f === 'number');
   const minOffset = Math.min(...numericOffsets);
-  const rootFret = baseFret + minOffset >= 1 ? baseFret : baseFret + 12;
+  const minAllowedFret = shape.family === 'barre-E' || shape.family === 'barre-A' ? 1 : 0;
+  const rootFret = baseFret + minOffset >= minAllowedFret ? baseFret : baseFret + 12;
 
   const resolvedFrets = shape.frets.map((f): FretValue =>
     typeof f === 'number' ? rootFret + f : 'x',
@@ -181,12 +188,21 @@ export function resolveMovableShape(
       root,
       quality: shape.quality,
       family: shape.family,
+      inversion: shape.inversion ?? 'root',
       rootString: shape.rootString,
       frets: resolvedFrets,
     },
     tuning,
   );
 }
+
+const FAMILY_ORDER: Readonly<Record<VoicingFamily, number>> = {
+  open: 0,
+  'barre-E': 1,
+  'barre-A': 1,
+  'strings-1-4': 2,
+  'strings-1-3': 3,
+};
 
 function standardVoicingsForChord(root: PitchClass, quality: ChordQualityId): Voicing[] {
   const openVoicings = OPEN_VOICING_SHAPES.filter(
@@ -196,6 +212,8 @@ function standardVoicingsForChord(root: PitchClass, quality: ChordQualityId): Vo
   const movableVoicings = MOVABLE_VOICING_SHAPES.filter((s) => s.quality === quality)
     .map((s) => resolveMovableShape(s, root, STANDARD_TUNING))
     .sort((a, b) => {
+      const famDiff = FAMILY_ORDER[a.family] - FAMILY_ORDER[b.family];
+      if (famDiff !== 0) return famDiff;
       const diff = minFrettedFret(a.frets) - minFrettedFret(b.frets);
       if (diff !== 0) return diff;
       return b.rootString - a.rootString;
@@ -374,13 +392,13 @@ export function formatChordName(
 
 /**
  * Genera el contenido completo de `docs/voicings.md` con todas las formas abiertas y móviles
- * como tablatura y la lista completa de voicings para los 144 acordes del catálogo.
+ * como tablatura y la lista completa de voicings para los 228 acordes del catálogo.
  */
 export function generateVoicingsMarkdown(): string {
   const lines: string[] = [
-    '# Catálogo de Voicings — Afinación Estándar (T4a)',
+    '# Catálogo de Voicings — Afinación Estándar (Fase 1.1)',
     '',
-    'Generado automáticamente con `pnpm voicings:print`. Incluye todas las formas abiertas (`open`) y de cejilla (`barre-E`, `barre-A`) para las 12 calidades del catálogo.',
+    'Generado automáticamente con `pnpm voicings:print`. Incluye todas las formas abiertas (`open`), de cejilla (`barre-E`, `barre-A`), cuerdas 1–4 (`strings-1-4`) y cuerdas 1–3 (`strings-1-3`) para las 19 calidades del catálogo.',
     '',
     '## 1. Plantillas por calidad (con tablatura)',
     '',
@@ -416,7 +434,7 @@ export function generateVoicingsMarkdown(): string {
     lines.push('');
   }
 
-  lines.push('## 2. Lista completa por acorde (12 calidades × 12 raíces)');
+  lines.push('## 2. Lista completa por acorde (19 calidades × 12 raíces = 228 acordes)');
   lines.push('');
 
   for (const quality of CHORD_QUALITIES) {

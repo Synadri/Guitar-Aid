@@ -5,6 +5,7 @@ import {
   type NameMode,
   type Voicing,
   type VoicingFamily,
+  type VoicingInversion,
 } from '../../theory';
 import type { MenuContext } from '../../state';
 import styles from './ContextPickers.module.css';
@@ -13,6 +14,15 @@ export const VOICING_FAMILY_LABELS: Readonly<Record<VoicingFamily, string>> = {
   open: 'abierta',
   'barre-E': 'cejilla en 6ª',
   'barre-A': 'cejilla en 5ª',
+  'strings-1-4': '4 cuerdas (1–4)',
+  'strings-1-3': '3 cuerdas (1–3)',
+};
+
+export const VOICING_INVERSION_LABELS: Readonly<Record<VoicingInversion, string>> = {
+  root: 'fundamental',
+  '1st': '1ª inversión',
+  '2nd': '2ª inversión',
+  '3rd': '3ª inversión',
 };
 
 export const EMPTY_VOICINGS_MESSAGE =
@@ -20,6 +30,10 @@ export const EMPTY_VOICINGS_MESSAGE =
 
 export function formatVoicingFamily(family: VoicingFamily): string {
   return VOICING_FAMILY_LABELS[family];
+}
+
+export function formatVoicingInversion(inversion: VoicingInversion): string {
+  return VOICING_INVERSION_LABELS[inversion];
 }
 
 export interface VoicingNavigatorProps {

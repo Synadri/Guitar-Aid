@@ -2,7 +2,11 @@ import { pcsToMask } from '../core/pcset';
 import { type PitchClass, pitchClassOf } from '../core/pitch';
 import { getChordQuality } from '../data/chords';
 import { STANDARD_TUNING, type Tuning } from '../data/tunings';
-import type { FretValue, SixStringFrets } from '../data/voicings/standard';
+import {
+  type FretValue,
+  type SixStringFrets,
+  inversionBassPitchClass,
+} from '../data/voicings/standard';
 import { DEFAULT_FRETS, type FretPosition, type StringNumber, positionToMidi } from '../fretboard';
 import { type Voicing, requiredFingers, voicingFretSpan } from './dictionary';
 
@@ -80,13 +84,21 @@ export function isValidVoicing(voicing: Voicing, tuning: Tuning = STANDARD_TUNIN
   if ((relMask & ~quality.allowedMask) !== 0) return false;
 
   const lowestMidi = Math.min(...realMidis);
-  if (pitchClassOf(lowestMidi) !== voicing.root) return false;
+  const lowestPc = pitchClassOf(lowestMidi);
+  const inversion = voicing.inversion ?? 'root';
+  if (inversion === 'root') {
+    if (lowestPc !== voicing.root) return false;
+  } else {
+    if (!realMidis.some((m) => pitchClassOf(m) === voicing.root)) return false;
+    const expectedPc = inversionBassPitchClass(voicing.root, voicing.quality, inversion);
+    if (lowestPc !== expectedPc) return false;
+  }
 
   if (voicingFretSpan(voicing.frets) > 4) return false;
 
   const fingers = requiredFingers(voicing.frets);
   if (voicing.fingers !== fingers) return false;
-  if (fingers < 1 || fingers > 4) return false;
+  if (fingers < 0 || fingers > 4) return false;
 
   return true;
 }

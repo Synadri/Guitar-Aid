@@ -7,6 +7,7 @@ import {
   MOVABLE_VOICING_SHAPES,
   OPEN_VOICING_SHAPES,
   STANDARD_VOICING_SHAPES,
+  inversionBassPitchClass,
 } from '../data/voicings/standard';
 import { DEFAULT_FRETS, type StringNumber, positionToMidi } from '../fretboard';
 import { uniformSemitoneShift } from './adapt';
@@ -58,9 +59,16 @@ function verifyVoicingIntegrity(voicing: Voicing, tuning: Tuning = STANDARD_TUNI
     `${voicing.id} (root=${voicing.root}) contiene notas ajenas al acorde`,
   ).toBe(0);
 
-  // 3. La nota más grave que suena es la raíz del acorde.
+  // 3. Nota más grave según inversión:
   const lowestMidi = Math.min(...realMidis);
-  expect(pitchClassOf(lowestMidi)).toBe(voicing.root);
+  const lowestPc = pitchClassOf(lowestMidi);
+  if (voicing.inversion === 'root') {
+    expect(lowestPc).toBe(voicing.root);
+  } else {
+    expect(realMidis.some((m) => pitchClassOf(m) === voicing.root)).toBe(true);
+    const expectedPc = inversionBassPitchClass(voicing.root, voicing.quality, voicing.inversion);
+    expect(lowestPc).toBe(expectedPc);
+  }
 
   // 4. Abarca como máximo 4 trastes.
   const span = voicingFretSpan(voicing.frets);
@@ -72,7 +80,7 @@ function verifyVoicingIntegrity(voicing: Voicing, tuning: Tuning = STANDARD_TUNI
   // 5. Digitación coherente calculada desde los trastes: como máximo 4 dedos (cejilla = 1).
   const fingers = requiredFingers(voicing.frets);
   expect(voicing.fingers).toBe(fingers);
-  expect(fingers).toBeGreaterThanOrEqual(1);
+  expect(fingers).toBeGreaterThanOrEqual(0);
   expect(
     fingers,
     `${voicing.id} (root=${voicing.root}) requiere ${fingers} dedos (> 4)`,
@@ -116,10 +124,17 @@ describe('voicings/dictionary — integridad con positionToMidi y cobertura de l
     for (const shape of MOVABLE_VOICING_SHAPES) {
       for (const root of ALL_ROOTS) {
         const voicing = resolveMovableShape(shape, root);
-        // Toda forma de cejilla transpuesta tiene sus cuerdas pulsadas en traste >= 1
-        for (const f of voicing.frets) {
-          if (typeof f === 'number') {
-            expect(f).toBeGreaterThanOrEqual(1);
+        if (shape.family === 'barre-E' || shape.family === 'barre-A') {
+          for (const f of voicing.frets) {
+            if (typeof f === 'number') {
+              expect(f).toBeGreaterThanOrEqual(1);
+            }
+          }
+        } else {
+          for (const f of voicing.frets) {
+            if (typeof f === 'number') {
+              expect(f).toBeGreaterThanOrEqual(0);
+            }
           }
         }
         verifyVoicingIntegrity(voicing);
@@ -141,6 +156,40 @@ describe('voicings/dictionary — integridad con positionToMidi y cobertura de l
         }
       }
     }
+  });
+
+  it('criterio (i): C mayor en cuerdas 1–3 incluye fundamental xxx553, 1ª inversión xxx988 y 2ª inversión xxx010', () => {
+    const voicings = voicingsForChord(0, 'maj');
+    const strings13 = voicings.filter((v) => v.family === 'strings-1-3');
+    const compacts = strings13.map((v) => formatCompactFrets(v.frets));
+
+    expect(compacts).toContain('xxx553');
+    expect(compacts).toContain('xxx988');
+    expect(compacts).toContain('xxx010');
+
+    const rootVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx553')!;
+    expect(rootVoicing.inversion).toBe('root');
+    expect(rootVoicing.rootString).toBe(3);
+
+    const firstInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx988')!;
+    expect(firstInvVoicing.inversion).toBe('1st');
+    expect(firstInvVoicing.rootString).toBe(1);
+
+    const secondInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx010')!;
+    expect(secondInvVoicing.inversion).toBe('2nd');
+    expect(secondInvVoicing.rootString).toBe(2);
+  });
+
+  it('las formas de cuerdas 1–4 incluyen posiciones fundamentales y Drop 2 en inversiones válidas', () => {
+    const cMaj7Voicings = voicingsForChord(0, 'maj7').filter((v) => v.family === 'strings-1-4');
+    expect(cMaj7Voicings.length).toBeGreaterThanOrEqual(3);
+
+    const cMaj7Compacts = cMaj7Voicings.map((v) => formatCompactFrets(v.frets));
+    // Fundamental (x-x-10-12-12-12), 1ª inv (xx2413), 2ª inv (xx5557), 3ª inv (xx9988)
+    expect(cMaj7Compacts).toContain('x-x-10-12-12-12');
+    expect(cMaj7Compacts).toContain('xx2413');
+    expect(cMaj7Compacts).toContain('xx5557');
+    expect(cMaj7Compacts).toContain('xx9988');
   });
 });
 

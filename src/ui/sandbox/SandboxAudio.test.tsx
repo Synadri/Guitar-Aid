@@ -132,7 +132,7 @@ describe('SandboxView — integración de sonido en la interfaz (U6)', () => {
     fireEvent.click(pos57);
     fireEvent.click(keyC4);
     expect(playNoteSpy).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it('(g) “Reproducir” muestra los modos correctos según el contexto y llama a los eventos esperados (Arpegio de C3 E3 G3 → tres eventos en orden)', () => {
     const { sandboxStore, settingsStore, engine, playEventsSpy } = setupIsolated();

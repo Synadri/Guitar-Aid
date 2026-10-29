@@ -347,3 +347,33 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
     - `byProximity`: variantes cercanas en la misma tónica con diferencia de 1 o 2 notas respecto a la escala seleccionada (`added + removed <= 2`), ordenadas por cercanía modal y popularidad en el catálogo.
 - **Verificación y tests:**
   - Añadidos tests unitarios exhaustivos en `src/theory/suggestions/suggestions.test.ts` y tests de aceptación en `src/theory/acceptance.test.ts`, validando los criterios `(b)`, `(c)`, `(d)` y `(j)` de la Fase 1.1 sin regresiones en los 250 tests del proyecto.
+
+## 2026-10-29 — Hito H3 (Fase 1.1): Voicings en las cuerdas 1–3 y 1–4 e Inversiones
+
+- **Ampliación del catálogo de familias e inversiones (`src/theory/data/voicings/standard.ts`):**
+  - Se amplía el tipo `VoicingFamily` a `'open' | 'barre-E' | 'barre-A' | 'strings-1-4' | 'strings-1-3'`.
+  - Se introduce el tipo `VoicingInversion = 'root' | '1st' | '2nd' | '3rd'` para etiquetar de manera unívoca la función armónica de la nota más grave del acorde.
+  - Se añade la función `inversionBassPitchClass(root, qualityId, inversion)` que determina la clase de altura exacta que debe ocupar el bajo para cada combinación de calidad e inversión (1ª inversión $\to$ 3ª/2ª/4ª, 2ª inversión $\to$ 5ª/♭5/♯5, 3ª inversión $\to$ 7ª/6ª/9ª).
+- **Catálogo de tríadas cerradas en cuerdas 1–3 (`strings-1-3: G–B–E`):**
+  - Tríadas completas en las 3 posiciones clave a lo largo del mástil para las 6 calidades de tríadas (`maj`, `m`, `dim`, `aug`, `sus2`, `sus4`):
+    - Posición fundamental (`inversion: 'root'`): raíz en 3ª cuerda (`rootString: 3`). Para C mayor: `xxx553` (C4, E4, G4).
+    - 1ª inversión (`inversion: '1st'`): 3ª en el bajo en 3ª cuerda, fundamental en 1ª cuerda (`rootString: 1`). Para C mayor: `xxx988` (E4, G4, C5).
+    - 2ª inversión (`inversion: '2nd'`): 5ª en el bajo en 3ª cuerda, fundamental en 2ª cuerda (`rootString: 2`). Para C mayor: `xxx010` (G3, C4, E4), verificando con precisión el Criterio (i).
+- **Catálogo de Drop 2 y cuerdas 1–4 (`strings-1-4: D–G–B–E`):**
+  - Posición fundamental y Drop 2 en 1ª, 2ª y 3ª inversión para las cuatríadas y extensiones (`maj`, `m`, `7`, `maj7`, `m7`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `add9`, `madd9`, `6`, `m6`, `9`):
+    - Posición fundamental con raíz en 4ª cuerda (`rootString: 4`).
+    - 1ª inversión (Drop 2 con 3ª en 4ª cuerda, fundamental en 2ª cuerda, p. ej. `Cmaj7` `xx2413`).
+    - 2ª inversión (Drop 2 con 5ª en 4ª cuerda, fundamental en 3ª cuerda, p. ej. `Cmaj7` `xx5557`).
+    - 3ª inversión (Drop 2 con 7ª en 4ª cuerda, fundamental en 1ª cuerda, p. ej. `Cmaj7` `xx9988`).
+- **Resolución de formas móviles con trastes al aire en cuerdas agudas (`resolveMovableShape`):**
+  - Para las formas de cejilla (`barre-E` y `barre-A`), se mantiene la restricción de traste mínimo $\ge 1$ para evitar duplicar las formas abiertas al aire (`open`).
+  - Para las nuevas familias móviles (`strings-1-4` y `strings-1-3`), se ajusta `minAllowedFret = 0`. Esto permite que digitaciones como la 2ª inversión de C mayor resuelvan en la posición abierta canónica `xxx010` sin forzarse artificialmente al traste 12 (`xxx-12-13-12`), cumpliendo estrictamente el Criterio (i).
+- **Validación de integridad para inversiones (`isValidVoicing` y `verifyVoicingIntegrity`):**
+  - Si `inversion === 'root'`, se exige que la nota MIDI más grave sea la fundamental (`pc === root`).
+  - Si `inversion !== 'root'`, se exige que la nota MIDI más grave coincida con `inversionBassPitchClass` y que la fundamental esté presente en el acorde (recibiendo `role: 'root'` en mástil y piano a través de `marks.ts`).
+  - Se permite `fingers === 0` cuando todas las cuerdas tocadas suenan al aire (como en `xxx000` para Mi menor en 1ª inversión en cuerdas 1–3).
+- **Prioridad de ordenación de voicings (`standardVoicingsForChord`):**
+  - Se ordenan por familias: `open` (0) $\to$ `barre-E` / `barre-A` (1) $\to$ `strings-1-4` (2) $\to$ `strings-1-3` (3), y dentro de cada familia por traste mínimo más grave y cuerda de la raíz. Esto mantiene intacta la experiencia de navegación del usuario y la compatibilidad con los tests existentes.
+- **Regeneración documental y verificación:**
+  - Se añade el test explícito de aceptación del Criterio (i) en `src/theory/acceptance.test.ts` y tests exhaustivos de integridad en `src/theory/voicings/dictionary.test.ts`.
+  - Se regenera `docs/voicings.md` con `pnpm voicings:print`, alcanzando un catálogo completo con todas las familias y 253 tests pasando al 100%.

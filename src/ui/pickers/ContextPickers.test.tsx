@@ -51,9 +51,10 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     fireEvent.change(chordQualitySelect, { target: { value: 'm7' } });
 
     // Navegador de voicings muestra la primera digitación: x02010 (abierta)
+    const total = voicingsForChord(9, 'm7').length;
     const navigator = screen.getByRole('region', { name: 'Navegador de digitaciones' });
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 1 de 3',
+      `Digitación 1 de ${total}`,
     );
     expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('abierta');
@@ -113,13 +114,14 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     fireEvent.change(screen.getByLabelText('Tónica del acorde'), { target: { value: '9' } });
     fireEvent.change(screen.getByLabelText('Calidad del acorde'), { target: { value: 'm7' } });
 
+    const total = voicingsForChord(9, 'm7').length;
     const navigator = screen.getByRole('region', { name: 'Navegador de digitaciones' });
     const prevBtn = within(navigator).getByRole('button', { name: 'Anterior' });
     const nextBtn = within(navigator).getByRole('button', { name: 'Siguiente' });
 
-    // Digitación 1 de 3: x02010 (abierta)
+    // Digitación 1: x02010 (abierta)
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 1 de 3',
+      `Digitación 1 de ${total}`,
     );
     expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('abierta');
@@ -127,10 +129,10 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
       container.querySelector('[data-string="5"][data-fret="0"]')?.getAttribute('data-role'),
     ).toBe('root');
 
-    // Siguiente → Digitación 2 de 3: 575555 (cejilla en 6ª)
+    // Siguiente → Digitación 2: 575555 (cejilla en 6ª)
     fireEvent.click(nextBtn);
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 2 de 3',
+      `Digitación 2 de ${total}`,
     );
     expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('575555');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('cejilla en 6ª');
@@ -142,10 +144,10 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     ).toBe('root');
     expect(container.querySelectorAll('[data-string][data-role]')).toHaveLength(6);
 
-    // Siguiente → Digitación 3 de 3: x-12-14-12-13-12 (cejilla en 5ª)
+    // Siguiente → Digitación 3: x-12-14-12-13-12 (cejilla en 5ª)
     fireEvent.click(nextBtn);
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 3 de 3',
+      `Digitación 3 de ${total}`,
     );
     expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-12-14-12-13-12');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('cejilla en 5ª');
@@ -154,28 +156,35 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     ).toBe('root');
     expect(container.querySelectorAll('[data-string][data-role]')).toHaveLength(5);
 
+    // Recorrer hasta la última digitación
+    for (let i = 3; i < total; i++) {
+      fireEvent.click(nextBtn);
+    }
+    expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
+      `Digitación ${total} de ${total}`,
+    );
+
     // Siguiente desde la última → bucle hacia la 1ª digitación
     fireEvent.click(nextBtn);
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 1 de 3',
+      `Digitación 1 de ${total}`,
     );
     expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
 
-    // Anterior desde la 1ª → bucle hacia la última digitación (3 de 3)
+    // Anterior desde la 1ª → bucle hacia la última digitación
     fireEvent.click(prevBtn);
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 3 de 3',
+      `Digitación ${total} de ${total}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-12-14-12-13-12');
 
-    // Navegación con teclado (ArrowRight vuelve a 1 de 3, ArrowLeft vuelve a 3 de 3)
+    // Navegación con teclado (ArrowRight vuelve a 1, ArrowLeft vuelve a última)
     fireEvent.keyDown(navigator, { key: 'ArrowRight' });
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 1 de 3',
+      `Digitación 1 de ${total}`,
     );
     fireEvent.keyDown(navigator, { key: 'ArrowLeft' });
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
-      'Digitación 3 de 3',
+      `Digitación ${total} de ${total}`,
     );
   });
 

@@ -14,6 +14,7 @@ import {
   relatedScales,
   scaleParentContext,
 } from './suggestions/forScale';
+import { formatCompactFrets, voicingsForChord } from './voicings/dictionary';
 
 /**
  * Criterios de aceptación de la Fase 1 que cubre la capa de teoría (criterios 1 a 6 del
@@ -174,5 +175,19 @@ describe('criterios de aceptación (teoría)', () => {
     });
     expect(grouped.byProximity.length).toBeGreaterThan(0);
     expect(grouped.byProximity.every((c) => c.value.tonic === 0)).toBe(true);
+  });
+
+  it('Fase 1.1 criterio (i): para C mayor en estándar, las cuerdas 1–3 incluyen xxx553 (fundamental), xxx988 (1ª inv) y xxx010 (2ª inv)', () => {
+    const voicings = voicingsForChord(0, 'maj');
+    const strings13 = voicings.filter((v) => v.family === 'strings-1-3');
+    const compacts = strings13.map((v) => formatCompactFrets(v.frets));
+
+    expect(compacts).toContain('xxx553');
+    expect(compacts).toContain('xxx988');
+    expect(compacts).toContain('xxx010');
+
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx553')!.inversion).toBe('root');
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx988')!.inversion).toBe('1st');
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx010')!.inversion).toBe('2nd');
   });
 });
