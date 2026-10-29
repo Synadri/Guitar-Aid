@@ -1,6 +1,6 @@
 # Guitar Aid — Documento de requisitos (Fase 1)
 
-Documento pensado para entregarse a un agente de desarrollo con IA (Antigravity IDE/CLI). El autor no escribirá código: todo lo necesario para construir la Fase 1 debe estar aquí. Ante cualquier discrepancia con [plan_fase1.md](plan_fase1.md), prevalece el plan.
+Documento pensado para entregarse a un agente de desarrollo con IA (Antigravity IDE/CLI). El autor no escribirá código: todo lo necesario para construir la Fase 1 debe estar aquí. Ante cualquier discrepancia con [plan_fase1.md](plan_fase1.md) o su ampliación en [plan_fase1_1.md](plan_fase1_1.md), prevalece el plan correspondiente.
 
 ## 1. Visión
 
@@ -53,7 +53,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 ### 5.1 Disposición general
 
 - Barra superior con: selector de afinación, selector de modo de nombres (sostenidos/bemoles), botón de limpiar selección, interruptor de sonido.
-- Zona central con los dos instrumentos. Por defecto: disposición horizontal, con la guitarra arriba y el piano debajo. El usuario puede cambiar la orientación (horizontal/vertical) y ocultar cualquiera de los dos. La preferencia se guarda.
+- Zona central con los dos instrumentos en disposición horizontal, con la guitarra arriba y el piano debajo. El usuario puede ocultar cualquiera de los dos (manteniendo al menos uno visible). La preferencia se guarda.
 - Panel lateral o inferior de **sugerencias** y de **información de la selección**.
 
 ### 5.2 Guitarra
@@ -66,7 +66,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 
 ### 5.3 Piano
 
-- Rango por defecto C2–C7 (61 teclas), que cubre todo el mástil de 24 trastes en afinación estándar (E2–E6). Desplazamiento por octavas cuando el espacio no alcanza (pantallas pequeñas u orientación vertical).
+- Rango por defecto C2–C7 (61 teclas), que cubre todo el mástil de 24 trastes en afinación estándar (E2–E6). Desplazamiento cuando el espacio no alcanza en pantallas pequeñas.
 - Clic en una tecla: activa o desactiva la nota.
 - Mismas etiquetas conmutables que la guitarra.
 - Cuando se selecciona en un instrumento, el otro refleja la selección de forma inmediata. Si la guitarra tiene la nota en una octava fuera del rango visible del piano, el piano debe poder mostrarla desplazándose automáticamente.
@@ -136,7 +136,7 @@ Afinaciones incluidas en la Fase 1: estándar (E A D G B E), Drop D, DADGAD, Ope
 
 ### 6.7 Persistencia
 
-Se guardan en el navegador: afinación, orientación, instrumentos visibles, modo zurdo, preferencia de sostenidos/bemoles, etiquetas, modo de sugerencias y volumen. La selección actual no se guarda entre sesiones.
+Se guardan en el navegador: afinación, instrumentos visibles, modo zurdo, preferencia de sostenidos/bemoles, etiquetas, modo de sugerencias y volumen. La selección actual no se guarda entre sesiones.
 
 ## 7. Requisitos no funcionales
 
@@ -157,10 +157,12 @@ La Fase 1 está terminada cuando:
 5. Seleccionar C, E, G y A a mano muestra que puede ser C6 o Am7, sin elegir una por el usuario.
 6. Seleccionar escala de La menor pentatónica muestra todas sus notas en el mástil completo y sugiere acordes y escalas relacionadas.
 7. Cambiar a Drop D mantiene las notas seleccionadas y recoloca sus posiciones en el mástil.
-8. Se puede ocultar la guitarra o el piano, cambiar a orientación horizontal y la configuración se recuerda al recargar.
+8. Se puede ocultar la guitarra o el piano (manteniendo al menos uno visible) y la configuración se recuerda al recargar.
 9. Existen pruebas unitarias del módulo de teoría que cubren los criterios 1 a 6.
 
 ## 9. Hoja de ruta posterior
+
+0. **Fase 1.1 — Refinamiento del Sandbox ([plan_fase1_1.md](plan_fase1_1.md)):** catálogo ampliado (escalas Bebop de 8 notas, napolitanas, disminuidas, acordes `add9`/`madd9` y cuatríadas diatónicas completas), voicings en las 3 y 4 últimas cuerdas con inversiones, análisis armónico e inspección de progresiones en contexto (`chordFocus`), agrupación de escalas relativas con grado respecto a la escala madre, reproducción de progresiones y rediseño del layout horizontal en formato dashboard sin vista vertical.
 
 1. **Fase 2 — Tests:** dada una nota (en texto, piano o partitura), encontrar sus posiciones en la guitarra; lo mismo con acordes, escalas y progresiones; modo "todas las posiciones" o "la primera que se te ocurra"; estadísticas de aciertos.
 2. **Fase 3 — Canción:** importar tabs (Guitar Pro y TuxGuitar; se recomienda alphaTab), reproducción con loop de secciones, selección de fragmentos con análisis de escala o progresión (devolviendo candidatos ordenados, no una única respuesta), tonalidad por compás, vistas de trastes, letra y partitura.

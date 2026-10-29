@@ -1,6 +1,6 @@
 # Guitar Aid — Plan de la Fase 1 (Sandbox) · v2
 
-Basado en [Requisitos.md](Requisitos.md) y [decisiones.md](decisiones.md). **Este archivo es la versión canónica del plan.** Si cambia algo, se actualiza aquí y se registra en `decisiones.md`.
+Basado en [Requisitos.md](Requisitos.md) y [decisiones.md](decisiones.md). **Este archivo es la versión canónica del plan de la Fase 1.** Las ampliaciones y cambios de la Fase 1.1 se especifican en [plan_fase1_1.md](plan_fase1_1.md) y se registran en [decisiones.md](decisiones.md).
 
 **Qué cambia respecto a la v1:**
 - La selección se organiza en capas: notas concretas por un lado y contextos abstractos por clases de altura por otro.
