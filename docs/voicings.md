@@ -227,6 +227,118 @@ A|-3-|-x-|-x-|-0-|-x-|-3-|
 E|-x-|-x-|-0-|-x-|-1-|-x-|
 ```
 
+### Calidad: 5 (quinta / power chord)
+
+- **E5** (`open-E5`, 1 dedo): `022xxx · E B · open`
+- **A5** (`open-A5`, 1 dedo): `x022xx · A E · open`
+- **D5** (`open-D5`, 2 dedos): `xx023x · D A · open`
+- **F5** (`barre-E-5`, 2 dedos): `133xxx · F C · barre-E`
+- **C5** (`barre-A-5`, 2 dedos): `x355xx · C G · barre-A`
+- **F5** (`barre-E-5-2str`, 2 dedos): `13xxxx · F C · barre-E`
+- **C5** (`barre-A-5-2str`, 2 dedos): `x35xxx · C G · barre-A`
+
+```text
+E5 (open)   A5 (open)   D5 (open)   F5 (barre-E)   C5 (barre-A)   F5 (barre-E)   C5 (barre-A)
+e|-x-|-x-|-x-|-x-|-x-|-x-|-x-|
+B|-x-|-x-|-3-|-x-|-x-|-x-|-x-|
+G|-x-|-2-|-2-|-x-|-5-|-x-|-x-|
+D|-2-|-2-|-0-|-3-|-5-|-x-|-5-|
+A|-2-|-0-|-x-|-3-|-3-|-3-|-3-|
+E|-0-|-x-|-x-|-1-|-x-|-1-|-x-|
+```
+
+### Calidad: add9 (add9)
+
+- **Cadd9** (`open-Cadd9`, 3 dedos): `x32030 · C E G D · open`
+- **Fadd9** (`barre-E-add9`, 4 dedos): `1x3213 · F A C G · barre-E`
+- **Cadd9** (`barre-A-add9`, 4 dedos): `x32533 · C E G D · barre-A`
+
+```text
+Cadd9 (open)   Fadd9 (barre-E)   Cadd9 (barre-A)
+e|-0-|-3-|-3-|
+B|-3-|-1-|-3-|
+G|-0-|-2-|-5-|
+D|-2-|-3-|-2-|
+A|-3-|-x-|-3-|
+E|-x-|-1-|-x-|
+```
+
+### Calidad: m(add9) (m(add9))
+
+- **Am(add9)** (`open-Am-add9`, 3 dedos): `x02410 · A C E B · open`
+- **Fm(add9)** (`barre-E-madd9`, 3 dedos): `1x3113 · F G♯ C G · barre-E`
+- **Cm(add9)** (`barre-A-madd9`, 3 dedos): `x31x33 · C D♯ G D · barre-A`
+
+```text
+Am(add9) (open)   Fm(add9) (barre-E)   Cm(add9) (barre-A)
+e|-0-|-3-|-3-|
+B|-1-|-1-|-3-|
+G|-4-|-1-|-x-|
+D|-2-|-3-|-1-|
+A|-0-|-x-|-3-|
+E|-x-|-1-|-x-|
+```
+
+### Calidad: m7♭5 (semidisminuido)
+
+- **Fm7♭5** (`barre-E-m7b5`, 2 dedos): `13-x-13-13-12-x · F G♯ B D♯ · barre-E`
+- **Cm7♭5** (`barre-A-m7b5`, 3 dedos): `x3434x · C D♯ F♯ A♯ · barre-A`
+
+```text
+Fm7♭5 (barre-E)   Cm7♭5 (barre-A)
+e|--x-|-x-|
+B|-12-|-4-|
+G|-13-|-3-|
+D|-13-|-4-|
+A|--x-|-3-|
+E|-13-|-x-|
+```
+
+### Calidad: dim7 (disminuido 7)
+
+- **Fdim7** (`barre-E-dim7`, 3 dedos): `13-x-12-13-12-x · F G♯ B D · barre-E`
+- **Cdim7** (`barre-A-dim7`, 4 dedos): `x3424x · C D♯ F♯ A · barre-A`
+
+```text
+Fdim7 (barre-E)   Cdim7 (barre-A)
+e|--x-|-x-|
+B|-12-|-4-|
+G|-13-|-2-|
+D|-12-|-4-|
+A|--x-|-3-|
+E|-13-|-x-|
+```
+
+### Calidad: m(maj7) (menor maj7)
+
+- **Fm(maj7)** (`barre-E-mMaj7`, 3 dedos): `132111 · F G♯ C E · barre-E`
+- **Cm(maj7)** (`barre-A-mMaj7`, 4 dedos): `x35443 · C D♯ G B · barre-A`
+
+```text
+Fm(maj7) (barre-E)   Cm(maj7) (barre-A)
+e|-1-|-3-|
+B|-1-|-4-|
+G|-1-|-4-|
+D|-2-|-5-|
+A|-3-|-3-|
+E|-1-|-x-|
+```
+
+### Calidad: maj7♯5 (maj7♯5)
+
+- **Fmaj7♯5** (`barre-E-maj7#5`, 3 dedos): `1x2221 · F A C♯ E · barre-E`
+- **Cmaj7♯5** (`barre-A-maj7#5`, 4 dedos): `x3645x · C E G♯ B · barre-A`
+
+```text
+Fmaj7♯5 (barre-E)   Cmaj7♯5 (barre-A)
+e|-1-|-x-|
+B|-2-|-5-|
+G|-2-|-4-|
+D|-2-|-6-|
+A|-x-|-3-|
+E|-1-|-x-|
+```
+
 ## 2. Lista completa por acorde (12 calidades × 12 raíces)
 
 ### maj (mayor)
@@ -1004,3 +1116,466 @@ E|-x-|-x-|-0-|-x-|-1-|-x-|
 
 - `x2544x · B D♯ G · barre-A`
 - `7x9887 · B D♯ G · barre-E`
+
+### 5 (quinta / power chord)
+
+#### C5
+
+- `x355xx · C G · barre-A`
+- `x35xxx · C G · barre-A`
+- `8-10-10-x-x-x · C G · barre-E`
+- `8-10-x-x-x-x · C G · barre-E`
+
+#### C♯5
+
+- `x466xx · C♯ G♯ · barre-A`
+- `x46xxx · C♯ G♯ · barre-A`
+- `9-11-11-x-x-x · C♯ G♯ · barre-E`
+- `9-11-x-x-x-x · C♯ G♯ · barre-E`
+
+#### D5
+
+- `xx023x · D A · open`
+- `x577xx · D A · barre-A`
+- `x57xxx · D A · barre-A`
+- `10-12-12-x-x-x · D A · barre-E`
+- `10-12-x-x-x-x · D A · barre-E`
+
+#### D♯5
+
+- `x688xx · D♯ A♯ · barre-A`
+- `x68xxx · D♯ A♯ · barre-A`
+- `11-13-13-x-x-x · D♯ A♯ · barre-E`
+- `11-13-x-x-x-x · D♯ A♯ · barre-E`
+
+#### E5
+
+- `022xxx · E B · open`
+- `x799xx · E B · barre-A`
+- `x79xxx · E B · barre-A`
+- `12-14-14-x-x-x · E B · barre-E`
+- `12-14-x-x-x-x · E B · barre-E`
+
+#### F5
+
+- `133xxx · F C · barre-E`
+- `13xxxx · F C · barre-E`
+- `x-8-10-10-x-x · F C · barre-A`
+- `x-8-10-x-x-x · F C · barre-A`
+
+#### F♯5
+
+- `244xxx · F♯ C♯ · barre-E`
+- `24xxxx · F♯ C♯ · barre-E`
+- `x-9-11-11-x-x · F♯ C♯ · barre-A`
+- `x-9-11-x-x-x · F♯ C♯ · barre-A`
+
+#### G5
+
+- `355xxx · G D · barre-E`
+- `35xxxx · G D · barre-E`
+- `x-10-12-12-x-x · G D · barre-A`
+- `x-10-12-x-x-x · G D · barre-A`
+
+#### G♯5
+
+- `466xxx · G♯ D♯ · barre-E`
+- `46xxxx · G♯ D♯ · barre-E`
+- `x-11-13-13-x-x · G♯ D♯ · barre-A`
+- `x-11-13-x-x-x · G♯ D♯ · barre-A`
+
+#### A5
+
+- `x022xx · A E · open`
+- `577xxx · A E · barre-E`
+- `57xxxx · A E · barre-E`
+- `x-12-14-14-x-x · A E · barre-A`
+- `x-12-14-x-x-x · A E · barre-A`
+
+#### A♯5
+
+- `x133xx · A♯ F · barre-A`
+- `x13xxx · A♯ F · barre-A`
+- `688xxx · A♯ F · barre-E`
+- `68xxxx · A♯ F · barre-E`
+
+#### B5
+
+- `x244xx · B F♯ · barre-A`
+- `x24xxx · B F♯ · barre-A`
+- `799xxx · B F♯ · barre-E`
+- `79xxxx · B F♯ · barre-E`
+
+### add9 (add9)
+
+#### Cadd9
+
+- `x32030 · C E G D · open`
+- `x32533 · C E G D · barre-A`
+- `8-x-10-9-8-10 · C E G D · barre-E`
+
+#### C♯add9
+
+- `x43644 · C♯ F G♯ D♯ · barre-A`
+- `9-x-11-10-9-11 · C♯ F G♯ D♯ · barre-E`
+
+#### Dadd9
+
+- `x54755 · D F♯ A E · barre-A`
+- `10-x-12-11-10-12 · D F♯ A E · barre-E`
+
+#### D♯add9
+
+- `x65866 · D♯ G A♯ F · barre-A`
+- `11-x-13-12-11-13 · D♯ G A♯ F · barre-E`
+
+#### Eadd9
+
+- `x76977 · E G♯ B F♯ · barre-A`
+- `12-x-14-13-12-14 · E G♯ B F♯ · barre-E`
+
+#### Fadd9
+
+- `1x3213 · F A C G · barre-E`
+- `x-8-7-10-8-8 · F A C G · barre-A`
+
+#### F♯add9
+
+- `2x4324 · F♯ A♯ C♯ G♯ · barre-E`
+- `x-9-8-11-9-9 · F♯ A♯ C♯ G♯ · barre-A`
+
+#### Gadd9
+
+- `3x5435 · G B D A · barre-E`
+- `x-10-9-12-10-10 · G B D A · barre-A`
+
+#### G♯add9
+
+- `4x6546 · G♯ C D♯ A♯ · barre-E`
+- `x-11-10-13-11-11 · G♯ C D♯ A♯ · barre-A`
+
+#### Aadd9
+
+- `5x7657 · A C♯ E B · barre-E`
+- `x-12-11-14-12-12 · A C♯ E B · barre-A`
+
+#### A♯add9
+
+- `6x8768 · A♯ D F C · barre-E`
+- `x-13-12-15-13-13 · A♯ D F C · barre-A`
+
+#### Badd9
+
+- `x21422 · B D♯ F♯ C♯ · barre-A`
+- `7x9879 · B D♯ F♯ C♯ · barre-E`
+
+### m(add9) (m(add9))
+
+#### Cm(add9)
+
+- `x31x33 · C D♯ G D · barre-A`
+- `8-x-10-8-8-10 · C D♯ G D · barre-E`
+
+#### C♯m(add9)
+
+- `x42x44 · C♯ E G♯ D♯ · barre-A`
+- `9-x-11-9-9-11 · C♯ E G♯ D♯ · barre-E`
+
+#### Dm(add9)
+
+- `x53x55 · D F A E · barre-A`
+- `10-x-12-10-10-12 · D F A E · barre-E`
+
+#### D♯m(add9)
+
+- `x64x66 · D♯ F♯ A♯ F · barre-A`
+- `11-x-13-11-11-13 · D♯ F♯ A♯ F · barre-E`
+
+#### Em(add9)
+
+- `x75x77 · E G B F♯ · barre-A`
+- `12-x-14-12-12-14 · E G B F♯ · barre-E`
+
+#### Fm(add9)
+
+- `1x3113 · F G♯ C G · barre-E`
+- `x86x88 · F G♯ C G · barre-A`
+
+#### F♯m(add9)
+
+- `2x4224 · F♯ A C♯ G♯ · barre-E`
+- `x97x99 · F♯ A C♯ G♯ · barre-A`
+
+#### Gm(add9)
+
+- `3x5335 · G A♯ D A · barre-E`
+- `x-10-8-x-10-10 · G A♯ D A · barre-A`
+
+#### G♯m(add9)
+
+- `4x6446 · G♯ B D♯ A♯ · barre-E`
+- `x-11-9-x-11-11 · G♯ B D♯ A♯ · barre-A`
+
+#### Am(add9)
+
+- `x02410 · A C E B · open`
+- `5x7557 · A C E B · barre-E`
+- `x-12-10-x-12-12 · A C E B · barre-A`
+
+#### A♯m(add9)
+
+- `6x8668 · A♯ C♯ F C · barre-E`
+- `x-13-11-x-13-13 · A♯ C♯ F C · barre-A`
+
+#### Bm(add9)
+
+- `7x9779 · B D F♯ C♯ · barre-E`
+- `x-14-12-x-14-14 · B D F♯ C♯ · barre-A`
+
+### m7♭5 (semidisminuido)
+
+#### Cm7♭5
+
+- `x3434x · C D♯ F♯ A♯ · barre-A`
+- `8x887x · C D♯ F♯ A♯ · barre-E`
+
+#### C♯m7♭5
+
+- `x4545x · C♯ E G B · barre-A`
+- `9x998x · C♯ E G B · barre-E`
+
+#### Dm7♭5
+
+- `x5656x · D F G♯ C · barre-A`
+- `10-x-10-10-9-x · D F G♯ C · barre-E`
+
+#### D♯m7♭5
+
+- `x6767x · D♯ F♯ A C♯ · barre-A`
+- `11-x-11-11-10-x · D♯ F♯ A C♯ · barre-E`
+
+#### Em7♭5
+
+- `x7878x · E G A♯ D · barre-A`
+- `12-x-12-12-11-x · E G A♯ D · barre-E`
+
+#### Fm7♭5
+
+- `x8989x · F G♯ B D♯ · barre-A`
+- `13-x-13-13-12-x · F G♯ B D♯ · barre-E`
+
+#### F♯m7♭5
+
+- `2x221x · F♯ A C E · barre-E`
+- `x-9-10-9-10-x · F♯ A C E · barre-A`
+
+#### Gm7♭5
+
+- `3x332x · G A♯ C♯ F · barre-E`
+- `x-10-11-10-11-x · G A♯ C♯ F · barre-A`
+
+#### G♯m7♭5
+
+- `4x443x · G♯ B D F♯ · barre-E`
+- `x-11-12-11-12-x · G♯ B D F♯ · barre-A`
+
+#### Am7♭5
+
+- `5x554x · A C D♯ G · barre-E`
+- `x-12-13-12-13-x · A C D♯ G · barre-A`
+
+#### A♯m7♭5
+
+- `x1212x · A♯ C♯ E G♯ · barre-A`
+- `6x665x · A♯ C♯ E G♯ · barre-E`
+
+#### Bm7♭5
+
+- `x2323x · B D F A · barre-A`
+- `7x776x · B D F A · barre-E`
+
+### dim7 (disminuido 7)
+
+#### Cdim7
+
+- `x3424x · C D♯ F♯ A · barre-A`
+- `8x787x · C D♯ F♯ A · barre-E`
+
+#### C♯dim7
+
+- `x4535x · C♯ E G A♯ · barre-A`
+- `9x898x · C♯ E G A♯ · barre-E`
+
+#### Ddim7
+
+- `x5646x · D F G♯ B · barre-A`
+- `10-x-9-10-9-x · D F G♯ B · barre-E`
+
+#### D♯dim7
+
+- `x6757x · D♯ F♯ A C · barre-A`
+- `11-x-10-11-10-x · D♯ F♯ A C · barre-E`
+
+#### Edim7
+
+- `x7868x · E G A♯ C♯ · barre-A`
+- `12-x-11-12-11-x · E G A♯ C♯ · barre-E`
+
+#### Fdim7
+
+- `x8979x · F G♯ B D · barre-A`
+- `13-x-12-13-12-x · F G♯ B D · barre-E`
+
+#### F♯dim7
+
+- `2x121x · F♯ A C D♯ · barre-E`
+- `x-9-10-8-10-x · F♯ A C D♯ · barre-A`
+
+#### Gdim7
+
+- `3x232x · G A♯ C♯ E · barre-E`
+- `x-10-11-9-11-x · G A♯ C♯ E · barre-A`
+
+#### G♯dim7
+
+- `4x343x · G♯ B D F · barre-E`
+- `x-11-12-10-12-x · G♯ B D F · barre-A`
+
+#### Adim7
+
+- `5x454x · A C D♯ F♯ · barre-E`
+- `x-12-13-11-13-x · A C D♯ F♯ · barre-A`
+
+#### A♯dim7
+
+- `6x565x · A♯ C♯ E G · barre-E`
+- `x-13-14-12-14-x · A♯ C♯ E G · barre-A`
+
+#### Bdim7
+
+- `x2313x · B D F G♯ · barre-A`
+- `7x676x · B D F G♯ · barre-E`
+
+### m(maj7) (menor maj7)
+
+#### Cm(maj7)
+
+- `x35443 · C D♯ G B · barre-A`
+- `8-10-9-8-8-8 · C D♯ G B · barre-E`
+
+#### C♯m(maj7)
+
+- `x46554 · C♯ E G♯ C · barre-A`
+- `9-11-10-9-9-9 · C♯ E G♯ C · barre-E`
+
+#### Dm(maj7)
+
+- `x57665 · D F A C♯ · barre-A`
+- `10-12-11-10-10-10 · D F A C♯ · barre-E`
+
+#### D♯m(maj7)
+
+- `x68776 · D♯ F♯ A♯ D · barre-A`
+- `11-13-12-11-11-11 · D♯ F♯ A♯ D · barre-E`
+
+#### Em(maj7)
+
+- `x79887 · E G B D♯ · barre-A`
+- `12-14-13-12-12-12 · E G B D♯ · barre-E`
+
+#### Fm(maj7)
+
+- `132111 · F G♯ C E · barre-E`
+- `x-8-10-9-9-8 · F G♯ C E · barre-A`
+
+#### F♯m(maj7)
+
+- `243222 · F♯ A C♯ F · barre-E`
+- `x-9-11-10-10-9 · F♯ A C♯ F · barre-A`
+
+#### Gm(maj7)
+
+- `354333 · G A♯ D F♯ · barre-E`
+- `x-10-12-11-11-10 · G A♯ D F♯ · barre-A`
+
+#### G♯m(maj7)
+
+- `465444 · G♯ B D♯ G · barre-E`
+- `x-11-13-12-12-11 · G♯ B D♯ G · barre-A`
+
+#### Am(maj7)
+
+- `576555 · A C E G♯ · barre-E`
+- `x-12-14-13-13-12 · A C E G♯ · barre-A`
+
+#### A♯m(maj7)
+
+- `x13221 · A♯ C♯ F A · barre-A`
+- `687666 · A♯ C♯ F A · barre-E`
+
+#### Bm(maj7)
+
+- `x24332 · B D F♯ A♯ · barre-A`
+- `798777 · B D F♯ A♯ · barre-E`
+
+### maj7♯5 (maj7♯5)
+
+#### Cmaj7♯5
+
+- `x3645x · C E G♯ B · barre-A`
+- `8x9998 · C E G♯ B · barre-E`
+
+#### C♯maj7♯5
+
+- `x4756x · C♯ F A C · barre-A`
+- `9-x-10-10-10-9 · C♯ F A C · barre-E`
+
+#### Dmaj7♯5
+
+- `x5867x · D F♯ A♯ C♯ · barre-A`
+- `10-x-11-11-11-10 · D F♯ A♯ C♯ · barre-E`
+
+#### D♯maj7♯5
+
+- `x6978x · D♯ G B D · barre-A`
+- `11-x-12-12-12-11 · D♯ G B D · barre-E`
+
+#### Emaj7♯5
+
+- `x-7-10-8-9-x · E G♯ C D♯ · barre-A`
+- `12-x-13-13-13-12 · E G♯ C D♯ · barre-E`
+
+#### Fmaj7♯5
+
+- `1x2221 · F A C♯ E · barre-E`
+- `x-8-11-9-10-x · F A C♯ E · barre-A`
+
+#### F♯maj7♯5
+
+- `2x3332 · F♯ A♯ D F · barre-E`
+- `x-9-12-10-11-x · F♯ A♯ D F · barre-A`
+
+#### Gmaj7♯5
+
+- `3x4443 · G B D♯ F♯ · barre-E`
+- `x-10-13-11-12-x · G B D♯ F♯ · barre-A`
+
+#### G♯maj7♯5
+
+- `4x5554 · G♯ C E G · barre-E`
+- `x-11-14-12-13-x · G♯ C E G · barre-A`
+
+#### Amaj7♯5
+
+- `5x6665 · A C♯ F G♯ · barre-E`
+- `x-12-15-13-14-x · A C♯ F G♯ · barre-A`
+
+#### A♯maj7♯5
+
+- `x1423x · A♯ D F♯ A · barre-A`
+- `6x7776 · A♯ D F♯ A · barre-E`
+
+#### Bmaj7♯5
+
+- `x2534x · B D♯ G A♯ · barre-A`
+- `7x8887 · B D♯ G A♯ · barre-E`

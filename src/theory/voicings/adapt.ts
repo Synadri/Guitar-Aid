@@ -67,7 +67,7 @@ export function isValidVoicing(voicing: Voicing, tuning: Tuning = STANDARD_TUNIN
     }
   }
 
-  if (realMidis.length < 3) return false;
+  if (realMidis.length < (voicing.quality === '5' ? 2 : 3)) return false;
   if (voicing.midis.length !== realMidis.length) return false;
   for (let i = 0; i < realMidis.length; i++) {
     if (voicing.midis[i] !== realMidis[i]) return false;

@@ -26,8 +26,8 @@ function permutations<T>(items: readonly T[]): T[][] {
   return out;
 }
 
-describe('catálogo de acordes e intervalos (criterio 3)', () => {
-  it('incluye las 12 calidades requeridas en Requisitos §6.4', () => {
+describe('catálogo de acordes e intervalos (criterio 3 y Fase 1.1)', () => {
+  it('incluye las 19 calidades requeridas en Fase 1.1', () => {
     expect(CHORD_QUALITIES.map((q) => q.id)).toEqual([
       'maj',
       'm',
@@ -41,6 +41,13 @@ describe('catálogo de acordes e intervalos (criterio 3)', () => {
       'sus2',
       'dim',
       'aug',
+      '5',
+      'add9',
+      'madd9',
+      'm7b5',
+      'dim7',
+      'mMaj7',
+      'maj7#5',
     ]);
   });
 
@@ -171,13 +178,51 @@ describe('detectChords', () => {
 
   it('conjunto sin acorde reconocible → []', () => {
     expect(detectChords({ notes: [] })).toEqual([]);
-    // Una sola nota o un intervalo suelto no forman acorde
+    // Una sola nota o un intervalo que no sea díada de 5ª no forman acorde
     expect(detectChords({ notes: toWeightedPcs([0]) })).toEqual([]);
-    expect(detectChords({ notes: toWeightedPcs([0, 7]) })).toEqual([]);
+    expect(detectChords({ notes: toWeightedPcs([0, 6]) })).toEqual([]); // tritono aislado
+    expect(detectChords({ notes: toWeightedPcs([0, 3]) })).toEqual([]); // 3ª menor aislada
     // Clúster cromático C-C♯-D
     expect(detectChords({ notes: toWeightedPcs([0, 1, 2]) })).toEqual([]);
     // Conjunto con nota ajena (C-E-G-F♯)
     expect(detectChords({ notes: toWeightedPcs([0, 4, 7, 6]) })).toEqual([]);
+  });
+
+  it('criterio (m): díadas [0, 7] y digitaciones de power chord detectan unívocamente C5 y E5', () => {
+    // [0, 7] sin raíz explícita reconoce de forma unívoca C5
+    const c5 = detectChords({ notes: toWeightedPcs([0, 7]) });
+    expect(c5).toHaveLength(1);
+    expect(c5[0]!.value).toEqual({ root: 0, quality: '5', name: 'C5' });
+    expect(c5[0]!.reasons).toEqual([{ code: 'containsChordTones', params: { n: 2, of: 2 } }]);
+
+    // Notas de digitación 355xxx (G2, D3, G3) colapsan a G5
+    const g5 = detectChords({ notes: toWeightedPcs([7, 2, 7]) });
+    expect(g5).toHaveLength(1);
+    expect(g5[0]!.value).toEqual({ root: 7, quality: '5', name: 'G5' });
+
+    // Notas de digitación 022xxx (E2, B2, E3) colapsan a E5
+    const e5 = detectChords({ notes: toWeightedPcs([4, 11, 4]) });
+    expect(e5).toHaveLength(1);
+    expect(e5[0]!.value).toEqual({ root: 4, quality: '5', name: 'E5' });
+
+    // Presencia de terceras descarta '5' gracias a allowMask y evalúa el acorde mayor o menor
+    const withMajorThird = detectChords({ notes: toWeightedPcs([0, 4, 7]) });
+    expect(withMajorThird[0]!.value.quality).toBe('maj');
+    expect(withMajorThird.some((c) => c.value.quality === '5')).toBe(false);
+
+    const withMinorThird = detectChords({ notes: toWeightedPcs([0, 3, 7]) });
+    expect(withMinorThird[0]!.value.quality).toBe('m');
+    expect(withMinorThird.some((c) => c.value.quality === '5')).toBe(false);
+  });
+
+  it('criterio (g): D, F♯, A, E con raíz D reconoce Dadd9', () => {
+    const res = detectChords(inputFromNames(['D4', 'F#4', 'A4', 'E4'], 'D4'));
+    expect(res).toHaveLength(1);
+    expect(res[0]!.value).toEqual({ root: 2, quality: 'add9', name: 'Dadd9' });
+    expect(res[0]!.reasons).toEqual([
+      { code: 'containsChordTones', params: { n: 4, of: 4 } },
+      { code: 'rootMatches', params: { root: 2 } },
+    ]);
   });
 
   it('acorde 9 con 5ª opcional: reconoce con y sin 5ª y puntúa mejor el completo', () => {
@@ -202,7 +247,7 @@ describe('detectChords', () => {
     expect(fullC9[0]!.score).toBeGreaterThan(shellC9[0]!.score);
   });
 
-  it('reconoce las 12 calidades del catálogo en las 12 raíces cuando se da la raíz', () => {
+  it('reconoce las 19 calidades del catálogo en las 12 raíces cuando se da la raíz', () => {
     for (let r = 0; r < 12; r++) {
       const root = r as PitchClass;
       for (const q of CHORD_QUALITIES) {

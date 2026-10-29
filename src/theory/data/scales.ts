@@ -1,7 +1,7 @@
 import { type PcMask, pcsToMask } from '../core/pcset';
 import type { PitchClass } from '../core/pitch';
 
-/** Identificadores de las escalas del catálogo de la Fase 1. */
+/** Identificadores de las escalas del catálogo de la Fase 1.1 (22 escalas). */
 export type ScaleTypeId =
   | 'major'
   | 'minor'
@@ -15,10 +15,26 @@ export type ScaleTypeId =
   | 'majorPentatonic'
   | 'minorPentatonic'
   | 'blues'
-  | 'majorBlues';
+  | 'majorBlues'
+  | 'neapolitanMinor'
+  | 'neapolitanMajor'
+  | 'bebopDominant'
+  | 'bebopDorian'
+  | 'bebopMajor'
+  | 'bebopMelodicMinor'
+  | 'bebopNaturalMinor'
+  | 'diminishedHalfWhole'
+  | 'diminishedWholeHalf';
 
 /** Familia (escala madre) de la que se derivan las escalas. */
-export type ScaleFamilyId = 'major' | 'harmonicMinor' | 'melodicMinor' | 'blues';
+export type ScaleFamilyId =
+  | 'major'
+  | 'harmonicMinor'
+  | 'melodicMinor'
+  | 'blues'
+  | 'neapolitanMinor'
+  | 'neapolitanMajor'
+  | 'diminished';
 
 /**
  * Pesos de cada escala en el catálogo (0–100). Se usan en el ranking justo después de
@@ -47,10 +63,19 @@ export const SCALE_WEIGHTS: Readonly<Record<ScaleTypeId, number>> = {
   mixolydian: 85,
   lydian: 80,
   blues: 75,
-  majorBlues: 70,
   harmonicMinor: 71,
+  majorBlues: 70,
   melodicMinor: 68,
+  bebopDominant: 65,
+  bebopMajor: 64,
+  bebopDorian: 63,
+  bebopNaturalMinor: 62,
+  bebopMelodicMinor: 61,
   phrygian: 60,
+  diminishedHalfWhole: 55,
+  diminishedWholeHalf: 54,
+  neapolitanMinor: 50,
+  neapolitanMajor: 48,
   locrian: 40,
 };
 
@@ -83,6 +108,10 @@ export interface ScaleType {
    * (p. ej. mayor → menor natural a +9; menor natural → mayor a +3). Ausente si no tiene.
    */
   relative?: { type: ScaleTypeId; offset: number };
+  /** Escala base de 7 notas para escalas de 8 notas derivadas (Bebop). */
+  baseScale?: ScaleTypeId;
+  /** Si la escala es simétrica (p. ej. disminuidas octatónicas periódicas cada 3 semitonos). */
+  symmetric?: boolean;
   /** Máscara de bits con la tónica en la clase 0 (rotar para transponer). */
   mask: PcMask;
 }
@@ -199,6 +228,83 @@ const RAW_SCALES: readonly RawScale[] = [
     aliases: [],
     intervals: [0, 2, 3, 4, 7, 9],
     family: 'blues',
+  },
+  {
+    id: 'neapolitanMinor',
+    name: 'Napolitana menor',
+    aliases: [],
+    intervals: [0, 1, 3, 5, 7, 8, 11],
+    family: 'neapolitanMinor',
+    parentOffset: 0,
+  },
+  {
+    id: 'neapolitanMajor',
+    name: 'Napolitana mayor',
+    aliases: [],
+    intervals: [0, 1, 3, 5, 7, 9, 11],
+    family: 'neapolitanMajor',
+    parentOffset: 0,
+  },
+  {
+    id: 'bebopDominant',
+    name: 'Bebop dominante',
+    aliases: [],
+    intervals: [0, 2, 4, 5, 7, 9, 10, 11],
+    family: 'major',
+    parentOffset: 7,
+    baseScale: 'mixolydian',
+  },
+  {
+    id: 'bebopDorian',
+    name: 'Bebop menor (dórica)',
+    aliases: ['Bebop dórico'],
+    intervals: [0, 2, 3, 4, 5, 7, 9, 10],
+    family: 'major',
+    parentOffset: 2,
+    baseScale: 'dorian',
+  },
+  {
+    id: 'bebopMajor',
+    name: 'Bebop mayor',
+    aliases: [],
+    intervals: [0, 2, 4, 5, 7, 8, 9, 11],
+    family: 'major',
+    parentOffset: 0,
+    baseScale: 'major',
+  },
+  {
+    id: 'bebopMelodicMinor',
+    name: 'Bebop menor melódica',
+    aliases: [],
+    intervals: [0, 2, 3, 5, 7, 8, 9, 11],
+    family: 'melodicMinor',
+    parentOffset: 0,
+    baseScale: 'melodicMinor',
+  },
+  {
+    id: 'bebopNaturalMinor',
+    name: 'Bebop menor natural',
+    aliases: [],
+    intervals: [0, 2, 3, 5, 7, 8, 10, 11],
+    family: 'major',
+    parentOffset: 9,
+    baseScale: 'minor',
+  },
+  {
+    id: 'diminishedHalfWhole',
+    name: 'Disminuida (semitono–tono)',
+    aliases: ['Octatónica semitono-tono'],
+    intervals: [0, 1, 3, 4, 6, 7, 9, 10],
+    family: 'diminished',
+    symmetric: true,
+  },
+  {
+    id: 'diminishedWholeHalf',
+    name: 'Disminuida (tono–semitono)',
+    aliases: ['Octatónica tono-semitono'],
+    intervals: [0, 2, 3, 5, 6, 8, 9, 11],
+    family: 'diminished',
+    symmetric: true,
   },
 ];
 

@@ -21,8 +21,8 @@ const DEGREES = ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '
 
 export type IntervalShortName = (typeof NAMES)[number];
 export type IntervalLongName =
-  (typeof LONG_NAMES)[number] | '5ª disminuida' | '5ª aumentada' | '9ª mayor';
-export type Degree = (typeof DEGREES)[number] | '♯4' | '♯5' | '9';
+  (typeof LONG_NAMES)[number] | '5ª disminuida' | '5ª aumentada' | '9ª mayor' | '7ª disminuida';
+export type Degree = (typeof DEGREES)[number] | '♯4' | '♯5' | '9' | '♭♭7';
 
 function mod12(semitones: number): number {
   return ((semitones % 12) + 12) % 12;

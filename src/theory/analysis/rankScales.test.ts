@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { maskToPcs, rotateMask } from '../core/pcset';
 import type { PitchClass } from '../core/pitch';
+import { pcName } from '../core/spelling';
 import { SCALE_TYPES, SCALE_WEIGHTS, getScaleType, scalePitchClasses } from '../data/scales';
 import { rankScalesForChord, scalesContaining, scalesOnTonic } from './rankScales';
 import { toWeightedPcs } from './detectChords';
@@ -19,6 +20,60 @@ describe('catálogo de escalas', () => {
   it('blues y blues mayor llevan sus notas características', () => {
     expect(getScaleType('blues').intervals).toEqual([0, 3, 5, 6, 7, 10]);
     expect(getScaleType('majorBlues').intervals).toEqual([0, 2, 3, 4, 7, 9]);
+  });
+
+  it('criterio (h): Bebop dominante de G produce exactamente las 8 notas G, A, B, C, D, E, F, F♯', () => {
+    const gBebopPcs = scalePitchClasses(7, 'bebopDominant');
+    expect(gBebopPcs).toHaveLength(8);
+    expect(gBebopPcs.map((pc) => pcName(pc, 'sharps'))).toEqual([
+      'G',
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'F♯',
+    ]);
+  });
+
+  it('las 5 escalas Bebop tienen 8 notas y especifican su baseScale', () => {
+    const bebopScales = [
+      { id: 'bebopDominant', base: 'mixolydian', iv: [0, 2, 4, 5, 7, 9, 10, 11] },
+      { id: 'bebopDorian', base: 'dorian', iv: [0, 2, 3, 4, 5, 7, 9, 10] },
+      { id: 'bebopMajor', base: 'major', iv: [0, 2, 4, 5, 7, 8, 9, 11] },
+      { id: 'bebopMelodicMinor', base: 'melodicMinor', iv: [0, 2, 3, 5, 7, 8, 9, 11] },
+      { id: 'bebopNaturalMinor', base: 'minor', iv: [0, 2, 3, 5, 7, 8, 10, 11] },
+    ] as const;
+
+    for (const b of bebopScales) {
+      const type = getScaleType(b.id);
+      expect(type.intervals).toEqual(b.iv);
+      expect(type.baseScale).toBe(b.base);
+      expect(type.intervals).toHaveLength(8);
+    }
+  });
+
+  it('las 2 escalas Napolitanas tienen 7 notas con b2', () => {
+    expect(getScaleType('neapolitanMinor').intervals).toEqual([0, 1, 3, 5, 7, 8, 11]);
+    expect(getScaleType('neapolitanMajor').intervals).toEqual([0, 1, 3, 5, 7, 9, 11]);
+  });
+
+  it('las 2 escalas disminuidas tienen 8 notas, symmetric: true y periodicidad de 3 semitonos', () => {
+    const hw = getScaleType('diminishedHalfWhole');
+    const wh = getScaleType('diminishedWholeHalf');
+
+    expect(hw.intervals).toEqual([0, 1, 3, 4, 6, 7, 9, 10]);
+    expect(hw.symmetric).toBe(true);
+    expect(rotateMask(hw.mask, 3)).toBe(hw.mask);
+
+    expect(wh.intervals).toEqual([0, 2, 3, 5, 6, 8, 9, 11]);
+    expect(wh.symmetric).toBe(true);
+    expect(rotateMask(wh.mask, 3)).toBe(wh.mask);
+  });
+
+  it('el catálogo contiene 22 escalas en Fase 1.1', () => {
+    expect(SCALE_TYPES).toHaveLength(22);
   });
 
   it('mayor/jónico y menor natural/eólico son una sola entrada con alias', () => {

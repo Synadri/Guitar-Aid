@@ -76,7 +76,8 @@ export function InfoPanel({
 
   const hasNotes = model.notes !== null && model.notes.rows.length > 0;
   const hasSelection = hasNotes || model.context !== null;
-  const showChordAnalysis = model.notes !== null && model.notes.rows.length >= 3;
+  const showChordAnalysis =
+    model.notes !== null && (model.notes.rows.length >= 3 || model.notes.chords.length > 0);
 
   return (
     <section

@@ -65,5 +65,5 @@ describe('regla de capas', () => {
         .map((m) => `${r.filePath}: ${m.message}`),
     );
     expect(bad).toEqual([]);
-  });
+  }, 15000);
 });

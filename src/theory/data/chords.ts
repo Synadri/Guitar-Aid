@@ -9,9 +9,27 @@ import { type PcMask, pcsToMask } from '../core/pcset';
 import { type NameMode, type PitchClass, pitchClassOf } from '../core/pitch';
 import { pcName } from '../core/spelling';
 
-/** Calidades de acorde del catálogo de la Fase 1 (Requisitos §6.4). */
+/** Calidades de acorde del catálogo de la Fase 1.1 (19 calidades). */
 export type ChordQualityId =
-  'maj' | 'm' | '7' | 'maj7' | 'm7' | 'dim' | 'aug' | 'sus2' | 'sus4' | '6' | 'm6' | '9';
+  | 'maj'
+  | 'm'
+  | '7'
+  | 'maj7'
+  | 'm7'
+  | 'dim'
+  | 'aug'
+  | 'sus2'
+  | 'sus4'
+  | '6'
+  | 'm6'
+  | '9'
+  | '5'
+  | 'add9'
+  | 'madd9'
+  | 'm7b5'
+  | 'dim7'
+  | 'mMaj7'
+  | 'maj7#5';
 
 export interface ChordQuality {
   id: ChordQualityId;
@@ -63,10 +81,17 @@ export const CHORD_QUALITY_WEIGHTS: Readonly<Record<ChordQualityId, number>> = {
   '6': 88,
   '9': 85,
   m6: 84,
+  add9: 83,
+  madd9: 82,
+  m7b5: 81,
+  mMaj7: 79,
   sus4: 78,
   sus2: 76,
+  dim7: 75,
   dim: 74,
+  'maj7#5': 73,
   aug: 72,
+  '5': 65,
 };
 
 /** Constantes de puntuación para `detectChords` (centralizadas junto a los pesos del catálogo). */
@@ -185,6 +210,62 @@ const RAW_CHORD_QUALITIES: readonly RawChordQuality[] = [
     required: [0, 4, 8],
     optional: [],
   },
+  {
+    id: '5',
+    name: 'quinta / power chord',
+    symbol: '5',
+    intervals: [0, 7],
+    required: [0, 7],
+    optional: [],
+  },
+  {
+    id: 'add9',
+    name: 'add9',
+    symbol: 'add9',
+    intervals: [0, 4, 7, 14],
+    required: [0, 4, 7, 2],
+    optional: [],
+  },
+  {
+    id: 'madd9',
+    name: 'm(add9)',
+    symbol: 'm(add9)',
+    intervals: [0, 3, 7, 14],
+    required: [0, 3, 7, 2],
+    optional: [],
+  },
+  {
+    id: 'm7b5',
+    name: 'semidisminuido',
+    symbol: 'm7♭5',
+    intervals: [0, 3, 6, 10],
+    required: [0, 3, 6, 10],
+    optional: [],
+  },
+  {
+    id: 'dim7',
+    name: 'disminuido 7',
+    symbol: 'dim7',
+    intervals: [0, 3, 6, 9],
+    required: [0, 3, 6, 9],
+    optional: [],
+  },
+  {
+    id: 'mMaj7',
+    name: 'menor maj7',
+    symbol: 'm(maj7)',
+    intervals: [0, 3, 7, 11],
+    required: [0, 3, 7, 11],
+    optional: [],
+  },
+  {
+    id: 'maj7#5',
+    name: 'maj7♯5',
+    symbol: 'maj7♯5',
+    intervals: [0, 4, 8, 11],
+    required: [0, 4, 8, 11],
+    optional: [],
+  },
 ];
 
 export const CHORD_QUALITIES: readonly ChordQuality[] = RAW_CHORD_QUALITIES.map((q) => {
@@ -217,11 +298,14 @@ function toneMeta(
   qualityId: ChordQualityId,
   semitones: number,
 ): { interval: string; intervalLong: IntervalLongName; degree: Degree } {
-  if (qualityId === 'dim' && semitones === 6) {
+  if ((qualityId === 'dim' || qualityId === 'm7b5' || qualityId === 'dim7') && semitones === 6) {
     return { interval: 'd5', intervalLong: '5ª disminuida', degree: '♭5' };
   }
-  if (qualityId === 'aug' && semitones === 8) {
+  if ((qualityId === 'aug' || qualityId === 'maj7#5') && semitones === 8) {
     return { interval: 'A5', intervalLong: '5ª aumentada', degree: '♯5' };
+  }
+  if (qualityId === 'dim7' && semitones === 9) {
+    return { interval: 'd7', intervalLong: '7ª disminuida', degree: '♭♭7' };
   }
   if (semitones === 14) {
     return { interval: 'M9', intervalLong: '9ª mayor', degree: '9' };

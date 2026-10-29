@@ -137,7 +137,7 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     expect(within(chordsSection).queryAllByTestId('chord-candidate')).toHaveLength(0);
   });
 
-  it('(e) una o dos notas → sin análisis de acorde', () => {
+  it('(e) una o dos notas sin acorde → sin análisis de acorde', () => {
     const { sandboxStore, settingsStore } = createIsolatedStores();
     render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
 
@@ -149,11 +149,34 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     expect(within(panel).queryByRole('region', { name: 'Acordes posibles' })).toBeNull();
     expect(within(panel).queryByText('No se reconoce ningún acorde')).toBeNull();
 
-    // 2 notas
+    // 2 notas que no forman acorde (C3 + E3, tercera mayor)
     fireEvent.click(screen.getByRole('button', { name: 'E3' }));
     expect(within(panel).getAllByTestId('selected-note-row')).toHaveLength(2);
     expect(within(panel).queryByRole('region', { name: 'Acordes posibles' })).toBeNull();
     expect(within(panel).queryByText('No se reconoce ningún acorde')).toBeNull();
+  });
+
+  it('díada de 2 notas de power chord (ej. 1-3 en mástil o C3 y G3 en piano) → detecta y muestra el power chord', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    // Díada 1-3 en mástil: cuerda 6 traste 1 (F) y cuerda 5 traste 3 (C) → F5
+    const pos61 = screen.getByRole('button', { name: 'Cuerda 6, traste 1, F2' });
+    const pos53 = screen.getByRole('button', { name: 'Cuerda 5, traste 3, C3' });
+    fireEvent.click(pos61);
+    fireEvent.click(pos53);
+
+    const panel = screen.getByRole('region', { name: 'Información de la selección' });
+    const chordsSection = within(panel).getByRole('region', { name: 'Acordes posibles' });
+    expect(within(chordsSection).getByTestId('chord-candidate-name').textContent).toBe('F5');
+
+    // Limpiar y probar en piano: C3 y G3 → C5
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'C3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'G3' }));
+
+    const chordsSection2 = within(panel).getByRole('region', { name: 'Acordes posibles' });
+    expect(within(chordsSection2).getByTestId('chord-candidate-name').textContent).toBe('C5');
   });
 
   it('(f) las etiquetas cambian: con E3 fijada y raíz C, Nota muestra “E”, Intervalo “M3”, Grado “3” y Ninguna no muestra texto', () => {

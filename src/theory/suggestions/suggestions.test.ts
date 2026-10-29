@@ -124,11 +124,11 @@ describe('chordsContainingAll', () => {
       }
     }
 
-    // Con raíz C: primero los acordes con raíz C (ordenados por menos sobrantes: C y Caug antes que C7/Cmaj7/C6, y estos antes que C9), luego el resto también por menos sobrantes
+    // Con raíz C: primero los acordes con raíz C (ordenados por menos sobrantes: C y Caug antes que C7/Cmaj7/C6/Cadd9/Cmaj7♯5, y estos antes que C9), luego el resto también por menos sobrantes
     const withRoot = chordsContainingAll([C, E], C);
     expect(withRoot[0]!.value.name).toBe('C');
     const cRootNames = withRoot.filter((c) => c.value.root === C).map((c) => c.value.name);
-    expect(cRootNames).toEqual(['C', 'Caug', 'C7', 'Cmaj7', 'C6', 'C9']);
+    expect(cRootNames).toEqual(['C', 'Caug', 'C7', 'Cmaj7', 'C6', 'Cadd9', 'Cmaj7♯5', 'C9']);
     expect(withRoot.slice(0, cRootNames.length).map((c) => c.value.name)).toEqual(cRootNames);
 
     const nonRoot = withRoot.slice(cRootNames.length);

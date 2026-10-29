@@ -41,7 +41,7 @@ function verifyVoicingIntegrity(voicing: Voicing, tuning: Tuning = STANDARD_TUNI
     }
   }
 
-  expect(realMidis.length).toBeGreaterThanOrEqual(3);
+  expect(realMidis.length).toBeGreaterThanOrEqual(voicing.quality === '5' ? 2 : 3);
   expect(voicing.midis).toEqual(realMidis);
 
   // 2. Comprobar intervalos requeridos y ausencia de notas ajenas al acorde.
@@ -102,7 +102,7 @@ describe('voicings/dictionary — formato de datos y cálculo de dedos (T4a)', (
   });
 });
 
-describe('voicings/dictionary — integridad con positionToMidi y cobertura de las 12 calidades', () => {
+describe('voicings/dictionary — integridad con positionToMidi y cobertura de las 19 calidades', () => {
   it('todas las formas abiertas cumplen las restricciones de integridad reales con positionToMidi', () => {
     for (const shape of OPEN_VOICING_SHAPES) {
       const voicing = resolveOpenShape(shape);
@@ -127,8 +127,8 @@ describe('voicings/dictionary — integridad con positionToMidi y cobertura de l
     }
   });
 
-  it('cada una de las 12 calidades en las 12 raíces (144 acordes) tiene al menos un voicing válido', () => {
-    expect(CHORD_QUALITIES).toHaveLength(12);
+  it('cada una de las 19 calidades en las 12 raíces (228 acordes) tiene al menos un voicing válido', () => {
+    expect(CHORD_QUALITIES).toHaveLength(19);
     for (const quality of CHORD_QUALITIES) {
       for (const root of ALL_ROOTS) {
         const voicings = voicingsForChord(root, quality.id);

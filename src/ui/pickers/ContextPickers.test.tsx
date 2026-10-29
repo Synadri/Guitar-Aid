@@ -392,17 +392,17 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(container.querySelectorAll('[data-midi][data-role]')).toHaveLength(0);
   });
 
-  it('(i) el selector de calidades tiene 12 opciones y el de escalas 13', () => {
+  it('(i) el selector de calidades tiene 19 opciones y el de escalas 22', () => {
     const { sandboxStore, settingsStore } = createIsolatedStores();
     render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
 
     const qualitySelect = screen.getByLabelText<HTMLSelectElement>('Calidad del acorde');
     const scaleSelect = screen.getByLabelText<HTMLSelectElement>('Tipo de escala');
 
-    expect(qualitySelect.options).toHaveLength(12);
+    expect(qualitySelect.options).toHaveLength(19);
     expect(qualitySelect.options).toHaveLength(CHORD_QUALITIES.length);
 
-    expect(scaleSelect.options).toHaveLength(13);
+    expect(scaleSelect.options).toHaveLength(22);
     expect(scaleSelect.options).toHaveLength(SCALE_TYPES.length);
 
     const scaleOptionTexts = [...scaleSelect.options].map((o) => o.textContent);

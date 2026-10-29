@@ -422,6 +422,49 @@ export const OPEN_VOICING_SHAPES: readonly OpenVoicingShape[] = [
     rootString: 5,
     frets: ['x', 0, 3, 2, 2, 'x'],
   },
+  // 5 (power chords canónicos)
+  {
+    id: 'open-E5',
+    quality: '5',
+    family: 'open',
+    root: 4,
+    rootString: 6,
+    frets: [0, 2, 2, 'x', 'x', 'x'],
+  },
+  {
+    id: 'open-A5',
+    quality: '5',
+    family: 'open',
+    root: 9,
+    rootString: 5,
+    frets: ['x', 0, 2, 2, 'x', 'x'],
+  },
+  {
+    id: 'open-D5',
+    quality: '5',
+    family: 'open',
+    root: 2,
+    rootString: 4,
+    frets: ['x', 'x', 0, 2, 3, 'x'],
+  },
+  // add9
+  {
+    id: 'open-Cadd9',
+    quality: 'add9',
+    family: 'open',
+    root: 0,
+    rootString: 5,
+    frets: ['x', 3, 2, 0, 3, 0],
+  },
+  // madd9
+  {
+    id: 'open-Am-add9',
+    quality: 'madd9',
+    family: 'open',
+    root: 9,
+    rootString: 5,
+    frets: ['x', 0, 2, 4, 1, 0],
+  },
 ];
 
 /**
@@ -612,6 +655,132 @@ export const MOVABLE_VOICING_SHAPES: readonly MovableVoicingShape[] = [
     family: 'barre-A',
     rootString: 5,
     frets: ['x', 0, 3, 2, 2, 'x'],
+  },
+
+  // 5 (power chords móviles de 3 y 2 cuerdas)
+  {
+    id: 'barre-E-5',
+    quality: '5',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 2, 2, 'x', 'x', 'x'],
+  },
+  {
+    id: 'barre-A-5',
+    quality: '5',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 2, 2, 'x', 'x'],
+  },
+  {
+    id: 'barre-E-5-2str',
+    quality: '5',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 2, 'x', 'x', 'x', 'x'],
+  },
+  {
+    id: 'barre-A-5-2str',
+    quality: '5',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 2, 'x', 'x', 'x'],
+  },
+
+  // add9
+  {
+    id: 'barre-E-add9',
+    quality: 'add9',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 'x', 2, 1, 0, 2],
+  },
+  {
+    id: 'barre-A-add9',
+    quality: 'add9',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, -1, 2, 0, 0],
+  },
+
+  // madd9
+  {
+    id: 'barre-E-madd9',
+    quality: 'madd9',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 'x', 2, 0, 0, 2],
+  },
+  {
+    id: 'barre-A-madd9',
+    quality: 'madd9',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, -2, 'x', 0, 0],
+  },
+
+  // m7b5 (semidisminuido)
+  {
+    id: 'barre-E-m7b5',
+    quality: 'm7b5',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 'x', 0, 0, -1, 'x'],
+  },
+  {
+    id: 'barre-A-m7b5',
+    quality: 'm7b5',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 1, 0, 1, 'x'],
+  },
+
+  // dim7 (disminuido 7)
+  {
+    id: 'barre-E-dim7',
+    quality: 'dim7',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 'x', -1, 0, -1, 'x'],
+  },
+  {
+    id: 'barre-A-dim7',
+    quality: 'dim7',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 1, -1, 1, 'x'],
+  },
+
+  // mMaj7 (menor maj7)
+  {
+    id: 'barre-E-mMaj7',
+    quality: 'mMaj7',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 2, 1, 0, 0, 0],
+  },
+  {
+    id: 'barre-A-mMaj7',
+    quality: 'mMaj7',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 2, 1, 1, 0],
+  },
+
+  // maj7#5 (maj7♯5)
+  {
+    id: 'barre-E-maj7#5',
+    quality: 'maj7#5',
+    family: 'barre-E',
+    rootString: 6,
+    frets: [0, 'x', 1, 1, 1, 0],
+  },
+  {
+    id: 'barre-A-maj7#5',
+    quality: 'maj7#5',
+    family: 'barre-A',
+    rootString: 5,
+    frets: ['x', 0, 3, 1, 2, 'x'],
   },
 ];
 

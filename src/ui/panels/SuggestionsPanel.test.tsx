@@ -279,7 +279,9 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
 
     // Comprobar que las tallas de acorde fuera de la raíz C están en orden no decreciente de notas sobrantes
     const qualitySize = new Map(CHORD_QUALITIES.map((q) => [q.symbol, q.intervals.length]));
-    const nonCRoot = chordNames.filter((n) => !/^C($|aug|7|maj7|6|9)/.test(n));
+    const nonCRoot = chordNames.filter(
+      (n) => !n.startsWith('C') || n.startsWith('C♯') || n.startsWith('C#'),
+    );
     for (let i = 1; i < nonCRoot.length; i++) {
       const symPrev = nonCRoot[i - 1]!.replace(/^[A-G][♯♭]?/, '');
       const symCurr = nonCRoot[i]!.replace(/^[A-G][♯♭]?/, '');
