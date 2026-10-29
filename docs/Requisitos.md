@@ -45,7 +45,7 @@ La Fase 1 incluye únicamente el modo **Sandbox**: un mástil de guitarra y un t
 - **Afinación:** lista ordenada de notas de las cuerdas al aire, de grave a aguda (6 cuerdas en esta fase).
 - **Posición en el mástil:** par (cuerda, traste). Cuerda 1 = la más aguda, cuerda 6 = la más grave. Traste 0 = cuerda al aire. Mástil de 0 a 24 trastes.
 - **Selección:** Modelo en capas especificado en la sección 2 de [plan_fase1.md](plan_fase1.md)
-- **Acorde:** tónica más calidad (mayor, menor, 7, maj7, m7, dim, aug, sus2, sus4 como mínimo).
+- **Acorde:** tónica más calidad (mayor, menor, 7, maj7, m7, dim, aug, sus2, sus4, power chord / 5 como mínimo).
 - **Escala:** tónica más tipo (ver sección 6.4).
 
 ## 5. Interfaz

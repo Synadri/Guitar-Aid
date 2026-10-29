@@ -10,7 +10,7 @@ Este documento define el alcance, diseño técnico, hitos y criterios de aceptac
 |---|---|---|
 | 1 | En el piano no se distinguen las notas pulsadas de las de contexto | En `pianoMarks`, las notas de `state.notes` usan `role: 'pinned'`. Cada rol tiene variables CSS (claro/oscuro) y se distingue además por forma/borde; `pinned` y `root` pueden coincidir en la misma marca (`isRoot`). |
 | 2 | Orientación vertical inusable | Se elimina la orientación vertical de la UI y del estado, actualizando `docs/Requisitos.md` (incluido el criterio 8). |
-| 3 | Faltan acordes `add9` y todas las cuatríadas diatónicas de las escalas menores | Se añaden 6 calidades en **H1** (`add9`, `madd9`, `m7♭5`, `dim7`, `mMaj7`, `maj7♯5`) **junto con sus voicings de cejilla** (raíz en 6ª y 5ª) para cumplir siempre el invariante *"cada calidad × raíz tiene al menos un voicing"*. |
+| 3 | Faltan acordes `add9`, power chords (`5`) y todas las cuatríadas diatónicas de las escalas menores | Se añaden 7 calidades en **H1** (`add9`, `madd9`, `m7♭5`, `dim7`, `mMaj7`, `maj7♯5`, `5`) **junto con sus voicings de cejilla** (raíz en 6ª y 5ª) y abiertos para cumplir siempre el invariante *"cada calidad × raíz tiene al menos un voicing"*, y se habilita la detección de díadas `[0, 7]` en `detectChords`. |
 | 4 | Faltan escalas de 8 notas (Bebop / disminuidas) y napolitanas | Se añaden las 5 escalas **Bebop** (8 notas), **Napolitana menor** y **Napolitana mayor** (7 notas), y las 2 **Disminuidas simétricas** (semitono–tono y tono–semitono, 8 notas). |
 | 5 | Faltan voicings en las 3 y 4 últimas cuerdas | En **H3** se añaden las familias `'strings-1-3'` y `'strings-1-4'` en posición fundamental, 1ª y 2ª inversión, marcando siempre la tónica con `root`. |
 | 6 | Al inspeccionar un grado de una escala o un acorde de una progresión se pierde el contexto principal | Nuevo estado unificado **`chordFocus`** (`{ chord, voicingIndex, mode } | null`): un clic inspecciona el acorde dentro del contexto actual (dejando la escala en `scale-bg` o manteniendo la lista de progresiones); el botón explícito **"Ir al acorde"** pivota el contexto principal. |
@@ -23,10 +23,11 @@ Este documento define el alcance, diseño técnico, hitos y criterios de aceptac
 
 ### 2.1. Nuevas calidades de acordes (`src/theory/data/chords.ts`)
 
-Se amplía `ChordQualityId` de 12 a **18 calidades**:
+Se amplía `ChordQualityId` de 12 a **19 calidades**:
 
 | ID | Nombre | Símbolo | Intervalos | Requeridos (clases 0–11) | Papel armónico clave |
 |---|---|---|---|---|---|
+| `5` | quinta / power chord | `5` | `[0, 7]` | `[0, 7]` | Fundamental y 5ª justa sin 3ª (`C5`, `E5`), neutral a mayor/menor, base del rock y la guitarra |
 | `add9` | add9 | `add9` | `[0, 4, 7, 14]` | `[0, 4, 7, 2]` | Tríada mayor con 9ª añadida sin 7ª (`Dadd9`, `Cadd9`) |
 | `madd9` | m(add9) | `m(add9)` | `[0, 3, 7, 14]` | `[0, 3, 7, 2]` | Tríada menor con 9ª añadida sin 7ª (`Am(add9)`) |
 | `m7b5` | semidisminuido | `m7♭5` | `[0, 3, 6, 10]` | `[0, 3, 6, 10]` | `viiø7` en mayor, `iiø7` en menor natural y armónica, `viø7`/`viiø7` en menor melódica |
@@ -34,10 +35,17 @@ Se amplía `ChordQualityId` de 12 a **18 calidades**:
 | `mMaj7` | menor maj7 | `m(maj7)` | `[0, 3, 7, 11]` | `[0, 3, 7, 11]` | `i(maj7)` en menor armónica y menor melódica (`Am(maj7)`) |
 | `maj7#5` | maj7♯5 | `maj7♯5` | `[0, 4, 8, 11]` | `[0, 4, 8, 11]` | `♭IIImaj7♯5` en menor armónica y menor melódica (`Cmaj7♯5`) |
 
-> [!IMPORTANT]
-> **Invariante de cobertura de voicings en H1**: En el mismo hito H1 se añaden las formas móviles de cejilla (`barre-E` con raíz en 6ª cuerda y `barre-A` con raíz en 5ª cuerda) para las 6 nuevas calidades en `src/theory/data/voicings/standard.ts`, garantizando que el test `cada calidad × 12 raíces tiene al menos un voicing` pase sin excepciones tras cerrar H1.
+### 2.2. Detección de power chords (`src/theory/analysis/detectChords.ts`)
 
-### 2.2. Nuevas escalas de 7 y 8 notas (`src/theory/data/scales.ts`)
+- **Díadas de 5ª justa (`[0, 7]`)**: con la inclusión de la calidad `5` en `CHORD_QUALITIES` (`intervals: [0, 7]`, `requiredIntervals: [0, 7]`), `detectChords` identifica de forma inmediata power chords cuando la entrada contiene exclusivamente la fundamental y la 5ª justa (p. ej. notas `C` y `G` $\to$ `C5`).
+- **Notas duplicadas en octavas**: las digitaciones habituales en guitarra con fundamental–quinta–octava (p. ej. `E2–B2–E3` o `C3–G3–C4`) colapsan a las clases de altura `{0, 7}` relativas a la tónica, detectándose limpiamente como `E5` o `C5`.
+- **Descarte ante la presencia de terceras**: gracias a `allowMask` en el algoritmo de `detectChords`, si el usuario pulsa además una 3ª mayor (`4`) o menor (`3`), la condición `(inputMask & ~allowMask) !== 0` descarta automáticamente `5` y evalúa el acorde mayor o menor completo (`maj` o `m`), previniendo falsos positivos.
+- **Puntuación y ranking**: se asigna un peso en `CHORD_QUALITY_WEIGHTS` equilibrado para que `5` puntúe por debajo de tríadas completas pero se elija prioritariamente cuando la entrada contiene únicamente la quinta.
+
+> [!IMPORTANT]
+> **Invariante de cobertura de voicings en H1**: En el mismo hito H1 se añaden las formas móviles de cejilla (`barre-E` con raíz en 6ª cuerda y `barre-A` con raíz en 5ª cuerda) para las 7 nuevas calidades en `src/theory/data/voicings/standard.ts` (para `5`, plantillas móviles de 2 y 3 cuerdas como `[0, 2, 2, 'x', 'x', 'x']` y `['x', 0, 2, 2, 'x', 'x']`, más las formas abiertas canónicas `E5` `022xxx`, `A5` `x022xx` y `D5` `xx023x`), garantizando que el test `cada calidad × 12 raíces tiene al menos un voicing` (19 × 12 = 228 combinaciones) pase sin excepciones tras cerrar H1.
+
+### 2.3. Nuevas escalas de 7 y 8 notas (`src/theory/data/scales.ts`)
 
 Se amplía `ScaleType` con `baseScale?: ScaleTypeId` (para escalas de 8 notas derivadas de un modo de 7 notas más una nota de paso) y `symmetric?: boolean`:
 
@@ -111,7 +119,7 @@ export type VoicingInversion = 'root' | '1st' | '2nd' | '3rd';
     - **2ª inversión (`inversion: '2nd'`)**: 5ª en el bajo en 3ª cuerda, raíz en 2ª cuerda (`rootString: 2`, desplazamientos `[x, x, x, -1, 0, -1]` para mayor → en Do mayor, raíz C en `(2, 1)` da **`xxx010`**).
   - Equivalentes para `m`, `dim`, `aug`, `sus2`, `sus4` y formas reducidas de 3 cuerdas para 7ª/add9.
 - **Familia `'strings-1-4'` (cuerdas 4, 3, 2 y 1: `D–G–B–E`)**:
-  - Formas en posición fundamental con raíz en 4ª cuerda (`rootString: 4`) y Drop 2 en 1ª y 2ª inversión para tríadas y cuatríadas (`maj`, `m`, `7`, `maj7`, `m7`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `add9`, `madd9`, `6`, `m6`, `9`).
+  - Formas en posición fundamental con raíz en 4ª cuerda (`rootString: 4`) y Drop 2 en 1ª y 2ª inversión para tríadas y cuatríadas (`maj`, `m`, `7`, `maj7`, `m7`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `add9`, `madd9`, `6`, `m6`, `9`). (Los power chords `5` se concentran por ergonomía en las cuerdas graves 6ª–4ª introducidos en H1).
 - **Validación en `dictionary.test.ts`**:
   - Si `inversion === 'root'` (valor por defecto), la nota MIDI más grave del voicing tiene la clase de altura de `root`.
   - Si `inversion === '1st' | '2nd' | '3rd'`, la nota MIDI más grave coincide con la 3ª, 5ª o 7ª del acorde, y la fundamental (`pc === root`) está presente en el voicing y recibe `role: 'root'`.
@@ -250,7 +258,7 @@ Quedan explícitamente fuera de la Fase 1.1 (reservados para fases posteriores o
 - Modo Tests (Fase 2), Modo Canción / importación de tabs (Fase 3) y entrada de audio / afinador (Fase 4).
 - Orientación vertical del mástil y del piano (eliminada).
 - Generación algorítmica de voicings para afinaciones abiertas (`Open G`, `Open D`, `DADGAD` siguen mostrando las notas en el mástil cuando ninguna forma estándar adaptada es válida).
-- Acordes alterados de jazz extendidos (`7♭9`, `7♯9`, `7♯11`, `13`) más allá de las 18 calidades del catálogo 1.1.
+- Acordes alterados de jazz extendidos (`7♭9`, `7♯9`, `7♯11`, `13`) más allá de las 19 calidades del catálogo 1.1.
 - Ritmos, compases, tempo configurable o metrónomo en el reproductor de progresiones (la reproducción de progresiones usa una cadencia fija y clara acorde tras acorde).
 
 ---
@@ -260,7 +268,7 @@ Quedan explícitamente fuera de la Fase 1.1 (reservados para fases posteriores o
 | Hito | Contenido | Verificación |
 |---|---|---|
 | **P0 · Roles en piano/mástil, quitar vista vertical y `Requisitos.md`** | Asignar `role: 'pinned'` a `state.notes` en `pianoMarks`; añadir `isRoot` (coexistencia `pinned` + `root`) y el nuevo rol `scale-bg` con variables CSS (claro/oscuro) y formas/bordes diferenciados; eliminar orientación vertical de UI y stores; actualizar `docs/Requisitos.md` (incluido el criterio 8). | Tests de `marks.ts`, `Piano.test.tsx`, `Fretboard.test.tsx`, `SandboxView.test.tsx` |
-| **H1 · Catálogo 1.1 + Voicings de cejilla** | Añadir las 6 calidades (`add9`, `madd9`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`) en `chords.ts` **con sus voicings de cejilla (raíz en 6ª y 5ª)** en `standard.ts`; añadir las 5 escalas Bebop, las 2 Napolitanas y las 2 Disminuidas (con metadato de simetría) en `scales.ts`. | `dictionary.test.ts` (cobertura 18 × 12), `detectChords.test.ts` (`Dadd9`), `scales` tests (`G bebop dominante`) |
+| **H1 · Catálogo 1.1 + Voicings de cejilla y Power Chords** | Añadir las 7 calidades (`add9`, `madd9`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `5`) en `chords.ts` **con sus voicings de cejilla (raíz en 6ª y 5ª)** y formas abiertas canónicas de `5` en `standard.ts`; soporte para díadas `[0, 7]` en `detectChords.ts`; añadir las 5 escalas Bebop, las 2 Napolitanas y las 2 Disminuidas (con metadato de simetría) en `scales.ts`. | `dictionary.test.ts` (cobertura 19 × 12 = 228), `detectChords.test.ts` (`Dadd9`, `C5`, `E5`), `scales` tests (`G bebop dominante`) |
 | **H2 · Armonía en cuatríadas y Escalas Relativas** | `diatonicChords(scale, mode, 'triads' \| 'sevenths')` con los 7 grados en mayor, menor natural, armónica y melódica (y soporte `baseScale`); `scaleParentContext` y `groupedRelatedScales` (relativas con su grado en la madre + proximidad). | Tests unitarios para criterios (b), (c), (d), (j) |
 | **H3 · Voicings en cuerdas 1–3 y 1–4** | Añadir familias `'strings-1-3'` y `'strings-1-4'` (fundamental, 1ª y 2ª inversión) en `standard.ts`, actualizar `dictionary.ts`, tests de integridad de inversiones y regenerar `docs/voicings.md`. | `dictionary.test.ts` + test explícito del criterio (i) (`xxx553`, `xxx988`, `xxx010`) |
 | **H4 · Estado (`chordFocus`, armonía y reglas de reinicio)** | Añadir `chordFocus`, `harmonyMode` y `harmonyProgression` a `sandboxStore`, conectar `marks.ts` para dibujar la escala en `scale-bg` cuando hay `chordFocus`, y probar todas las reglas de reinicio (cambio de contexto, afinación, "Quitar"/"Volver" y "Limpiar"). | `sandbox.test.ts` |
@@ -289,3 +297,4 @@ La Fase 1.1 está terminada cuando todos los tests existen y pasan para los sigu
 - **(j)** Al seleccionar **C mayor**, las escalas relativas aparecen agrupadas en un único bloque desplegable y, al expandirlo, cada escala relativa se muestra junto a su grado respecto a la escala madre (`I`, `II`, `III`, `IV`, `V`, `VI`, `VII`).
 - **(k)** Se cumple el criterio de altura de la **Sección 9**: en un viewport de escritorio (`1440×900`), la barra compacta, los instrumentos horizontales y el dashboard de 3 columnas caben dentro de la ventana sin desbordar la altura ni requerir vista vertical.
 - **(l)** Reproducir la progresión **`I–V–vi–IV` en Do mayor** programa y reproduce secuencialmente los acordes **`C` → `G` → `Am` → `F`** correctamente.
+- **(m)** Al seleccionar las notas **C y G** (o pulsar la digitación de power chord `x355xx` o `355xxx`), el detector de acordes reconoce de forma unívoca **`C5`**; y en afinación estándar todas las 12 raíces cuentan con al menos un voicing para la calidad `5` en el catálogo (incluyendo las formas abiertas canónicas `E5` `022xxx`, `A5` `x022xx`, `D5` `xx023x` y las móviles de cejilla en 6ª y 5ª cuerda).
