@@ -8,7 +8,12 @@ import { chordTones } from './data/chords';
 import { STANDARD_TUNING } from './data/tunings';
 import { getScaleType, scalePitchClasses } from './data/scales';
 import { midiToPositions, positionToMidi } from './fretboard';
-import { diatonicChords, relatedScales } from './suggestions/forScale';
+import {
+  diatonicChords,
+  groupedRelatedScales,
+  relatedScales,
+  scaleParentContext,
+} from './suggestions/forScale';
 
 /**
  * Criterios de aceptación de la Fase 1 que cubre la capa de teoría (criterios 1 a 6 del
@@ -83,5 +88,91 @@ describe('criterios de aceptación (teoría)', () => {
     // Y sobre un acorde, la pentatónica entra en el ranking de escalas con sus razones.
     const ranked = rankScalesForChord({ notes: toWeightedPcs(pcs(['A', 'C', 'E', 'G'])), root: 9 });
     expect(ranked.slice(0, 3).map((c) => c.value.type)).toContain('minorPentatonic');
+  });
+
+  it('Fase 1.1 criterio (b): D dórico muestra que es el II grado de C mayor', () => {
+    const ctx = scaleParentContext({
+      tonic: 2 as PitchClass,
+      type: 'dorian',
+      name: 'D Dórico',
+    });
+    expect(ctx).not.toBeNull();
+    expect(ctx!.description).toBe('II grado de C mayor');
+    expect(ctx!.parentScale).toMatchObject({ tonic: 0, type: 'major' });
+    expect(ctx!.degreeNumber).toBe(2);
+    expect(ctx!.degreeRoman).toBe('II');
+    expect(ctx!.isSelfParent).toBe(false);
+  });
+
+  it('Fase 1.1 criterio (c): C mayor en cuatríadas (7ª): Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7♭5', () => {
+    const chords = diatonicChords(
+      { tonic: 0 as PitchClass, type: 'major', name: 'C Mayor' },
+      'sharps',
+      'sevenths',
+    );
+    expect(chords.map((d) => d.chord.name)).toEqual([
+      'Cmaj7',
+      'Dm7',
+      'Em7',
+      'Fmaj7',
+      'G7',
+      'Am7',
+      'Bm7♭5',
+    ]);
+    expect(chords.map((d) => d.roman)).toEqual([
+      'Imaj7',
+      'ii7',
+      'iii7',
+      'IVmaj7',
+      'V7',
+      'vi7',
+      'viiø7',
+    ]);
+  });
+
+  it('Fase 1.1 criterio (d): A menor armónica en cuatríadas (7ª): Am(maj7), Bm7♭5, Cmaj7♯5, Dm7, E7, Fmaj7, G♯dim7', () => {
+    const chords = diatonicChords(
+      { tonic: 9 as PitchClass, type: 'harmonicMinor', name: 'A Menor armónica' },
+      'sharps',
+      'sevenths',
+    );
+    expect(chords.map((d) => d.chord.name)).toEqual([
+      'Am(maj7)',
+      'Bm7♭5',
+      'Cmaj7♯5',
+      'Dm7',
+      'E7',
+      'Fmaj7',
+      'G♯dim7',
+    ]);
+    expect(chords.map((d) => d.roman)).toEqual([
+      'i(maj7)',
+      'iiø7',
+      '♭IIImaj7♯5',
+      'iv7',
+      'V7',
+      '♭VImaj7',
+      'vii°7',
+    ]);
+  });
+
+  it('Fase 1.1 criterio (j): C mayor agrupa escalas relativas mostrando cada una con su grado (I..VII)', () => {
+    const grouped = groupedRelatedScales({
+      tonic: 0 as PitchClass,
+      type: 'major',
+      name: 'C Mayor',
+    });
+    const romans = [...new Set(grouped.relatives.map((r) => r.degreeRoman))];
+    expect(romans).toEqual(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']);
+    expect(grouped.relatives.find((r) => r.scale.type === 'dorian')).toMatchObject({
+      degreeRoman: 'II',
+      scale: { tonic: 2 },
+    });
+    expect(grouped.relatives.find((r) => r.scale.type === 'minor')).toMatchObject({
+      degreeRoman: 'VI',
+      scale: { tonic: 9 },
+    });
+    expect(grouped.byProximity.length).toBeGreaterThan(0);
+    expect(grouped.byProximity.every((c) => c.value.tonic === 0)).toBe(true);
   });
 });

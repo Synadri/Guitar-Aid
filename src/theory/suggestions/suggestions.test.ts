@@ -5,7 +5,13 @@ import { getProgression, PROGRESSIONS, PROGRESSION_WEIGHTS } from '../data/progr
 import type { ScaleRef } from '../analysis/types';
 import { chordsContaining, chordsContainingAll } from './forNote';
 import { progressionChords, progressionsFor } from './forChord';
-import { chordsWithinScale, diatonicChords, relatedScales } from './forScale';
+import {
+  chordsWithinScale,
+  diatonicChords,
+  groupedRelatedScales,
+  relatedScales,
+  scaleParentContext,
+} from './forScale';
 
 const ref = (tonic: number, type: ScaleRef['type']): ScaleRef => ({
   tonic: tonic as PitchClass,
@@ -175,6 +181,110 @@ describe('diatonicChords y chordsWithinScale', () => {
     expect(res[4]!.chord.name).toBe('E');
   });
 
+  it('H2 / criterio (c): C mayor en cuatríadas (7ª) da los 7 grados Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7♭5', () => {
+    const res = diatonicChords(ref(C, 'major'), 'sharps', 'sevenths');
+    expect(res.map((d) => d.chord.name)).toEqual([
+      'Cmaj7',
+      'Dm7',
+      'Em7',
+      'Fmaj7',
+      'G7',
+      'Am7',
+      'Bm7♭5',
+    ]);
+    expect(res.map((d) => d.roman)).toEqual([
+      'Imaj7',
+      'ii7',
+      'iii7',
+      'IVmaj7',
+      'V7',
+      'vi7',
+      'viiø7',
+    ]);
+  });
+
+  it('H2 / criterio (d): A menor armónica en cuatríadas (7ª) da Am(maj7), Bm7♭5, Cmaj7♯5, Dm7, E7, Fmaj7, G♯dim7', () => {
+    const res = diatonicChords(ref(A, 'harmonicMinor'), 'sharps', 'sevenths');
+    expect(res.map((d) => d.chord.name)).toEqual([
+      'Am(maj7)',
+      'Bm7♭5',
+      'Cmaj7♯5',
+      'Dm7',
+      'E7',
+      'Fmaj7',
+      'G♯dim7',
+    ]);
+    expect(res.map((d) => d.roman)).toEqual([
+      'i(maj7)',
+      'iiø7',
+      '♭IIImaj7♯5',
+      'iv7',
+      'V7',
+      '♭VImaj7',
+      'vii°7',
+    ]);
+  });
+
+  it('H2: A menor melódica en cuatríadas (7ª)', () => {
+    const res = diatonicChords(ref(A, 'melodicMinor'), 'sharps', 'sevenths');
+    expect(res.map((d) => d.chord.name)).toEqual([
+      'Am(maj7)',
+      'Bm7',
+      'Cmaj7♯5',
+      'D7',
+      'E7',
+      'F♯m7♭5',
+      'G♯m7♭5',
+    ]);
+    expect(res.map((d) => d.roman)).toEqual([
+      'i(maj7)',
+      'ii7',
+      '♭IIImaj7♯5',
+      'IV7',
+      'V7',
+      'viø7',
+      'viiø7',
+    ]);
+  });
+
+  it('H2: A menor natural en cuatríadas (7ª)', () => {
+    const res = diatonicChords(ref(A, 'minor'), 'sharps', 'sevenths');
+    expect(res.map((d) => d.chord.name)).toEqual([
+      'Am7',
+      'Bm7♭5',
+      'Cmaj7',
+      'Dm7',
+      'Em7',
+      'Fmaj7',
+      'G7',
+    ]);
+    expect(res.map((d) => d.roman)).toEqual([
+      'i7',
+      'iiø7',
+      '♭IIImaj7',
+      'iv7',
+      'v7',
+      '♭VImaj7',
+      '♭VII7',
+    ]);
+  });
+
+  it('H2: escala con baseScale (Bebop dominante de G) calcula diatónicos sobre su base (G mixolidio)', () => {
+    const triads = diatonicChords(ref(G, 'bebopDominant'), 'sharps', 'triads');
+    expect(triads.map((d) => d.chord.name)).toEqual(['G', 'Am', 'Bdim', 'C', 'Dm', 'Em', 'F']);
+
+    const sevenths = diatonicChords(ref(G, 'bebopDominant'), 'sharps', 'sevenths');
+    expect(sevenths.map((d) => d.chord.name)).toEqual([
+      'G7',
+      'Am7',
+      'Bm7♭5',
+      'Cmaj7',
+      'Dm7',
+      'Em7',
+      'Fmaj7',
+    ]);
+  });
+
   it('los acordes de La menor pentatónica incluyen Am, Am7, C6 y Asus4 y no incluyen Em', () => {
     const scale = ref(A, 'minorPentatonic');
     const within = chordsWithinScale(scale);
@@ -226,6 +336,85 @@ describe('relatedScales', () => {
   it('blues de La ↔ blues mayor de Do (relativas)', () => {
     const res = relatedScales(ref(A, 'blues'));
     expect(res[0]!.value).toMatchObject({ tonic: C, type: 'majorBlues' });
+  });
+});
+
+describe('scaleParentContext', () => {
+  it('H2 / criterio (b): D dórico muestra que es el II grado de C mayor', () => {
+    const ctx = scaleParentContext(ref(2, 'dorian'));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.description).toBe('II grado de C mayor');
+    expect(ctx!.parentScale).toMatchObject({ tonic: C, type: 'major' });
+    expect(ctx!.degreeNumber).toBe(2);
+    expect(ctx!.degreeRoman).toBe('II');
+    expect(ctx!.isSelfParent).toBe(false);
+  });
+
+  it('A menor natural muestra que es el VI grado de C mayor', () => {
+    const ctx = scaleParentContext(ref(A, 'minor'));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.description).toBe('VI grado de C mayor');
+    expect(ctx!.degreeNumber).toBe(6);
+    expect(ctx!.degreeRoman).toBe('VI');
+    expect(ctx!.isSelfParent).toBe(false);
+  });
+
+  it('G bebop dominante indica V grado de C mayor (Mixolidio + F♯ de paso)', () => {
+    const ctx = scaleParentContext(ref(G, 'bebopDominant'));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.description).toBe('V grado de C mayor (Mixolidio + F♯ de paso)');
+    expect(ctx!.degreeNumber).toBe(5);
+    expect(ctx!.degreeRoman).toBe('V');
+    expect(ctx!.isSelfParent).toBe(false);
+    expect(ctx!.passingToneNote).toBe('F♯');
+  });
+
+  it('C bebop mayor indica I grado de C mayor (Mayor + G♯ de paso)', () => {
+    const ctx = scaleParentContext(ref(C, 'bebopMajor'));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.description).toBe('I grado de C mayor (Mayor + G♯ de paso)');
+    expect(ctx!.degreeNumber).toBe(1);
+    expect(ctx!.degreeRoman).toBe('I');
+    expect(ctx!.isSelfParent).toBe(false);
+    expect(ctx!.passingToneNote).toBe('G♯');
+  });
+
+  it('C mayor tiene isSelfParent=true y grado I', () => {
+    const ctx = scaleParentContext(ref(C, 'major'));
+    expect(ctx).not.toBeNull();
+    expect(ctx!.isSelfParent).toBe(true);
+    expect(ctx!.degreeNumber).toBe(1);
+    expect(ctx!.degreeRoman).toBe('I');
+  });
+
+  it('escalas sin escala madre diatónica (blues, disminuidas) devuelven null', () => {
+    expect(scaleParentContext(ref(A, 'blues'))).toBeNull();
+    expect(scaleParentContext(ref(C, 'diminishedHalfWhole'))).toBeNull();
+  });
+});
+
+describe('groupedRelatedScales', () => {
+  it('H2 / criterio (j): C mayor agrupa escalas relativas mostrando cada una con su grado (I..VII)', () => {
+    const res = groupedRelatedScales(ref(C, 'major'));
+    expect(res.relatives.length).toBeGreaterThan(0);
+
+    const romans = [...new Set(res.relatives.map((r) => r.degreeRoman))];
+    expect(romans).toEqual(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']);
+
+    const dorian = res.relatives.find((r) => r.scale.type === 'dorian')!;
+    expect(dorian.degreeRoman).toBe('II');
+    expect(dorian.scale.tonic).toBe(2);
+
+    const minor = res.relatives.find((r) => r.scale.type === 'minor')!;
+    expect(minor.degreeRoman).toBe('VI');
+    expect(minor.scale.tonic).toBe(A);
+
+    // byProximity contiene variantes cercanas en la misma tónica (diferencia de 1-2 notas)
+    expect(res.byProximity.length).toBeGreaterThan(0);
+    expect(res.byProximity.every((c) => c.value.tonic === C)).toBe(true);
+    const types = res.byProximity.map((c) => c.value.type);
+    expect(types).toContain('mixolydian');
+    expect(types).toContain('lydian');
   });
 });
 

@@ -299,3 +299,51 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
 - **Rol `'pinned'` en el piano y coexistencia con `isRoot` (`src/state/sandbox/selectors/marks.ts`):** `pianoMarks` asigna ahora `role: 'pinned'` (verde) a las notas pulsadas manualmente (`state.notes`), unificando su semántica con `fretboardMarks`. Se añade la propiedad opcional `isRoot?: boolean` a `FretMark` y `KeyMark`: cuando el usuario fija manualmente una raíz explícita (`rootOverride`) o la tecla/posición pulsada coincide con la tónica del contexto o de la previsualización, `mergeIsRoot` conserva `isRoot: true` aunque por prioridad (`ROLE_PRIORITY`) gane el rol `'pinned'`.
 - **Nuevo rol `'scale-bg'` y variables CSS en claro/oscuro (`Fretboard.module.css` y `Piano.module.css`):** se amplía `MarkRole` a `'pinned' | 'root' | 'tone' | 'scale-bg' | 'preview' | 'equivalent'` (con prioridad `pinned > root > tone > scale-bg > preview > equivalent`). Tanto en `Fretboard` como en `Piano`, cada rol define variables CSS locales para modo claro y `@media (prefers-color-scheme: dark)` (`--mark-*-fill`, `--mark-*-stroke`, `--mark-*-text`) y se distingue además por forma o borde: `'scale-bg'` usa un radio menor (`r = 9` en guitarra, `r = 7` en tecla blanca y `r = 6` en tecla negra) y trazo punteado (`stroke-dasharray="2 2"`), y cualquier marca con `mark.role === 'root' || mark.isRoot === true` dibuja el anillo interior concéntrico (`rootInnerRing`) y expone `data-is-root="true"`.
 - **Eliminación completa de la orientación vertical:** se retiran el tipo `Orientation`, el estado `orientation` y la acción `setOrientation` de `settingsStore` (y de `PersistedSettings`), la prop `orientation` de `Fretboard` y `Piano`, la constante `PIANO_VERTICAL_LOW_AT_TOP`, el selector `"Orientación"` de `SandboxView` y las reglas `.instrumentsVertical`. Se actualizan los tests de `settings.test.ts`, `instruments.test.tsx`, `ContextPickers.test.tsx` y `SandboxView.test.tsx` cubriendo el criterio `(a)` de la Fase 1.1 y el criterio `8` actualizado de la Fase 1.
+
+## 2026-10-29 — Hito H1 (Fase 1.1): Catálogo 1.1, Voicings de cejilla, Power Chords / Díadas y Nuevas Escalas
+
+- **Ampliación del catálogo de acordes a 19 calidades (`src/theory/data/chords.ts` e `interval.ts`):**
+  - Se incorporan las 7 nuevas calidades planificadas: `5` (*power chord*, `[0, 7]`), `add9`, `madd9`, `m7b5`, `dim7`, `mMaj7` y `maj7#5`.
+  - Se definen nombres cortos y completos en español, descripciones teóricas, `toneMeta` (añadiendo en `interval.ts` la séptima disminuida `'7ª disminuida'` / `'♭♭7'`) y pesos en `CHORD_QUALITY_WEIGHTS`.
+  - El peso para `5` se fija en 65 (por debajo de las tríadas completas de 70–100), asegurando que ante la presencia de una 3ª menor o mayor, `allowMask` descarte el power chord en favor de la tríada o cuatríada correspondiente.
+- **Detección de power chords y díadas de 2 notas (`detectChords.ts` e `InfoPanel.tsx`):**
+  - `detectChords` reconoce díadas puras de fundamental y 5ª justa (`[0, 7]`) así como formas con octavas añadidas (`[0, 7, 12]`, etc.).
+  - **Ajuste en `InfoPanel.tsx`:** originalmente la visualización del análisis de acordes requería estrictamente `model.notes.rows.length >= 3` (diseñado en Fase 1 cuando el catálogo sólo contenía tríadas y cuatríadas). Se ajustó a `model.notes !== null && (model.notes.rows.length >= 3 || model.notes.chords.length > 0)`, permitiendo que díadas de 2 notas (como una posición típica de guitarra traste 1–3) muestren inmediatamente el análisis y la identificación del acorde `5` sin exigir obligatoriamente una tercera nota u octava duplicada (1–3–3).
+- **Voicings de cejilla y abiertos para el invariante 19 × 12 = 228 combinaciones (`standard.ts`, `adapt.ts` y `docs/voicings.md`):**
+  - Se añaden plantillas de cejilla móviles `barre-E` y `barre-A` para las 7 nuevas calidades (con variantes de 2 y 3 cuerdas para `5`), además de formas abiertas canónicas (`E5`, `A5`, `D5`, `Cadd9`, `Am(add9)`).
+  - En `adapt.ts`, se adapta el umbral de notas mínimas en `isValidVoicing` a $\ge 2$ únicamente para `quality === '5'` (`realMidis.length < (voicing.quality === '5' ? 2 : 3)`), preservando la exigencia de $\ge 3$ notas para tríadas y cuatríadas.
+  - Para `add9` y `madd9`, las plantillas móviles de cejilla en 5ª cuerda mutean selectivamente cuerdas interiores/agudas para garantizar la ergonomía (`span <= 3` trastes y $\le 4$ dedos).
+  - Se regenera `docs/voicings.md` mediante `pnpm voicings:print`, verificando que el 100% de las 228 combinaciones (`19 calidades × 12 raíces`) cuentan con al menos un voicing válido.
+- **Ampliación del catálogo de escalas a 22 familias (`src/theory/data/scales.ts`):**
+  - **5 escalas Bebop:** Bebop mayor, Bebop dominante, Bebop menor dórica, Bebop menor melódica y Bebop menor armónica (8 notas), enlazadas a su modo diatónico de origen mediante la propiedad `baseScale`.
+  - **2 escalas Napolitanas:** Napolitana mayor y Napolitana menor (7 notas).
+  - **2 escalas Disminuidas simétricas:** semitono–tono (auxiliar disminuida) y tono–semitono (disminuida completa, 8 notas), con propiedad `symmetric: true` y nota técnica sobre su ambigüedad de tónica por simetría a distancia de 3 semitonos (3ª menor).
+
+## 2026-10-29 — Hito H2 (Fase 1.1): Armonía en Cuatríadas, Contexto Madre y Escalas Relativas
+
+- **Armonía diatónica ampliada a cuatríadas (`src/theory/suggestions/forScale.ts`):**
+  - Se añade el parámetro opcional `kind: DiatonicKind = 'triads'` (`'triads' | 'sevenths'`) a `diatonicChords`, preservando total compatibilidad hacia atrás con el cálculo de tríadas por defecto.
+  - En `'sevenths'`, apila terceras `1–3–5–7` (`iv[k], iv[(k+2)%7], iv[(k+4)%7], iv[(k+6)%7]`) identificando las 7 calidades de cuatríadas diatónicas (`maj7`, `m7`, `7`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`).
+  - **Soporte para escalas octatónicas Bebop:** si la escala posee `baseScale` (como las 5 escalas Bebop añadidas en H1), `diatonicChords` calcula los 7 grados diatónicos sobre su modo base heptatónico en la misma tónica (p. ej. `G bebop dominante` calcula sobre `G mixolidio`). Las escalas sin base heptatónica (pentatónicas, blues, disminuidas) continúan recurriendo a `chordsWithinScale`.
+  - **Notación unificada de numerales romanos en cuatríadas:**
+    - Se armonizan `romanForChordInScale` y `diatonicChords` para que las cuatríadas reflejen de forma clara y unívoca su calidad armónica:
+      - `maj7` $\to$ mayúscula + `maj7` (`Imaj7`, `IVmaj7`, `♭VImaj7`).
+      - `m7` $\to$ minúscula + `7` (`ii7`, `iii7`, `vi7`, `i7`, `iv7`, `v7`).
+      - `7` $\to$ mayúscula + `7` (`V7`, `IV7`, `♭VII7`).
+      - `m7b5` $\to$ minúscula + `ø7` (`viiø7`, `iiø7`, `viø7`).
+      - `dim7` $\to$ minúscula + `°7` (`vii°7`).
+      - `mMaj7` $\to$ minúscula + `(maj7)` (`i(maj7)`).
+      - `maj7#5` $\to$ mayúscula + `maj7♯5` (`♭IIImaj7♯5`).
+    - Los prefijos de alteración (`♭`/`♯`) se calculan sistemáticamente respecto a la escala mayor para mantener la coherencia modal relativa.
+- **Contexto respecto a la escala madre (`scaleParentContext`):**
+  - Devuelve `{ parentScale, degreeNumber, degreeRoman, isSelfParent, passingToneNote, description } | null`.
+  - Deduce la escala madre diatónica de la familia (`parentOffset === 0` y heptatónica) y el grado que ocupa la tónica actual respecto a ella (p. ej. D dórico $\to$ *"II grado de C mayor"*, A menor $\to$ *"VI grado de C mayor"*).
+  - Normaliza los adjetivos de modo en minúsculas en la descripción en prosa castellana (`"C mayor"`, `"C menor melódica"`), satisfaciendo textualmente el Criterio (b).
+  - Para escalas Bebop, identifica automáticamente la nota de paso comparando la escala con su `baseScale` y adjunta la aclaración a la descripción (p. ej. G bebop dominante $\to$ *"V grado de C mayor (Mixolidio + F♯ de paso)"*).
+  - Para escalas sin escala madre fija (blues o disminuidas simétricas), devuelve `null`.
+- **Agrupación de escalas relativas y por proximidad (`groupedRelatedScales`):**
+  - Separa las sugerencias de escalas en:
+    - `relatives`: conjunto de escalas que comparten el mismo conjunto de notas de la escala madre (modos diatónicos ordenados de I a VII, más pentatónicas relativas ordenadas por grado y peso), exponiendo `degreeRoman` y `degreeNumber` en cada entrada para el futuro desplegable de la UI (Criterio j).
+    - `byProximity`: variantes cercanas en la misma tónica con diferencia de 1 o 2 notas respecto a la escala seleccionada (`added + removed <= 2`), ordenadas por cercanía modal y popularidad en el catálogo.
+- **Verificación y tests:**
+  - Añadidos tests unitarios exhaustivos en `src/theory/suggestions/suggestions.test.ts` y tests de aceptación en `src/theory/acceptance.test.ts`, validando los criterios `(b)`, `(c)`, `(d)` y `(j)` de la Fase 1.1 sin regresiones en los 250 tests del proyecto.
