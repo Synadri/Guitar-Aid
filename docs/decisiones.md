@@ -377,3 +377,28 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
 - **Regeneración documental y verificación:**
   - Se añade el test explícito de aceptación del Criterio (i) en `src/theory/acceptance.test.ts` y tests exhaustivos de integridad en `src/theory/voicings/dictionary.test.ts`.
   - Se regenera `docs/voicings.md` con `pnpm voicings:print`, alcanzando un catálogo completo con todas las familias y 253 tests pasando al 100%.
+
+## 2026-10-29 — Hito H4 (Fase 1.1): Estado unificado (`chordFocus`, armonía y reglas de reinicio)
+
+- **Foco unificado de acorde (`chordFocus`) y constructor de progresión (`src/state/sandbox/store.ts`):**
+  - Se añade la interfaz `ChordFocus` con `{ chord: ChordRef, degree?: string, voicingIndex: number, mode: 'voicing' | 'tones' }`.
+  - Se amplía `SandboxState` con `chordFocus: ChordFocus | null` (por defecto `null`), `harmonyMode: 'triads' | 'sevenths'` (por defecto `'triads'`) y `harmonyProgression: { roman: string; chord: ChordRef }[]` (por defecto `[]`).
+  - Se añaden acciones dedicadas: `setChordFocus`, `clearChordFocus`, `toggleChordFocus` (conmuta el foco al pulsar repetidamente sobre el mismo acorde), `setChordFocusVoicingIndex`, `setChordFocusMode`, `setHarmonyMode`, `addToHarmonyProgression`, `clearHarmonyProgression` y `setHarmonyProgression`.
+  - Se adapta `setVoicingIndex`: si hay `chordFocus` activo, actualiza `chordFocus.voicingIndex` (acotado a $\ge 0$); de lo contrario actualiza `s.voicingIndex`, permitiendo que los controles de voicing funcionen de forma unificada tanto para el acorde de contexto como para el inspeccionado.
+- **Implementación y verificación de las 4 reglas de reinicio (`src/state/sandbox/sandbox.test.ts`):**
+  - **Regla 1 (cambio de contexto):** tanto `setContext` como `applyPreview` reinician `chordFocus` a `null` y vacían `harmonyProgression` (`[]`).
+  - **Regla 2 (cambio de afinación):** `setTuning` conserva `chord`, `degree` y `mode` si `chordFocus !== null`, pero reinicia su `voicingIndex` a `0`.
+  - **Regla 3 (quitar foco):** `clearChordFocus()` o `toggleChordFocus(sameChord)` ponen `chordFocus` a `null`, restaurando la visualización del contexto principal (la escala completa con `role: 'tone'/'root'` o el acorde con su `voicingIndex`).
+  - **Regla 4 (limpiar selección):** `clear()` vacía `notes`, `context`, `preview`, `rootOverride`, `harmonyProgression` y restablece `chordFocus` a `null`.
+- **Integración visual de marcas en mástil y piano (`src/state/sandbox/selectors/marks.ts`):**
+  - En modo escala (`context.kind === 'scale'`) con `chordFocus` activo:
+    - Todas las posiciones del mástil y teclas del piano de la escala se pintan con `role: 'scale-bg'`.
+    - Las notas del acorde en foco se superponen con `role: 'root'` para la fundamental y `role: 'tone'` para las demás notas. En `mode === 'voicing'` solo se pintan las posiciones y teclas de la digitación elegida (`selectedChordFocusVoicing`); en `mode === 'tones'`, se iluminan todas las posiciones y teclas del acorde en mástil y piano.
+    - Gracias a la prioridad de roles (`pinned: 6 > root: 5 > tone: 4 > scale-bg: 3`), las notas del acorde resaltan con alto contraste mientras el resto de la escala se atenúa con trazo discontinuo fino en `scale-bg`, satisfaciendo el Criterio (e).
+  - En modo acorde (`context.kind === 'chord'`) con `chordFocus` activo:
+    - `chordFocus` sustituye visualmente al acorde de contexto sin mutar `context`, permitiendo previsualizar otros grados de una progresión (Criterio f en estado).
+  - Se exportan las funciones auxiliares `chordFocusVoicings` y `selectedChordFocusVoicing` para su consumo directo en `marks.ts` y en los componentes de UI del hito H5b.
+- **Sincronización en contenedor (`src/ui/sandbox/SandboxView.tsx`):**
+  - `SandboxView` se suscribe a `chordFocus` desde `sandboxStore` y lo propaga a `markState` para recalcular `fretboardMarks` y `pianoMarks` de forma reactiva.
+- **Verificación completa:**
+  - 38 tests en `src/state/sandbox/sandbox.test.ts` y 262 tests globales pasando al 100% con `tsc`, `vite build` y `eslint` limpios.

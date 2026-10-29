@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { getTuning, nameToMidi, positionToMidi, STANDARD_TUNING } from '../../theory';
+import {
+  chordName,
+  getTuning,
+  nameToMidi,
+  positionToMidi,
+  STANDARD_TUNING,
+  type ChordQualityId,
+  type ChordRef,
+  type PitchClass,
+} from '../../theory';
 import {
   createSandboxStore,
   contextVoicings,
@@ -12,6 +21,15 @@ import {
 const midi = (n: string) => nameToMidi(n)!;
 const dropD = getTuning('dropD')!;
 const pos = (string: 1 | 2 | 3 | 4 | 5 | 6, fret: number) => ({ string, fret });
+const chord = (
+  root: PitchClass,
+  quality: ChordQualityId,
+  name = chordName({ root, quality }),
+): ChordRef => ({
+  root,
+  quality,
+  name,
+});
 
 function fresh() {
   const store = createSandboxStore();
@@ -398,5 +416,243 @@ describe('etiquetas', () => {
     get().togglePianoKey(midi('A#3'));
     expect(pianoMarks(get(), { nameMode: 'flats' })[0]!.label).toBe('B♭');
     expect(pianoMarks(get(), { nameMode: 'sharps' })[0]!.label).toBe('A♯');
+  });
+});
+
+describe('Hito H4: chordFocus, armonía y reglas de reinicio', () => {
+  it('estado inicial: chordFocus null, harmonyMode triads y harmonyProgression vacía', () => {
+    const { get } = fresh();
+    expect(get().chordFocus).toBeNull();
+    expect(get().harmonyMode).toBe('triads');
+    expect(get().harmonyProgression).toEqual([]);
+  });
+
+  it('acciones de armonía: setHarmonyMode, addToHarmonyProgression, clearHarmonyProgression y setHarmonyProgression', () => {
+    const { get } = fresh();
+    get().setHarmonyMode('sevenths');
+    expect(get().harmonyMode).toBe('sevenths');
+
+    get().addToHarmonyProgression({ roman: 'Imaj7', chord: chord(0, 'maj7') });
+    get().addToHarmonyProgression({ roman: 'V7', chord: chord(7, '7') });
+    expect(get().harmonyProgression).toEqual([
+      { roman: 'Imaj7', chord: chord(0, 'maj7') },
+      { roman: 'V7', chord: chord(7, '7') },
+    ]);
+
+    get().clearHarmonyProgression();
+    expect(get().harmonyProgression).toEqual([]);
+
+    get().setHarmonyProgression([{ roman: 'ii7', chord: chord(2, 'm7') }]);
+    expect(get().harmonyProgression).toHaveLength(1);
+  });
+
+  it('acciones de chordFocus: setChordFocus, setChordFocusVoicingIndex, setChordFocusMode y toggleChordFocus', () => {
+    const { get } = fresh();
+    const g7Focus = {
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 0,
+      mode: 'voicing' as const,
+    };
+    get().setChordFocus(g7Focus);
+    expect(get().chordFocus).toEqual(g7Focus);
+
+    get().setChordFocusVoicingIndex(2);
+    expect(get().chordFocus?.voicingIndex).toBe(2);
+
+    // setVoicingIndex también actualiza chordFocus si está activo
+    get().setVoicingIndex(1);
+    expect(get().chordFocus?.voicingIndex).toBe(1);
+
+    get().setChordFocusMode('tones');
+    expect(get().chordFocus?.mode).toBe('tones');
+
+    // toggle con el mismo acorde desactiva el foco
+    get().toggleChordFocus(g7Focus);
+    expect(get().chordFocus).toBeNull();
+
+    // toggle con un acorde lo activa
+    get().toggleChordFocus(g7Focus);
+    expect(get().chordFocus).toEqual(g7Focus);
+  });
+
+  it('regla de reinicio 1: setContext y applyPreview reinician chordFocus a null y vacían harmonyProgression', () => {
+    const { get } = fresh();
+    get().setContext({ kind: 'scale', root: 0, type: 'major' });
+    get().setChordFocus({
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 2,
+      mode: 'voicing',
+    });
+    get().addToHarmonyProgression({ roman: 'V7', chord: chord(7, '7') });
+
+    // Cambio de contexto vía setContext
+    get().setContext({ kind: 'scale', root: 9, type: 'minor' });
+    expect(get().chordFocus).toBeNull();
+    expect(get().harmonyProgression).toEqual([]);
+
+    // Configurar de nuevo para probar applyPreview
+    get().setChordFocus({
+      chord: chord(2, 'm7'),
+      voicingIndex: 1,
+      mode: 'voicing',
+    });
+    get().addToHarmonyProgression({ roman: 'ii', chord: chord(2, 'm') });
+    get().setPreview({ kind: 'scale', root: 2, type: 'dorian' });
+    get().applyPreview();
+
+    expect(get().context).toEqual({ kind: 'scale', root: 2, type: 'dorian' });
+    expect(get().chordFocus).toBeNull();
+    expect(get().harmonyProgression).toEqual([]);
+  });
+
+  it('regla de reinicio 2: setTuning conserva chord, degree y mode pero reinicia voicingIndex a 0', () => {
+    const { get } = fresh();
+    get().setChordFocus({
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 3,
+      mode: 'voicing',
+    });
+
+    get().setTuning(dropD);
+
+    expect(get().chordFocus).toEqual({
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 0,
+      mode: 'voicing',
+    });
+
+    // Si chordFocus era null, sigue siendo null al cambiar de afinación
+    get().clearChordFocus();
+    get().setTuning(STANDARD_TUNING);
+    expect(get().chordFocus).toBeNull();
+  });
+
+  it('regla de reinicio 3: clearChordFocus restaura la visualización del contexto principal', () => {
+    const { get } = fresh();
+    // Caso escala: C mayor
+    get().setContext({ kind: 'scale', root: 0, type: 'major' });
+    get().setChordFocus({
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 0,
+      mode: 'voicing',
+    });
+
+    // Con foco, hay marcas en scale-bg (la escala atenuada)
+    expect(fretboardMarks(get()).some((m) => m.role === 'scale-bg')).toBe(true);
+
+    get().clearChordFocus();
+    expect(get().chordFocus).toBeNull();
+    // Tras clearChordFocus, se restaura la escala principal: no hay marcas en scale-bg
+    expect(fretboardMarks(get()).some((m) => m.role === 'scale-bg')).toBe(false);
+    expect(fretboardMarks(get()).some((m) => m.role === 'root' && positionToMidi(STANDARD_TUNING, m) % 12 === 0)).toBe(true);
+  });
+
+  it('regla de reinicio 4: clear vacía todo incluyendo chordFocus y harmonyProgression', () => {
+    const { get } = fresh();
+    get().toggleFretPosition(pos(5, 7));
+    get().setContext({ kind: 'scale', root: 0, type: 'major' });
+    get().setRootOverride(0);
+    get().setChordFocus({
+      chord: chord(7, '7'),
+      voicingIndex: 1,
+      mode: 'voicing',
+    });
+    get().addToHarmonyProgression({ roman: 'I', chord: chord(0, 'maj') });
+
+    get().clear();
+
+    expect(get().notes).toEqual([]);
+    expect(get().context).toBeNull();
+    expect(get().preview).toBeNull();
+    expect(get().rootOverride).toBeNull();
+    expect(get().chordFocus).toBeNull();
+    expect(get().harmonyProgression).toEqual([]);
+  });
+
+  it('criterio (e): C mayor con chordFocus en G7 mantiene la escala en scale-bg y resalta G7 (modo voicing y tones)', () => {
+    const { get } = fresh();
+    get().setContext({ kind: 'scale', root: 0, type: 'major' });
+    get().setChordFocus({
+      chord: chord(7, '7'),
+      degree: 'V7',
+      voicingIndex: 0,
+      mode: 'voicing',
+    });
+
+    const marks = fretboardMarks(get());
+    const pMarks = pianoMarks(get());
+
+    // 1. Hay marcas con role 'scale-bg' tanto en mástil como en piano
+    const scaleBgFret = marks.filter((m) => m.role === 'scale-bg');
+    const scaleBgKeys = pMarks.filter((m) => m.role === 'scale-bg');
+    expect(scaleBgFret.length).toBeGreaterThan(0);
+    expect(scaleBgKeys.length).toBeGreaterThan(0);
+
+    // 2. Las notas del voicing de G7 resaltan con root (G) y tone (B, D, F)
+    const g7FretRoots = marks.filter((m) => m.role === 'root');
+    expect(g7FretRoots.length).toBeGreaterThan(0);
+    for (const r of g7FretRoots) {
+      expect(positionToMidi(STANDARD_TUNING, r) % 12).toBe(7); // G
+    }
+
+    // 3. En modo 'tones': todas las posiciones de las notas de G7 (G, B, D, F) tienen root o tone
+    get().setChordFocusMode('tones');
+    const tonesMarks = fretboardMarks(get());
+    const g7Pcs = new Set([7, 11, 2, 5]); // G, B, D, F
+    for (const m of tonesMarks) {
+      const pc = positionToMidi(STANDARD_TUNING, m) % 12;
+      if (g7Pcs.has(pc)) {
+        expect(['root', 'tone']).toContain(m.role);
+        if (pc === 7) expect(m.role).toBe('root');
+      } else {
+        // Notas de C mayor que no están en G7 (C=0, E=4, A=9) están en scale-bg
+        expect(m.role).toBe('scale-bg');
+      }
+    }
+
+    // 4. Segundo clic (toggle) o clearChordFocus restaura la escala sin scale-bg
+    get().clearChordFocus();
+    const restored = fretboardMarks(get());
+    expect(restored.some((m) => m.role === 'scale-bg')).toBe(false);
+    expect(restored.find((m) => m.string === 5 && m.fret === 3)?.role).toBe('root'); // C en (5, 3) es root
+  });
+
+  it('criterio (f) en estado: con acorde Dm de contexto, chordFocus en G muestra G sin cambiar context', () => {
+    const { get } = fresh();
+    get().setContext({ kind: 'chord', root: 2, quality: 'm' }); // Dm
+    expect(get().context).toEqual({ kind: 'chord', root: 2, quality: 'm' });
+
+    // Clic en G (V) activa chordFocus
+    get().setChordFocus({
+      chord: chord(7, 'maj'),
+      degree: 'V',
+      voicingIndex: 0,
+      mode: 'voicing',
+    });
+
+    // El contexto principal sigue siendo Dm
+    expect(get().context).toEqual({ kind: 'chord', root: 2, quality: 'm' });
+    expect(get().chordFocus?.chord).toEqual(chord(7, 'maj'));
+
+    // Las marcas muestran G (raíz 7)
+    const marks = fretboardMarks(get());
+    const roots = marks.filter((m) => m.role === 'root');
+    expect(roots.length).toBeGreaterThan(0);
+    for (const r of roots) {
+      expect(positionToMidi(STANDARD_TUNING, r) % 12).toBe(7);
+    }
+
+    // "Volver a Dm" (clearChordFocus) restaura Dm
+    get().clearChordFocus();
+    expect(get().context).toEqual({ kind: 'chord', root: 2, quality: 'm' });
+    const restoredRoots = fretboardMarks(get()).filter((m) => m.role === 'root');
+    for (const r of restoredRoots) {
+      expect(positionToMidi(STANDARD_TUNING, r) % 12).toBe(2); // D
+    }
   });
 });

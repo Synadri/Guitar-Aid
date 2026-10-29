@@ -110,6 +110,7 @@ export function SandboxView({
   const preview = useStore(sandboxStore, (s) => s.preview);
   const rootOverride = useStore(sandboxStore, (s) => s.rootOverride);
   const focus = useStore(sandboxStore, (s) => s.focus);
+  const chordFocus = useStore(sandboxStore, (s) => s.chordFocus);
   const toggleFretPosition = useStore(sandboxStore, (s) => s.toggleFretPosition);
   const togglePianoKey = useStore(sandboxStore, (s) => s.togglePianoKey);
   const clear = useStore(sandboxStore, (s) => s.clear);
@@ -143,6 +144,7 @@ export function SandboxView({
     voicingIndex,
     preview,
     rootOverride,
+    chordFocus,
   };
 
   const fretMarks = fretboardMarks(markState, { nameMode, labels });

@@ -9,6 +9,7 @@ import {
   type ChordQualityId,
   type ScaleTypeId,
   type Tuning,
+  type ChordRef,
 } from '../../theory';
 
 /** Origen de una nota concreta: de dónde llegó a la selección. */
@@ -28,6 +29,17 @@ export type MenuContext =
 
 export type SandboxLayer = 'notes' | 'context';
 
+/** Foco unificado para inspeccionar un acorde dentro de un contexto sin perderlo (H4). */
+export interface ChordFocus {
+  chord: ChordRef;
+  /** Etiqueta contextual opcional (p. ej. el grado "V7" en una escala o "V" en una progresión). */
+  degree?: string;
+  /** Índice del voicing en voicingsForChord(chord, tuning). */
+  voicingIndex: number;
+  /** 'voicing' dibuja la forma elegida; 'tones' ilumina las notas del acorde en todo el rango. */
+  mode: 'voicing' | 'tones';
+}
+
 export interface SandboxState {
   tuning: Tuning;
   /** Modo "mostrar todas las posiciones" (activado por defecto). */
@@ -46,6 +58,12 @@ export interface SandboxState {
   focus: SandboxLayer | null;
   /** Notas que no existen en ninguna posición de la afinación actual (aviso). */
   unplayableMidis: number[];
+  /** Foco unificado sobre un acorde inspeccionado (grado de escala o acorde de progresión). */
+  chordFocus: ChordFocus | null;
+  /** Modo armónico del análisis de escala: tríadas o cuatríadas (7ª). */
+  harmonyMode: 'triads' | 'sevenths';
+  /** Constructor de progresión sobre la escala activa. */
+  harmonyProgression: { roman: string; chord: ChordRef }[];
 }
 
 export interface SandboxActions {
@@ -64,7 +82,25 @@ export interface SandboxActions {
   setShowAllPositions: (value: boolean) => void;
   /** Cambia de afinación conservando las notas y recolocando las posiciones fijadas. */
   setTuning: (tuning: Tuning) => void;
-  /** Vacía todas las capas y la raíz fijada. */
+  /** Fija o borra el foco de acorde inspeccionado. */
+  setChordFocus: (focus: ChordFocus | null) => void;
+  /** Quita el foco de acorde restaurando el contexto principal. */
+  clearChordFocus: () => void;
+  /** Alterna el foco sobre un acorde (segundo clic sobre el mismo acorde lo desactiva). */
+  toggleChordFocus: (focus: ChordFocus) => void;
+  /** Actualiza el voicingIndex de chordFocus si está activo. */
+  setChordFocusVoicingIndex: (index: number) => void;
+  /** Cambia el modo de visualización de chordFocus ('voicing' o 'tones'). */
+  setChordFocusMode: (mode: 'voicing' | 'tones') => void;
+  /** Conmuta el modo armónico entre tríadas y cuatríadas (7ª). */
+  setHarmonyMode: (mode: 'triads' | 'sevenths') => void;
+  /** Añade un grado al constructor de progresión. */
+  addToHarmonyProgression: (step: { roman: string; chord: ChordRef }) => void;
+  /** Vacía el constructor de progresión. */
+  clearHarmonyProgression: () => void;
+  /** Reemplaza la progresión armónica construida. */
+  setHarmonyProgression: (progression: { roman: string; chord: ChordRef }[]) => void;
+  /** Vacía todas las capas, la raíz fijada, el foco de acorde y la progresión armónica. */
   clear: () => void;
 }
 
@@ -102,6 +138,9 @@ export function initialSandboxState(overrides: Partial<SandboxState> = {}): Sand
     rootOverride: null,
     focus: null,
     unplayableMidis: [],
+    chordFocus: null,
+    harmonyMode: 'triads',
+    harmonyProgression: [],
     ...overrides,
   };
 }
@@ -154,15 +193,37 @@ export function createSandboxStore(overrides: Partial<SandboxState> = {}): Store
       }),
 
     setContext: (context) =>
-      set({ context, voicingIndex: 0, ...(context ? { focus: 'context' as const } : {}) }),
+      set({
+        context,
+        voicingIndex: 0,
+        chordFocus: null,
+        harmonyProgression: [],
+        ...(context ? { focus: 'context' as const } : {}),
+      }),
 
-    setVoicingIndex: (voicingIndex) => set({ voicingIndex: Math.max(0, voicingIndex) }),
+    setVoicingIndex: (voicingIndex) =>
+      set((s) => {
+        const clamped = Math.max(0, voicingIndex);
+        if (s.chordFocus) {
+          return { chordFocus: { ...s.chordFocus, voicingIndex: clamped } };
+        }
+        return { voicingIndex: clamped };
+      }),
 
     setPreview: (preview) => set({ preview }),
 
     applyPreview: () =>
       set((s) =>
-        s.preview ? { context: s.preview, voicingIndex: 0, preview: null, focus: 'context' } : s,
+        s.preview
+          ? {
+              context: s.preview,
+              voicingIndex: 0,
+              preview: null,
+              focus: 'context',
+              chordFocus: null,
+              harmonyProgression: [],
+            }
+          : s,
       ),
 
     setRootOverride: (rootOverride) => set({ rootOverride }),
@@ -182,8 +243,49 @@ export function createSandboxStore(overrides: Partial<SandboxState> = {}): Store
           });
           return { ...n, pinned: uniquePositions(pinned) };
         });
-        return { tuning, notes, voicingIndex: 0, unplayableMidis: unplayable };
+        return {
+          tuning,
+          notes,
+          voicingIndex: 0,
+          chordFocus: s.chordFocus ? { ...s.chordFocus, voicingIndex: 0 } : null,
+          unplayableMidis: unplayable,
+        };
       }),
+
+    setChordFocus: (chordFocus) => set({ chordFocus }),
+
+    clearChordFocus: () => set({ chordFocus: null }),
+
+    toggleChordFocus: (focus) =>
+      set((s) => {
+        if (
+          s.chordFocus &&
+          s.chordFocus.chord.root === focus.chord.root &&
+          s.chordFocus.chord.quality === focus.chord.quality
+        ) {
+          return { chordFocus: null };
+        }
+        return { chordFocus: focus };
+      }),
+
+    setChordFocusVoicingIndex: (index) =>
+      set((s) =>
+        s.chordFocus
+          ? { chordFocus: { ...s.chordFocus, voicingIndex: Math.max(0, index) } }
+          : s,
+      ),
+
+    setChordFocusMode: (mode) =>
+      set((s) => (s.chordFocus ? { chordFocus: { ...s.chordFocus, mode } } : s)),
+
+    setHarmonyMode: (harmonyMode) => set({ harmonyMode }),
+
+    addToHarmonyProgression: (step) =>
+      set((s) => ({ harmonyProgression: [...s.harmonyProgression, step] })),
+
+    clearHarmonyProgression: () => set({ harmonyProgression: [] }),
+
+    setHarmonyProgression: (harmonyProgression) => set({ harmonyProgression }),
 
     clear: () =>
       set({
@@ -193,6 +295,8 @@ export function createSandboxStore(overrides: Partial<SandboxState> = {}): Store
         rootOverride: null,
         focus: null,
         voicingIndex: 0,
+        chordFocus: null,
+        harmonyProgression: [],
         unplayableMidis: [],
       }),
   }));
