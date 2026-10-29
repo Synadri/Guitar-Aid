@@ -19,7 +19,6 @@ import {
   selectedVoicing,
   settingsStore as defaultSettingsStore,
   type LabelMode,
-  type Orientation,
   type SandboxStore,
   type SettingsStore,
 } from '../../state';
@@ -57,11 +56,6 @@ const NAME_MODE_OPTIONS: readonly { value: NameMode; label: string }[] = [
   { value: 'flats', label: 'Bemoles' },
 ];
 
-const ORIENTATION_OPTIONS: readonly { value: Orientation; label: string }[] = [
-  { value: 'horizontal', label: 'Horizontal' },
-  { value: 'vertical', label: 'Vertical' },
-];
-
 function isFormFieldElement(target: EventTarget | Element | null): boolean {
   if (!target || typeof (target as Element).tagName !== 'string') return false;
   const el = target as HTMLElement;
@@ -88,7 +82,6 @@ export function SandboxView({
 
   // Ajustes (fuente de verdad de preferencias)
   const tuning = useStore(settingsStore, (s) => s.tuning);
-  const orientation = useStore(settingsStore, (s) => s.orientation);
   const visibleInstruments = useStore(settingsStore, (s) => s.visibleInstruments);
   const showAllPositions = useStore(settingsStore, (s) => s.showAllPositions);
   const leftHanded = useStore(settingsStore, (s) => s.leftHanded);
@@ -97,7 +90,6 @@ export function SandboxView({
   const soundEnabled = useStore(settingsStore, (s) => s.soundEnabled);
   const volume = useStore(settingsStore, (s) => s.volume);
   const setTuning = useStore(settingsStore, (s) => s.setTuning);
-  const setOrientation = useStore(settingsStore, (s) => s.setOrientation);
   const setVisibleInstruments = useStore(settingsStore, (s) => s.setVisibleInstruments);
   const setLeftHanded = useStore(settingsStore, (s) => s.setLeftHanded);
   const setShowAllPositions = useStore(settingsStore, (s) => s.setShowAllPositions);
@@ -237,7 +229,7 @@ export function SandboxView({
   const hasSingleInstrumentVisible = isFretboardSwitchDisabled || isPianoSwitchDisabled;
 
   return (
-    <div className={styles.sandbox} data-orientation={orientation}>
+    <div className={styles.sandbox}>
       <header className={styles.toolbar}>
         <label className={styles.controlLabel}>
           Afinación
@@ -299,22 +291,6 @@ export function SandboxView({
 
         <fieldset className={styles.viewGroup} data-testid="view-group">
           <legend className={styles.viewGroupLegend}>Vista</legend>
-
-          <label className={styles.controlLabel}>
-            Orientación
-            <select
-              className={styles.select}
-              aria-label="Orientación"
-              value={orientation}
-              onChange={(e) => setOrientation(e.target.value as Orientation)}
-            >
-              {ORIENTATION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
 
           <label className={styles.controlLabel}>
             <input
@@ -461,17 +437,12 @@ export function SandboxView({
       <SandboxContextPickers sandboxStore={sandboxStore} settingsStore={settingsStore} />
 
       <div className={styles.workspace}>
-        <div
-          className={`${styles.instruments} ${orientation === 'vertical' ? styles.instrumentsVertical : ''}`}
-          data-testid="instruments-area"
-          data-orientation={orientation}
-        >
+        <div className={styles.instruments} data-testid="instruments-area">
           {visibleInstruments.fretboard && (
             <Fretboard
               tuning={tuning}
               frets={DEFAULT_FRETS}
               leftHanded={leftHanded}
-              orientation={orientation}
               marks={fretMarks}
               nameMode={nameMode}
               onPositionClick={handlePositionClick}
@@ -481,7 +452,6 @@ export function SandboxView({
           {visibleInstruments.piano && (
             <Piano
               range={DEFAULT_PIANO_RANGE}
-              orientation={orientation}
               marks={keyMarks}
               nameMode={nameMode}
               onKeyClick={handleKeyClick}

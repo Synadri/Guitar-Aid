@@ -10,14 +10,11 @@ export interface VisibleInstruments {
   piano: boolean;
 }
 
-export type Orientation = 'horizontal' | 'vertical';
 export type SuggestionsMode = 'chords' | 'scales';
 
 export interface SettingsState {
   /** Afinación seleccionada (la fuente de verdad de la preferencia del usuario). */
   tuning: Tuning;
-  /** Disposición de los instrumentos: horizontal (guitarra arriba, piano abajo) o vertical. */
-  orientation: Orientation;
   /** Visibilidad independiente de la guitarra y del piano (al menos uno siempre visible). */
   visibleInstruments: VisibleInstruments;
   /** Mástil invertido para zurdos. */
@@ -38,7 +35,6 @@ export interface SettingsState {
 
 export interface SettingsActions {
   setTuning: (tuning: Tuning | string) => void;
-  setOrientation: (orientation: Orientation) => void;
   setVisibleInstruments: (visible: Partial<VisibleInstruments>) => void;
   toggleInstrument: (instrument: InstrumentId) => void;
   setLeftHanded: (leftHanded: boolean) => void;
@@ -57,7 +53,6 @@ export type SettingsStore = SettingsState & SettingsActions;
 /** Datos persistidos en el almacenamiento local (Requisitos §6.7). Solo ajustes, sin selección. */
 export interface PersistedSettings {
   tuningId: string;
-  orientation: Orientation;
   visibleInstruments: VisibleInstruments;
   leftHanded: boolean;
   nameMode: NameMode;
@@ -73,7 +68,6 @@ export const SETTINGS_STORAGE_KEY = 'guitar-aid:settings';
 export function initialSettingsState(overrides: Partial<SettingsState> = {}): SettingsState {
   return {
     tuning: STANDARD_TUNING,
-    orientation: 'horizontal',
     visibleInstruments: { fretboard: true, piano: true },
     leftHanded: false,
     nameMode: 'sharps',
@@ -259,8 +253,6 @@ export function createSettingsStore(
             return { tuning: resolved };
           }),
 
-        setOrientation: (orientation) => set({ orientation }),
-
         setVisibleInstruments: (partial) =>
           set((s) => {
             const next = { ...s.visibleInstruments, ...partial };
@@ -306,7 +298,6 @@ export function createSettingsStore(
         storage: createJSONStorage(() => storage),
         partialize: (state): PersistedSettings => ({
           tuningId: state.tuning.id,
-          orientation: state.orientation,
           visibleInstruments: state.visibleInstruments,
           leftHanded: state.leftHanded,
           nameMode: state.nameMode,
@@ -321,8 +312,6 @@ export function createSettingsStore(
           const tuning = p.tuningId
             ? (getTuning(p.tuningId) ?? currentState.tuning)
             : currentState.tuning;
-          const orientation: Orientation =
-            p.orientation === 'vertical' ? 'vertical' : currentState.orientation;
           const fretboard =
             p.visibleInstruments?.fretboard ?? currentState.visibleInstruments.fretboard;
           const piano = p.visibleInstruments?.piano ?? currentState.visibleInstruments.piano;
@@ -353,7 +342,6 @@ export function createSettingsStore(
           return {
             ...currentState,
             tuning,
-            orientation,
             visibleInstruments,
             leftHanded,
             nameMode,

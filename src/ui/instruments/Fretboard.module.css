@@ -29,6 +29,10 @@
   --mark-root-ring: #fef3c7;
   --mark-root-text: #ffffff;
 
+  --mark-scale-bg-fill: #dbeafe;
+  --mark-scale-bg-stroke: #3b82f6;
+  --mark-scale-bg-text: #1e3a8a;
+
   --mark-preview-fill: #f3e8ff;
   --mark-preview-stroke: #7e22ce;
   --mark-preview-text: #4c1d95;
@@ -41,12 +45,6 @@
   border-radius: 8px;
   padding: 0.5rem;
   box-sizing: border-box;
-}
-
-.containerVertical {
-  width: auto;
-  flex: 0 0 auto;
-  overflow-y: visible;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -81,6 +79,10 @@
     --mark-root-ring: #451a03;
     --mark-root-text: #1c1917;
 
+    --mark-scale-bg-fill: #1e293b;
+    --mark-scale-bg-stroke: #60a5fa;
+    --mark-scale-bg-text: #bfdbfe;
+
     --mark-preview-fill: #3b0764;
     --mark-preview-stroke: #d8b4fe;
     --mark-preview-text: #f3e8ff;
@@ -93,13 +95,6 @@
   min-width: 820px;
   height: auto;
   user-select: none;
-}
-
-.svgVertical {
-  min-width: 0;
-  width: 220px;
-  max-width: 100%;
-  height: auto;
 }
 
 .board {
@@ -171,7 +166,7 @@
 .role_pinned .markCircle {
   fill: var(--mark-pinned-fill);
   stroke: var(--mark-pinned-stroke);
-  stroke-width: 2;
+  stroke-width: 2.25;
 }
 
 .role_pinned .markLabel {
@@ -204,14 +199,27 @@
   stroke-width: 3.25;
 }
 
-.role_root .rootInnerRing {
+.rootInnerRing {
   fill: none;
   stroke: var(--mark-root-ring);
   stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .role_root .markLabel {
   fill: var(--mark-root-text);
+}
+
+.role_scale_bg .markCircle {
+  fill: var(--mark-scale-bg-fill);
+  stroke: var(--mark-scale-bg-stroke);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+  opacity: 0.85;
+}
+
+.role_scale_bg .markLabel {
+  fill: var(--mark-scale-bg-text);
 }
 
 .role_preview .markCircle {

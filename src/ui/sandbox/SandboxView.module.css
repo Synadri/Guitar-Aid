@@ -161,13 +161,6 @@
   gap: 1rem;
 }
 
-.instrumentsVertical {
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-}
-
 .sidePanel {
   flex: 0 0 340px;
   width: 340px;

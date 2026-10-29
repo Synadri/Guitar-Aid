@@ -3,7 +3,18 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getTuning, STANDARD_TUNING } from '../../theory';
 import type { FretMark, KeyMark, MarkRole } from '../../state';
-import { Fretboard, PIANO_VERTICAL_LOW_AT_TOP, Piano } from './index';
+import { Fretboard, Piano } from './index';
+
+function readInstrumentCss(fileName: string): string {
+  const proc = (
+    globalThis as unknown as {
+      process: {
+        getBuiltinModule: (id: string) => { readFileSync: (p: URL, enc: string) => string };
+      };
+    }
+  ).process;
+  return proc.getBuiltinModule('node:fs').readFileSync(new URL(fileName, import.meta.url), 'utf-8');
+}
 
 afterEach(() => {
   cleanup();
@@ -111,19 +122,20 @@ describe('Fretboard (componente puro)', () => {
     expect(onPositionClick).toHaveBeenLastCalledWith({ string: 5, fret: 7 });
   });
 
-  it('cada rol de marca produce un elemento distinguible por data-role, clase y geometría, y muestra su label', () => {
-    const roles: MarkRole[] = ['pinned', 'equivalent', 'tone', 'root', 'preview'];
+  it('cada uno de los 6 roles de marca (incluido scale-bg) produce un elemento distinguible por data-role, clase y geometría, y soporta pinned + isRoot', () => {
+    const roles: MarkRole[] = ['pinned', 'equivalent', 'tone', 'root', 'scale-bg', 'preview'];
     const marks: FretMark[] = roles.map((role, index) => ({
-      string: (index + 1) as 1 | 2 | 3 | 4 | 5,
+      string: ((index % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6,
       fret: index + 1,
       role,
       label: `L-${role}`,
     }));
+    marks.push({ string: 1, fret: 12, role: 'pinned', isRoot: true, label: 'E-root' });
 
     const { container } = render(<Fretboard tuning={STANDARD_TUNING} marks={marks} />);
 
     const seenClassNames = new Set<string>();
-    for (const mark of marks) {
+    for (const mark of marks.slice(0, roles.length)) {
       const posEl = container.querySelector(
         `[data-string="${mark.string}"][data-fret="${mark.fret}"]`,
       )!;
@@ -137,97 +149,25 @@ describe('Fretboard (componente puro)', () => {
       expect(markGroup).not.toBeNull();
     }
 
-    // Las 5 clases de los 5 roles son distintas entre sí
+    // Las 6 clases de los 6 roles son distintas entre sí
     expect(seenClassNames.size).toBe(roles.length);
 
-    // root tiene doble anillo (2 círculos) y preview tiene borde punteado
+    // root tiene doble anillo (2 círculos), scale-bg y preview tienen borde discontinuo y radios distintos
     const rootMark = container.querySelector('[data-mark-role="root"]')!;
     expect(rootMark.querySelectorAll('circle')).toHaveLength(2);
 
+    const scaleBgCircle = container.querySelector('[data-mark-role="scale-bg"] circle')!;
+    expect(scaleBgCircle.getAttribute('stroke-dasharray')).toBe('2 2');
+    expect(Number(scaleBgCircle.getAttribute('r'))).toBe(9);
+
     const previewCircle = container.querySelector('[data-mark-role="preview"] circle')!;
-    expect(previewCircle.getAttribute('stroke-dasharray')).toBeTruthy();
-  });
+    expect(previewCircle.getAttribute('stroke-dasharray')).toBe('3.5 2');
 
-  it('en vertical, Fretboard tiene 150 posiciones, cejuela arriba, cuerda 6 a la izquierda y 1 a la derecha, se refleja con leftHanded, etiquetas sin rotar y mismos datos y aria-label que en horizontal', () => {
-    const onHorizontalClick = vi.fn();
-    const { container: hContainer, unmount: unmountH } = render(
-      <Fretboard
-        tuning={STANDARD_TUNING}
-        orientation="horizontal"
-        onPositionClick={onHorizontalClick}
-      />,
-    );
-    const hGroup = screen.getByRole('group', { name: 'Mástil de guitarra' });
-    const hLabels = within(hGroup)
-      .getAllByRole('button')
-      .map((el) => el.getAttribute('aria-label'));
-    fireEvent.click(within(hGroup).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
-    expect(
-      hContainer.querySelector('[data-testid="fretboard"]')?.getAttribute('data-orientation'),
-    ).toBe('horizontal');
-    unmountH();
-
-    const onVerticalClick = vi.fn();
-    const marks: FretMark[] = [
-      { string: 5, fret: 7, role: 'pinned', label: 'E' },
-      { string: 6, fret: 5, role: 'root', label: 'A' },
-    ];
-    const { container, rerender } = render(
-      <Fretboard
-        tuning={STANDARD_TUNING}
-        orientation="vertical"
-        marks={marks}
-        onPositionClick={onVerticalClick}
-      />,
-    );
-
-    const wrapper = screen.getByTestId('fretboard');
-    expect(wrapper.getAttribute('data-orientation')).toBe('vertical');
-
-    const vGroup = screen.getByRole('group', { name: 'Mástil de guitarra' });
-    const vPositions = within(vGroup).getAllByRole('button');
-    expect(vPositions).toHaveLength(150);
-    expect(vPositions.map((el) => el.getAttribute('aria-label'))).toEqual(hLabels);
-
-    // Cejuela arriba y trastes hacia abajo (traste 1 más arriba que traste 12)
-    const nutY = Number(screen.getByTestId('fretboard-nut').getAttribute('y'));
-    const inlay3Y = Number(container.querySelector('[data-inlay-fret="3"]')?.getAttribute('cy'));
-    const inlay9Y = Number(container.querySelector('[data-inlay-fret="9"]')?.getAttribute('cy'));
-    expect(nutY).toBeLessThan(inlay3Y);
-    expect(inlay3Y).toBeLessThan(inlay9Y);
-
-    // Cuerda 6 (más grave) a la izquierda y cuerda 1 (más aguda) a la derecha
-    const line6 = container.querySelector('[data-string-line="6"]')!;
-    const line1 = container.querySelector('[data-string-line="1"]')!;
-    expect(Number(line6.getAttribute('x1'))).toBeLessThan(Number(line1.getAttribute('x1')));
-
-    // Con leftHanded, el mástil vertical se refleja de izquierda a derecha (cuerda 1 a la izquierda y 6 a la derecha)
-    rerender(
-      <Fretboard
-        tuning={STANDARD_TUNING}
-        orientation="vertical"
-        leftHanded={true}
-        marks={marks}
-        onPositionClick={onVerticalClick}
-      />,
-    );
-    expect(screen.getByTestId('fretboard').getAttribute('data-mirrored')).toBe('true');
-    const mirroredLine6 = container.querySelector('[data-string-line="6"]')!;
-    const mirroredLine1 = container.querySelector('[data-string-line="1"]')!;
-    expect(Number(mirroredLine1.getAttribute('x1'))).toBeLessThan(
-      Number(mirroredLine6.getAttribute('x1')),
-    );
-
-    // Las etiquetas de texto están derechas (sin transform rotate)
-    for (const textEl of Array.from(container.querySelectorAll('text'))) {
-      expect(textEl.getAttribute('transform')).toBeNull();
-    }
-
-    // Clic en (5, 7) devuelve los mismos datos que en horizontal
-    fireEvent.click(within(vGroup).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
-    expect(onVerticalClick).toHaveBeenCalledTimes(1);
-    expect(onVerticalClick).toHaveBeenLastCalledWith(onHorizontalClick.mock.calls[0]?.[0]);
-    expect(onVerticalClick).toHaveBeenLastCalledWith({ string: 5, fret: 7 });
+    // Coexistencia pinned + isRoot: tiene role 'pinned', data-is-root="true" y doble anillo interior
+    const pinnedRootPos = container.querySelector('[data-string="1"][data-fret="12"]')!;
+    expect(pinnedRootPos.getAttribute('data-role')).toBe('pinned');
+    expect(pinnedRootPos.getAttribute('data-is-root')).toBe('true');
+    expect(pinnedRootPos.querySelectorAll('circle')).toHaveLength(2);
   });
 });
 
@@ -268,79 +208,61 @@ describe('Piano (componente puro)', () => {
     expect(onKeyClick).toHaveBeenLastCalledWith(52);
   });
 
-  it('cada rol de marca en el piano produce un elemento distinguible y muestra su label', () => {
-    const roles: MarkRole[] = ['pinned', 'equivalent', 'tone', 'root', 'preview'];
-    const marks: KeyMark[] = roles.map((role, idx) => ({
-      midi: 60 + idx,
-      role,
-      label: `K-${role}`,
-    }));
+  it('criterio (a) Fase 1.1: en el piano se distinguen pinned (verde), tone (azul), root (ámbar con anillo), scale-bg y preview por rol, variable CSS (claro/oscuro) y forma/borde; y pinned + isRoot conserva ambos indicadores', () => {
+    const roles: MarkRole[] = ['pinned', 'equivalent', 'tone', 'root', 'scale-bg', 'preview'];
+    const marks: KeyMark[] = [
+      ...roles.map((role, idx) => ({
+        midi: 60 + idx,
+        role,
+        label: `K-${role}`,
+      })),
+      { midi: 72, role: 'pinned', isRoot: true, label: 'C-pinned-root' },
+    ];
 
     const { container } = render(<Piano marks={marks} />);
 
-    for (const mark of marks) {
+    const seenRoleClasses = new Set<string>();
+    for (const mark of marks.slice(0, roles.length)) {
       const keyEl = container.querySelector(`[data-midi="${mark.midi}"]`)!;
       expect(keyEl.getAttribute('data-role')).toBe(mark.role);
-      expect(keyEl.textContent).toContain(mark.label);
-    }
-  });
-
-  it('en vertical, Piano tiene 61 teclas como barras horizontales con agudas arriba y graves abajo (PIANO_VERTICAL_LOW_AT_TOP = false), etiquetas derechas y mismos datos (MIDI 52) y aria-label que en horizontal', () => {
-    expect(PIANO_VERTICAL_LOW_AT_TOP).toBe(false);
-
-    const onHorizontalKeyClick = vi.fn();
-    const { unmount: unmountH } = render(
-      <Piano orientation="horizontal" onKeyClick={onHorizontalKeyClick} />,
-    );
-    const hGroup = screen.getByRole('group', { name: 'Teclado de piano' });
-    const hLabels = within(hGroup)
-      .getAllByRole('button')
-      .map((el) => el.getAttribute('aria-label'));
-    fireEvent.click(within(hGroup).getByRole('button', { name: 'E3' }));
-    unmountH();
-
-    const onVerticalKeyClick = vi.fn();
-    const marks: KeyMark[] = [
-      { midi: 52, role: 'tone', label: 'E' },
-      { midi: 57, role: 'root', label: 'A' },
-    ];
-    const { container } = render(
-      <Piano orientation="vertical" marks={marks} onKeyClick={onVerticalKeyClick} />,
-    );
-
-    const wrapper = screen.getByTestId('piano');
-    expect(wrapper.getAttribute('data-orientation')).toBe('vertical');
-
-    const vGroup = screen.getByRole('group', { name: 'Teclado de piano' });
-    const vKeys = within(vGroup).getAllByRole('button');
-    expect(vKeys).toHaveLength(61);
-    expect(vKeys.map((el) => el.getAttribute('aria-label'))).toEqual(hLabels);
-
-    // Barras horizontales: las blancas son más largas (width) que altas (height) y más largas que las negras
-    const whiteRectC2 = container.querySelector('[data-midi="36"] rect')!;
-    const blackRectCs2 = container.querySelector('[data-midi="37"] rect')!;
-    const whiteRectC7 = container.querySelector('[data-midi="96"] rect')!;
-
-    const whiteWidth = Number(whiteRectC2.getAttribute('width'));
-    const whiteHeight = Number(whiteRectC2.getAttribute('height'));
-    const blackWidth = Number(blackRectCs2.getAttribute('width'));
-    expect(whiteWidth).toBeGreaterThan(whiteHeight);
-    expect(whiteWidth).toBeGreaterThan(blackWidth);
-
-    // Notas agudas arriba (menor Y) y graves abajo (mayor Y)
-    const yC7 = Number(whiteRectC7.getAttribute('y'));
-    const yC2 = Number(whiteRectC2.getAttribute('y'));
-    expect(yC7).toBeLessThan(yC2);
-
-    // Etiquetas de texto derechas (sin rotación)
-    for (const textEl of Array.from(container.querySelectorAll('text'))) {
-      expect(textEl.getAttribute('transform')).toBeNull();
+      expect(keyEl.textContent).toContain(mark.label!);
+      const markEl = keyEl.querySelector(`[data-mark-role="${mark.role}"]`)!;
+      expect(markEl).not.toBeNull();
+      seenRoleClasses.add(keyEl.getAttribute('class') ?? '');
     }
 
-    // Clic en E3 devuelve MIDI 52 igual que en horizontal
-    fireEvent.click(within(vGroup).getByRole('button', { name: 'E3' }));
-    expect(onVerticalKeyClick).toHaveBeenCalledTimes(1);
-    expect(onVerticalKeyClick).toHaveBeenLastCalledWith(onHorizontalKeyClick.mock.calls[0]?.[0]);
-    expect(onVerticalKeyClick).toHaveBeenLastCalledWith(52);
+    // Cada rol tiene su propia clase visual
+    expect(seenRoleClasses.size).toBe(roles.length);
+
+    // root tiene anillo interior (2 círculos)
+    const rootKey = container.querySelector('[data-midi="63"]')!;
+    expect(rootKey.getAttribute('data-is-root')).toBe('true');
+    expect(rootKey.querySelectorAll('circle')).toHaveLength(2);
+
+    // scale-bg tiene borde punteado (stroke-dasharray="2 2") y radio reducido
+    const scaleBgCircle = container.querySelector('[data-midi="64"] circle')!;
+    expect(scaleBgCircle.getAttribute('stroke-dasharray')).toBe('2 2');
+
+    // pinned + isRoot en C5 (midi 72) conserva role="pinned", data-is-root="true" y el anillo interior
+    const pinnedRootKey = container.querySelector('[data-midi="72"]')!;
+    expect(pinnedRootKey.getAttribute('data-role')).toBe('pinned');
+    expect(pinnedRootKey.getAttribute('data-is-root')).toBe('true');
+    expect(pinnedRootKey.querySelectorAll('circle')).toHaveLength(2);
+    expect(pinnedRootKey.querySelector('[data-testid="root-inner-ring"]')).not.toBeNull();
+
+    // Verificar variables CSS en modo claro y oscuro en Piano.module.css y Fretboard.module.css
+    const pianoCss = readInstrumentCss('./Piano.module.css');
+    const fretboardCss = readInstrumentCss('./Fretboard.module.css');
+    for (const css of [pianoCss, fretboardCss]) {
+      expect(css).toContain('--mark-pinned-fill: #0f766e');
+      expect(css).toContain('--mark-pinned-fill: #14b8a6');
+      expect(css).toContain('--mark-tone-fill: #1d4ed8');
+      expect(css).toContain('--mark-tone-fill: #3b82f6');
+      expect(css).toContain('--mark-root-fill: #b45309');
+      expect(css).toContain('--mark-root-fill: #f59e0b');
+      expect(css).toContain('--mark-scale-bg-fill: #dbeafe');
+      expect(css).toContain('--mark-scale-bg-fill: #1e293b');
+      expect(css).toContain('@media (prefers-color-scheme: dark)');
+    }
   });
 });

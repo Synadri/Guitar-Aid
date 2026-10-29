@@ -23,7 +23,7 @@ describe('capa notes: clic en guitarra y piano', () => {
     const { get } = fresh();
     get().toggleFretPosition(pos(5, 7));
     expect(get().notes).toEqual([{ midi: midi('E3'), pinned: [pos(5, 7)], origin: 'fretboard' }]);
-    expect(pianoMarks(get())).toEqual([{ midi: midi('E3'), role: 'tone', label: 'E' }]);
+    expect(pianoMarks(get())).toEqual([{ midi: midi('E3'), role: 'pinned', label: 'E' }]);
     const fret = fretboardMarks(get()).find((m) => m.string === 5 && m.fret === 7);
     expect(fret).toMatchObject({ role: 'pinned', label: 'E' });
   });
@@ -146,6 +146,35 @@ describe('capa context y preview', () => {
     get().applyPreview();
     expect(get().preview).toBeNull();
     expect(get().context).toEqual({ kind: 'scale', root: 4, type: 'minor' });
+  });
+  it('criterio (a) Fase 1.1: en piano y mástil se distinguen pinned, tone y root, y cuando una nota pulsada coincide con la tónica conserva pinned + isRoot', () => {
+    const { get } = fresh();
+    get().setContext({ kind: 'scale', root: 0, type: 'major' });
+    // Pulsamos C4 (tónica de C mayor, MIDI 60) y F#4 (ajena, MIDI 66) en el piano, y C3 (5, 3) en guitarra
+    get().togglePianoKey(midi('C4'));
+    get().togglePianoKey(midi('F#4'));
+    get().toggleFretPosition(pos(5, 3)); // C3
+
+    const pMarks = pianoMarks(get());
+    const c4Mark = pMarks.find((m) => m.midi === midi('C4'))!;
+    const fSharp4Mark = pMarks.find((m) => m.midi === midi('F#4'))!;
+    const e4Mark = pMarks.find((m) => m.midi === midi('E4'))!;
+    const c5Mark = pMarks.find((m) => m.midi === midi('C5'))!;
+
+    // C4 fue pulsada y además es la tónica de C mayor: role 'pinned' + isRoot: true
+    expect(c4Mark).toMatchObject({ midi: midi('C4'), role: 'pinned', isRoot: true });
+    // F#4 fue pulsada y no es tónica: role 'pinned' sin isRoot
+    expect(fSharp4Mark).toMatchObject({ midi: midi('F#4'), role: 'pinned' });
+    expect(fSharp4Mark.isRoot).toBeUndefined();
+    // E4 pertenece a la escala pero no fue pulsada: role 'tone'
+    expect(e4Mark).toMatchObject({ midi: midi('E4'), role: 'tone' });
+    // C5 es la tónica de la escala pero no fue pulsada: role 'root'
+    expect(c5Mark).toMatchObject({ midi: midi('C5'), role: 'root' });
+
+    // En el mástil, (5, 3) es C3 fijada y tónica: role 'pinned' + isRoot: true
+    const fMarks = fretboardMarks(get());
+    const pos53Mark = fMarks.find((m) => m.string === 5 && m.fret === 3)!;
+    expect(pos53Mark).toMatchObject({ string: 5, fret: 3, role: 'pinned', isRoot: true });
   });
 });
 
@@ -290,12 +319,12 @@ describe('cambio de afinación', () => {
     const pMarks = pianoMarks(get());
     expect(pMarks.find((m) => m.midi === midi('D2'))).toMatchObject({
       midi: midi('D2'),
-      role: 'tone',
+      role: 'pinned',
       label: 'D',
     });
     expect(pMarks.find((m) => m.midi === midi('C2'))).toMatchObject({
       midi: midi('C2'),
-      role: 'tone',
+      role: 'pinned',
       label: 'C',
     });
 

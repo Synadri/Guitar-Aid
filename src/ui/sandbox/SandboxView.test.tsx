@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { STANDARD_TUNING } from '../../theory';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   createMemoryStorage,
   createSandboxStore,
@@ -10,7 +9,6 @@ import {
   settingsStore as defaultSettingsStore,
   type MemoryStorage,
 } from '../../state';
-import { Fretboard, Piano } from '../instruments';
 import { App } from '../App';
 import { SINGLE_INSTRUMENT_NOTICE, SandboxView } from './SandboxView';
 
@@ -46,9 +44,9 @@ describe('SandboxView — integración contenedor ↔ stores (U2)', () => {
     expect(pos612.getAttribute('data-role')).toBe('equivalent');
     expect(pos42.getAttribute('data-role')).toBe('equivalent');
 
-    // La tecla E3 del piano tiene marca activa con etiqueta E
+    // La tecla E3 del piano tiene marca activa pinned con etiqueta E
     const keyE3 = screen.getByRole('button', { name: 'E3' });
-    expect(keyE3.getAttribute('data-role')).toBe('tone');
+    expect(keyE3.getAttribute('data-role')).toBe('pinned');
     expect(keyE3.getAttribute('aria-pressed')).toBe('true');
     expect(keyE3.textContent).toContain('E');
   });
@@ -114,13 +112,13 @@ describe('SandboxView — integración contenedor ↔ stores (U2)', () => {
     fireEvent.click(pos612);
     expect(pos57.getAttribute('data-role')).toBe('pinned');
     expect(pos612.getAttribute('data-role')).toBe('pinned');
-    expect(keyE3.getAttribute('data-role')).toBe('tone');
+    expect(keyE3.getAttribute('data-role')).toBe('pinned');
 
     // Desfijar (5, 7): pasa a equivalent porque aún queda (6, 12) fijada
     fireEvent.click(pos57);
     expect(pos57.getAttribute('data-role')).toBe('equivalent');
     expect(pos612.getAttribute('data-role')).toBe('pinned');
-    expect(keyE3.getAttribute('data-role')).toBe('tone');
+    expect(keyE3.getAttribute('data-role')).toBe('pinned');
 
     // Desfijar (6, 12) (la última pinned de una nota que vino de la guitarra): desaparece todo
     fireEvent.click(pos612);
@@ -142,7 +140,7 @@ describe('SandboxView — integración contenedor ↔ stores (U2)', () => {
 
     // Clic en la tecla activa E3 del piano elimina la nota y todas sus posiciones
     const keyE3 = screen.getByRole('button', { name: 'E3' });
-    expect(keyE3.getAttribute('data-role')).toBe('tone');
+    expect(keyE3.getAttribute('data-role')).toBe('pinned');
     fireEvent.click(keyE3);
 
     expect(container.querySelectorAll('[data-string][data-role]')).toHaveLength(0);
@@ -192,7 +190,7 @@ describe('SandboxView — integración contenedor ↔ stores (U2)', () => {
     expect(
       container.querySelector('[data-string="6"][data-fret="14"]')?.getAttribute('data-role'),
     ).toBe('pinned');
-    expect(screen.getByRole('button', { name: 'E3' }).getAttribute('data-role')).toBe('tone');
+    expect(screen.getByRole('button', { name: 'E3' }).getAttribute('data-role')).toBe('pinned');
   });
 
   it('(h) una nota D2 puesta desde el piano, al pasar a estándar, sigue en el piano y no tiene marcas en el mástil', () => {
@@ -210,12 +208,12 @@ describe('SandboxView — integración contenedor ↔ stores (U2)', () => {
     expect(
       container.querySelector('[data-string="6"][data-fret="0"]')?.getAttribute('data-role'),
     ).toBe('equivalent');
-    expect(keyD2.getAttribute('data-role')).toBe('tone');
+    expect(keyD2.getAttribute('data-role')).toBe('pinned');
 
     // Pasar a afinación estándar: D2 no cabe en el mástil pero sigue activa en el piano
     fireEvent.change(tuningSelect, { target: { value: 'standard' } });
     expect(container.querySelectorAll('[data-string][data-role]')).toHaveLength(0);
-    expect(keyD2.getAttribute('data-role')).toBe('tone');
+    expect(keyD2.getAttribute('data-role')).toBe('pinned');
   });
 
   it('(i) “Limpiar” vacía todo', () => {
@@ -339,41 +337,41 @@ describe('SandboxView — vista, orientación, persistencia, atajos y accesibili
     expect(screen.getByLabelText<HTMLInputElement>('Mostrar piano').checked).toBe(true);
   });
 
-  it('(b) criterio 8: cambiar a orientación vertical actualiza data-orientation y un montaje nuevo sobre el mismo almacenamiento conserva la orientación vertical', () => {
-    const sharedStorage = createMemoryStorage();
-    const first = createIsolatedStores(sharedStorage);
-    const { unmount } = render(
-      <SandboxView sandboxStore={first.sandboxStore} settingsStore={first.settingsStore} />,
-    );
+  it('(b) P0 Fase 1.1: no existe selector de orientación vertical y en el piano se distinguen nota pulsada (pinned), nota de contexto (tone), tónica (root) y coincidencia pinned + root', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
 
-    expect(screen.getByTestId('fretboard').getAttribute('data-orientation')).toBe('horizontal');
-    expect(screen.getByTestId('piano').getAttribute('data-orientation')).toBe('horizontal');
-    expect(screen.getByTestId('instruments-area').getAttribute('data-orientation')).toBe(
-      'horizontal',
-    );
+    // No existe ningún selector de orientación
+    expect(screen.queryByLabelText('Orientación')).toBeNull();
 
-    const orientationSelect = screen.getByLabelText<HTMLSelectElement>('Orientación');
-    fireEvent.change(orientationSelect, { target: { value: 'vertical' } });
+    // Aplicamos C mayor de contexto (C = root, E/G = tone)
+    fireEvent.click(screen.getByTestId('apply-scale'));
 
-    expect(orientationSelect.value).toBe('vertical');
-    expect(screen.getByTestId('fretboard').getAttribute('data-orientation')).toBe('vertical');
-    expect(screen.getByTestId('piano').getAttribute('data-orientation')).toBe('vertical');
-    expect(screen.getByTestId('instruments-area').getAttribute('data-orientation')).toBe(
-      'vertical',
-    );
+    // Pulsamos C4 (tónica) y F#4 (nota manual) en el piano
+    const keyC4 = screen.getByRole('button', { name: 'C4' });
+    const keyFs4 = screen.getByRole('button', { name: 'F♯4' });
+    const keyE4 = screen.getByRole('button', { name: 'E4' });
+    const keyC5 = screen.getByRole('button', { name: 'C5' });
 
-    unmount();
+    fireEvent.click(keyC4);
+    fireEvent.click(keyFs4);
 
-    // Nuevo montaje sobre el mismo almacenamiento persistido
-    const second = createIsolatedStores(sharedStorage);
-    render(<SandboxView sandboxStore={second.sandboxStore} settingsStore={second.settingsStore} />);
+    // C4 es nota pulsada y además tónica (pinned + isRoot con anillo interior)
+    expect(keyC4.getAttribute('data-role')).toBe('pinned');
+    expect(keyC4.getAttribute('data-is-root')).toBe('true');
+    expect(keyC4.querySelector('[data-testid="root-inner-ring"]')).not.toBeNull();
 
-    expect(screen.getByLabelText<HTMLSelectElement>('Orientación').value).toBe('vertical');
-    expect(screen.getByTestId('fretboard').getAttribute('data-orientation')).toBe('vertical');
-    expect(screen.getByTestId('piano').getAttribute('data-orientation')).toBe('vertical');
-    expect(screen.getByTestId('instruments-area').getAttribute('data-orientation')).toBe(
-      'vertical',
-    );
+    // F#4 es nota pulsada sin ser tónica
+    expect(keyFs4.getAttribute('data-role')).toBe('pinned');
+    expect(keyFs4.getAttribute('data-is-root')).toBeNull();
+
+    // E4 es nota de contexto (tone)
+    expect(keyE4.getAttribute('data-role')).toBe('tone');
+
+    // C5 es tónica de contexto no pulsada (root con anillo interior)
+    expect(keyC5.getAttribute('data-role')).toBe('root');
+    expect(keyC5.getAttribute('data-is-root')).toBe('true');
+    expect(keyC5.querySelector('[data-testid="root-inner-ring"]')).not.toBeNull();
   });
 
   it('(c) con la guitarra oculta, el interruptor del piano está deshabilitado con texto explicativo y el piano sigue visible', () => {
@@ -433,55 +431,6 @@ describe('SandboxView — vista, orientación, persistencia, atajos y accesibili
 
     expect(screen.getByLabelText<HTMLInputElement>('Zurdo').checked).toBe(true);
     expect(screen.getByTestId('fretboard').getAttribute('data-mirrored')).toBe('true');
-  });
-
-  it('(e) en vertical, Fretboard tiene 150 posiciones y Piano 61 teclas, los clics devuelven los mismos datos que en horizontal (cuerda 5, traste 7; MIDI 52) y los aria-label son iguales', () => {
-    const onPosH = vi.fn();
-    const onKeyH = vi.fn();
-    const { unmount: unmountH } = render(
-      <div>
-        <Fretboard tuning={STANDARD_TUNING} orientation="horizontal" onPositionClick={onPosH} />
-        <Piano orientation="horizontal" onKeyClick={onKeyH} />
-      </div>,
-    );
-
-    const fbGroupH = screen.getByRole('group', { name: 'Mástil de guitarra' });
-    const pianoGroupH = screen.getByRole('group', { name: 'Teclado de piano' });
-    const fbButtonsH = within(fbGroupH).getAllByRole('button');
-    const pianoButtonsH = within(pianoGroupH).getAllByRole('button');
-    const fbAriaH = fbButtonsH.map((b) => b.getAttribute('aria-label'));
-    const pianoAriaH = pianoButtonsH.map((b) => b.getAttribute('aria-label'));
-
-    fireEvent.click(within(fbGroupH).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
-    fireEvent.click(within(pianoGroupH).getByRole('button', { name: 'E3' }));
-    unmountH();
-
-    const onPosV = vi.fn();
-    const onKeyV = vi.fn();
-    render(
-      <div>
-        <Fretboard tuning={STANDARD_TUNING} orientation="vertical" onPositionClick={onPosV} />
-        <Piano orientation="vertical" onKeyClick={onKeyV} />
-      </div>,
-    );
-
-    const fbGroupV = screen.getByRole('group', { name: 'Mástil de guitarra' });
-    const pianoGroupV = screen.getByRole('group', { name: 'Teclado de piano' });
-    const fbButtonsV = within(fbGroupV).getAllByRole('button');
-    const pianoButtonsV = within(pianoGroupV).getAllByRole('button');
-
-    expect(fbButtonsV).toHaveLength(150);
-    expect(pianoButtonsV).toHaveLength(61);
-    expect(fbButtonsV.map((b) => b.getAttribute('aria-label'))).toEqual(fbAriaH);
-    expect(pianoButtonsV.map((b) => b.getAttribute('aria-label'))).toEqual(pianoAriaH);
-
-    fireEvent.click(within(fbGroupV).getByRole('button', { name: 'Cuerda 5, traste 7, E3' }));
-    fireEvent.click(within(pianoGroupV).getByRole('button', { name: 'E3' }));
-
-    expect(onPosV).toHaveBeenCalledWith({ string: 5, fret: 7 });
-    expect(onPosV.mock.calls[0]?.[0]).toEqual(onPosH.mock.calls[0]?.[0]);
-    expect(onKeyV).toHaveBeenCalledWith(52);
-    expect(onKeyV.mock.calls[0]?.[0]).toBe(onKeyH.mock.calls[0]?.[0]);
   });
 
   it('(f) C limpia la selección y M alterna el sonido; no actúan con el foco en un select, ni con Ctrl o Alt', () => {

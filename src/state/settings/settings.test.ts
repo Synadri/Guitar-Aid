@@ -29,7 +29,6 @@ describe('Hito S2 — Store de ajustes: valores por defecto y acciones', () => {
   it('inicializa con los valores por defecto especificados en Requisitos §6.7 y plan_fase1', () => {
     const { get } = createTestSettings();
     expect(get().tuning).toEqual(STANDARD_TUNING);
-    expect(get().orientation).toBe('horizontal');
     expect(get().visibleInstruments).toEqual({ fretboard: true, piano: true });
     expect(get().leftHanded).toBe(false);
     expect(get().nameMode).toBe('sharps');
@@ -52,14 +51,6 @@ describe('Hito S2 — Store de ajustes: valores por defecto y acciones', () => {
     // Un id inexistente no debe alterar la afinación actual
     get().setTuning('nonexistent-tuning');
     expect(get().tuning.id).toBe('halfDown');
-  });
-
-  it('permite cambiar la orientación entre horizontal y vertical', () => {
-    const { get } = createTestSettings();
-    get().setOrientation('vertical');
-    expect(get().orientation).toBe('vertical');
-    get().setOrientation('horizontal');
-    expect(get().orientation).toBe('horizontal');
   });
 
   it('gestiona la visibilidad de instrumentos y previene ocultar ambos simultáneamente', () => {
@@ -153,7 +144,6 @@ describe('Hito S2 — Store de ajustes: valores por defecto y acciones', () => {
   it('resetSettings restablece todas las preferencias a sus valores originales', () => {
     const { get } = createTestSettings();
     get().setTuning(dropD);
-    get().setOrientation('vertical');
     get().setVisibleInstruments({ fretboard: false });
     get().setLeftHanded(true);
     get().setNameMode('flats');
@@ -176,7 +166,6 @@ describe('Hito S2 — Criterio 8: persistencia en storage', () => {
       storageName: 'test:persist',
     });
 
-    store.getState().setOrientation('vertical');
     store.getState().setTuning('dropD');
     store.getState().setLeftHanded(true);
 
@@ -186,31 +175,29 @@ describe('Hito S2 — Criterio 8: persistencia en storage', () => {
 
     expect(parsed.state).toMatchObject({
       tuningId: 'dropD',
-      orientation: 'vertical',
       leftHanded: true,
       nameMode: 'sharps',
       labels: 'note',
       volume: 0.8,
     });
-    // Comprobar que no hay notas ni funciones en la serialización
+    // Comprobar que no hay notas, orientación ni funciones en la serialización
     expect(parsed.state.notes).toBeUndefined();
     expect(parsed.state.context).toBeUndefined();
-    expect(parsed.state.setOrientation).toBeUndefined();
+    expect(parsed.state.orientation).toBeUndefined();
+    expect(parsed.state.setTuning).toBeUndefined();
   });
 
-  it('criterio 8: recuerda ocultar instrumentos, orientación y afinación tras simular recarga', () => {
+  it('criterio 8: recuerda ocultar instrumentos y configuración tras simular recarga', () => {
     const storage = createMemoryStorage();
 
     // Sesión 1: el usuario cambia ajustes
     const session1 = createSettingsStore({ storage, storageName: 'test:session' });
-    session1.getState().setOrientation('vertical');
     session1.getState().setVisibleInstruments({ fretboard: false, piano: true });
     session1.getState().setTuning('dropD');
     session1.getState().setVolume(0.35);
 
     // Sesión 2: simular recarga de página leyendo el mismo storage
     const session2 = createSettingsStore({ storage, storageName: 'test:session' });
-    expect(session2.getState().orientation).toBe('vertical');
     expect(session2.getState().visibleInstruments).toEqual({ fretboard: false, piano: true });
     expect(session2.getState().tuning.id).toBe('dropD');
     expect(session2.getState().volume).toBe(0.35);
@@ -234,7 +221,6 @@ describe('Hito S2 — Criterio 8: persistencia en storage', () => {
 
     const store = createSettingsStore({ storage, storageName: 'test:corrupt' });
     expect(store.getState().tuning).toEqual(STANDARD_TUNING);
-    expect(store.getState().orientation).toBe('horizontal');
     // Al menos un instrumento visible
     expect(
       store.getState().visibleInstruments.fretboard || store.getState().visibleInstruments.piano,

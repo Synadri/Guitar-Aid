@@ -372,7 +372,7 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     });
     expect(sandboxStore.getState().notes).toHaveLength(2);
     expect(pos57.getAttribute('data-role')).toBe('pinned');
-    expect(keyFs4.getAttribute('data-role')).toBe('tone');
+    expect(keyFs4.getAttribute('data-role')).toBe('pinned');
 
     // “Quitar” borra solo el contexto y conserva las notas pulsadas
     const removeBtn = screen.getByRole('button', { name: 'Quitar' });
@@ -382,7 +382,7 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(screen.queryByRole('region', { name: 'Navegador de digitaciones' })).toBeNull();
     expect(sandboxStore.getState().notes).toHaveLength(2);
     expect(pos57.getAttribute('data-role')).toBe('pinned');
-    expect(keyFs4.getAttribute('data-role')).toBe('tone');
+    expect(keyFs4.getAttribute('data-role')).toBe('pinned');
 
     // “Limpiar” vacía todo
     fireEvent.click(screen.getByRole('button', { name: 'Limpiar' }));

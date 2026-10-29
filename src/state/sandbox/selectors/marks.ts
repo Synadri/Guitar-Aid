@@ -20,18 +20,22 @@ import {
 import type { MenuContext, SandboxState, SelectedNote } from '../store';
 
 /** Papel visual de una marca (lo traduce a color/relleno la capa UI). */
-export type MarkRole = 'pinned' | 'equivalent' | 'tone' | 'root' | 'preview';
+export type MarkRole = 'pinned' | 'root' | 'tone' | 'scale-bg' | 'preview' | 'equivalent';
 export type LabelMode = 'note' | 'interval' | 'degree' | 'none';
 
 export interface FretMark {
   string: StringNumber;
   fret: number;
   role: MarkRole;
+  /** Si la marca (p. ej. una nota 'pinned') coincide además con la tónica/raíz activa. */
+  isRoot?: boolean;
   label?: string;
 }
 export interface KeyMark {
   midi: number;
   role: MarkRole;
+  /** Si la marca (p. ej. una nota 'pinned') coincide además con la tónica/raíz activa. */
+  isRoot?: boolean;
   label?: string;
 }
 
@@ -46,9 +50,10 @@ export const DEFAULT_PIANO_RANGE = { from: 36, to: 96 } as const;
 
 /** Prioridad al superponer marcas en la misma posición. */
 const ROLE_PRIORITY: Record<MarkRole, number> = {
-  pinned: 5,
-  root: 4,
-  tone: 3,
+  pinned: 6,
+  root: 5,
+  tone: 4,
+  'scale-bg': 3,
   preview: 2,
   equivalent: 1,
 };
@@ -127,29 +132,68 @@ function keysOf(pcs: readonly PitchClass[], range: { from: number; to: number })
   return out;
 }
 
+function mergeIsRoot<T extends { role: MarkRole; isRoot?: boolean }>(
+  winner: T,
+  other?: { role: MarkRole; isRoot?: boolean },
+): T {
+  const hasRoot =
+    winner.role === 'root' ||
+    winner.isRoot === true ||
+    other?.role === 'root' ||
+    other?.isRoot === true;
+  if (hasRoot && winner.role !== 'root') {
+    return { ...winner, isRoot: true };
+  }
+  return winner;
+}
+
 function pushFret(into: Map<string, FretMark>, mark: FretMark): void {
   const key = `${mark.string}:${mark.fret}`;
   const prev = into.get(key);
-  if (!prev || ROLE_PRIORITY[mark.role] > ROLE_PRIORITY[prev.role]) into.set(key, mark);
+  if (!prev) {
+    into.set(key, mark);
+    return;
+  }
+  const winner = ROLE_PRIORITY[mark.role] > ROLE_PRIORITY[prev.role] ? mark : prev;
+  const loser = winner === mark ? prev : mark;
+  into.set(key, mergeIsRoot(winner, loser));
 }
 function pushKey(into: Map<number, KeyMark>, mark: KeyMark): void {
   const prev = into.get(mark.midi);
-  if (!prev || ROLE_PRIORITY[mark.role] > ROLE_PRIORITY[prev.role]) into.set(mark.midi, mark);
+  if (!prev) {
+    into.set(mark.midi, mark);
+    return;
+  }
+  const winner = ROLE_PRIORITY[mark.role] > ROLE_PRIORITY[prev.role] ? mark : prev;
+  const loser = winner === mark ? prev : mark;
+  into.set(mark.midi, mergeIsRoot(winner, loser));
 }
 
 const withLabel = <T extends object>(mark: T, label: string | undefined): T =>
   label === undefined ? mark : { ...mark, label };
 
+const withRootFlag = <T extends object>(mark: T, isRoot: boolean): T =>
+  isRoot ? { ...mark, isRoot: true } : mark;
+
 function noteMarksFret(
   note: SelectedNote,
   state: SandboxView,
   root: PitchClass | undefined,
+  explicitRootPc: PitchClass | undefined,
   opts: Required<Pick<MarksOptions, 'nameMode' | 'labels'>>,
   into: Map<string, FretMark>,
 ): void {
-  const label = makeLabel(pitchClassOf(note.midi), root, opts.labels, opts.nameMode);
+  const pc = pitchClassOf(note.midi);
+  const label = makeLabel(pc, root, opts.labels, opts.nameMode);
+  const isRoot = explicitRootPc !== undefined && pc === explicitRootPc;
   for (const p of note.pinned) {
-    pushFret(into, withLabel({ string: p.string, fret: p.fret, role: 'pinned' as const }, label));
+    pushFret(
+      into,
+      withRootFlag(
+        withLabel({ string: p.string, fret: p.fret, role: 'pinned' as const }, label),
+        isRoot,
+      ),
+    );
   }
   if (!state.showAllPositions) return;
   for (let s = state.tuning.strings.length; s >= 1; s--) {
@@ -172,7 +216,9 @@ export function fretboardMarks(state: SandboxView, options: MarksOptions = {}): 
 
   // Capa notes.
   const notesRoot = effectiveNotesRoot(state);
-  for (const n of state.notes) noteMarksFret(n, state, notesRoot, opts, into);
+  const explicitRootPc: PitchClass | undefined =
+    state.context?.root ?? (state.rootOverride !== null ? state.rootOverride : undefined);
+  for (const n of state.notes) noteMarksFret(n, state, notesRoot, explicitRootPc, opts, into);
 
   // Capa context.
   const ctx = state.context;
@@ -217,12 +263,19 @@ export function pianoMarks(state: SandboxView, options: MarksOptions = {}): KeyM
   const into = new Map<number, KeyMark>();
 
   const notesRoot = effectiveNotesRoot(state);
+  const explicitRootPc: PitchClass | undefined =
+    state.context?.root ?? (state.rootOverride !== null ? state.rootOverride : undefined);
   for (const n of state.notes) {
+    const pc = pitchClassOf(n.midi);
+    const isRoot = explicitRootPc !== undefined && pc === explicitRootPc;
     pushKey(
       into,
-      withLabel(
-        { midi: n.midi, role: 'tone' as const },
-        makeLabel(pitchClassOf(n.midi), notesRoot, opts.labels, opts.nameMode),
+      withRootFlag(
+        withLabel(
+          { midi: n.midi, role: 'pinned' as const },
+          makeLabel(pc, notesRoot, opts.labels, opts.nameMode),
+        ),
+        isRoot,
       ),
     );
   }
