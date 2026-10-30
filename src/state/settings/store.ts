@@ -31,6 +31,8 @@ export interface SettingsState {
   soundEnabled: boolean;
   /** Mostrar posiciones equivalentes en todo el mástil (activado por defecto). */
   showAllPositions: boolean;
+  /** Menú lateral expandido (240px) o colapsado (76px, por defecto). */
+  sideNavExpanded: boolean;
 }
 
 export interface SettingsActions {
@@ -44,6 +46,7 @@ export interface SettingsActions {
   setVolume: (volume: number) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setShowAllPositions: (show: boolean) => void;
+  setSideNavExpanded: (expanded: boolean) => void;
   /** Restablece todos los ajustes a los valores iniciales. */
   resetSettings: () => void;
 }
@@ -61,6 +64,7 @@ export interface PersistedSettings {
   volume: number;
   soundEnabled: boolean;
   showAllPositions: boolean;
+  sideNavExpanded?: boolean;
 }
 
 export const SETTINGS_STORAGE_KEY = 'guitar-aid:settings';
@@ -76,6 +80,7 @@ export function initialSettingsState(overrides: Partial<SettingsState> = {}): Se
     volume: 0.8,
     soundEnabled: true,
     showAllPositions: true,
+    sideNavExpanded: false,
     ...overrides,
   };
 }
@@ -290,6 +295,8 @@ export function createSettingsStore(
 
         setShowAllPositions: (showAllPositions) => set({ showAllPositions }),
 
+        setSideNavExpanded: (sideNavExpanded) => set({ sideNavExpanded }),
+
         resetSettings: () => set(initialSettingsState()),
       }),
       {
@@ -306,6 +313,7 @@ export function createSettingsStore(
           volume: state.volume,
           soundEnabled: state.soundEnabled,
           showAllPositions: state.showAllPositions,
+          sideNavExpanded: state.sideNavExpanded,
         }),
         merge: (persistedState, currentState): SettingsStore => {
           const p = (persistedState ?? {}) as Partial<PersistedSettings>;
@@ -338,6 +346,10 @@ export function createSettingsStore(
             typeof p.showAllPositions === 'boolean'
               ? p.showAllPositions
               : currentState.showAllPositions;
+          const sideNavExpanded =
+            typeof p.sideNavExpanded === 'boolean'
+              ? p.sideNavExpanded
+              : currentState.sideNavExpanded;
 
           return {
             ...currentState,
@@ -350,6 +362,7 @@ export function createSettingsStore(
             volume,
             soundEnabled,
             showAllPositions,
+            sideNavExpanded,
           };
         },
       },

@@ -12,6 +12,7 @@ import {
   pcInterval,
   pcName,
   pitchClassOf,
+  scaleParentContext,
   scalePitchClasses,
   toWeightedPcs,
   type Candidate,
@@ -22,7 +23,7 @@ import {
   type PitchClass,
   type Voicing,
 } from '../../../theory';
-import type { MenuContext, SandboxState } from '../store';
+import type { ChordFocus, MenuContext, SandboxState } from '../store';
 import { contextVoicings, effectiveNotesRoot } from './marks';
 
 export interface IntervalInfo {
@@ -64,6 +65,8 @@ export interface ContextInfo {
   context: MenuContext;
   /** Nombre legible, p. ej. "Am7" o "A pentatónica menor". */
   title: string;
+  /** Subtítulo con relación de escala madre, relativa o simetría (solo escalas). */
+  subtitle?: string;
   root: { pc: PitchClass; name: string };
   /** Clases de altura (no notas MIDI) con intervalo y grado respecto a la tónica. */
   tones: ContextTone[];
@@ -71,9 +74,18 @@ export interface ContextInfo {
   voicing: { index: number; count: number; current: Voicing | null } | null;
 }
 
+export interface ChordFocusInfo {
+  title: string;
+  degree?: string;
+  root: { pc: PitchClass; name: string };
+  tones: ContextTone[];
+}
+
 export interface InfoPanelModel {
   notes: NotesInfo | null;
   context: ContextInfo | null;
+  /** Información del acorde enfocado sobre una escala o progresión (si está activo). */
+  chordFocus?: ChordFocusInfo | null;
   /** Notas de la selección que no existen en la afinación actual (nombres). */
   unplayableNotes: string[];
 }
@@ -81,7 +93,9 @@ export interface InfoPanelModel {
 type InfoState = Pick<
   SandboxState,
   'tuning' | 'notes' | 'context' | 'rootOverride' | 'voicingIndex' | 'unplayableMidis'
->;
+> & {
+  chordFocus?: ChordFocus | null;
+};
 
 function intervalInfo(semitones: number): IntervalInfo {
   return {
@@ -150,15 +164,34 @@ export function contextInfo(state: InfoState, mode: NameMode = 'sharps'): Contex
         }));
 
   let voicing: ContextInfo['voicing'] = null;
+  let subtitle: string | undefined;
+
   if (ctx.kind === 'chord') {
     const list = contextVoicings(state);
     const index = list.length === 0 ? 0 : Math.min(state.voicingIndex, list.length - 1);
     voicing = { index, count: list.length, current: list[index] ?? null };
+  } else {
+    const title = contextTitle(ctx, mode);
+    const parentCtx = scaleParentContext({ tonic: ctx.root, type: ctx.type, name: title }, mode);
+    const scaleType = getScaleType(ctx.type);
+    if (parentCtx) {
+      subtitle = parentCtx.description;
+    } else if (scaleType.family === 'diminished') {
+      const symNotes = [0, 3, 6, 9]
+        .map((off) => pcName(pitchClassOf(ctx.root + off), mode))
+        .join(', ');
+      subtitle = `Simétrica (${symNotes}: las 4 tónicas a 3 semitonos comparten las 8 notas)`;
+    } else if (scaleType.relative) {
+      const relTonic = pcName(pitchClassOf(ctx.root + scaleType.relative.offset), mode);
+      const relName = getScaleType(scaleType.relative.type).name.toLowerCase();
+      subtitle = `Relativa de ${relTonic} ${relName}`;
+    }
   }
 
   return {
     context: ctx,
     title: contextTitle(ctx, mode),
+    ...(subtitle ? { subtitle } : {}),
     root: { pc: ctx.root, name: pcName(ctx.root, mode) },
     tones,
     voicing,
@@ -174,9 +207,31 @@ export function infoPanelModel(state: InfoState, mode: NameMode = 'sharps'): Inf
       unplayableSet.add(n.midi);
     }
   }
+
+  let chordFocus: ChordFocusInfo | null = null;
+  if (state.chordFocus) {
+    const cf = state.chordFocus;
+    chordFocus = {
+      title: chordName(cf.chord, mode),
+      ...(cf.degree ? { degree: cf.degree } : {}),
+      root: { pc: cf.chord.root, name: pcName(cf.chord.root, mode) },
+      tones: chordTones(cf.chord.root, cf.chord.quality, mode).map((t) => ({
+        pc: t.pc,
+        name: t.name,
+        interval: {
+          semitones: t.semitones,
+          short: t.interval,
+          long: t.intervalLong,
+          degree: t.degree,
+        },
+      })),
+    };
+  }
+
   return {
     notes: notesInfo(state, mode),
     context: contextInfo(state, mode),
+    chordFocus,
     unplayableNotes: [...unplayableSet].map((m) => midiToName(m, mode)),
   };
 }

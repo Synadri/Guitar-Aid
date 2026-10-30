@@ -278,10 +278,9 @@ export function voicingsForChord(
   return adapted;
 }
 
-/** Formatea los 6 trastes de forma compacta (`x02010`, o `x-12-14-12-13-12` si hay trastes >= 10). */
+/** Formatea los 6 trastes de forma consistente separados por guiones (ej. `x-0-2-0-1-0`, `x-x-10-12-11-12`). */
 export function formatCompactFrets(frets: SixStringFrets): string {
-  const hasDoubleDigit = frets.some((f) => typeof f === 'number' && f >= 10);
-  return frets.map(String).join(hasDoubleDigit ? '-' : '');
+  return frets.map(String).join('-');
 }
 
 /**

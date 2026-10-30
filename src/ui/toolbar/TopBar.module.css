@@ -1,0 +1,83 @@
+.topBar {
+  min-height: var(--topbar-height, 48px);
+  height: var(--topbar-height, 48px);
+  width: 100%;
+  padding: 0 16px;
+  background-color: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+@media (max-width: 1100px) {
+  .topBar {
+    height: auto;
+    padding: 6px 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtn {
+  height: 32px;
+  padding: 0 10px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.actionBtn:hover {
+  background-color: var(--control-hover);
+  border-color: var(--control-border);
+}
+
+.actionBtnActive {
+  background-color: var(--accent-bg);
+  border-color: var(--accent);
+  color: #93c5fd;
+}
+
+.shortcutBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: var(--text-muted);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

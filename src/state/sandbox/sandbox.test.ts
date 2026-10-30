@@ -549,7 +549,11 @@ describe('Hito H4: chordFocus, armonía y reglas de reinicio', () => {
     expect(get().chordFocus).toBeNull();
     // Tras clearChordFocus, se restaura la escala principal: no hay marcas en scale-bg
     expect(fretboardMarks(get()).some((m) => m.role === 'scale-bg')).toBe(false);
-    expect(fretboardMarks(get()).some((m) => m.role === 'root' && positionToMidi(STANDARD_TUNING, m) % 12 === 0)).toBe(true);
+    expect(
+      fretboardMarks(get()).some(
+        (m) => m.role === 'root' && positionToMidi(STANDARD_TUNING, m) % 12 === 0,
+      ),
+    ).toBe(true);
   });
 
   it('regla de reinicio 4: clear vacía todo incluyendo chordFocus y harmonyProgression', () => {

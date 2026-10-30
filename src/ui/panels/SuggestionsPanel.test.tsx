@@ -68,11 +68,11 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
     expect(within(amBtn).getByTestId('suggestion-badge').textContent).toBe('♭3');
     expect(within(amBtn).getByTestId('suggestion-reason').textContent).toContain('3ª menor');
 
-    // Cambiar a Escalas
-    fireEvent.click(within(panel).getByRole('button', { name: 'Escalas' }));
-    fireEvent.click(within(panel).getByTestId('suggestions-show-more'));
+    // Escalas en Columna 3
+    const scalesPanel = screen.getByTestId('scales-panel');
+    fireEvent.click(within(scalesPanel).getByTestId('suggestions-show-more'));
 
-    const scaleButtons = within(panel).getAllByTestId('suggestion-button');
+    const scaleButtons = within(scalesPanel).getAllByTestId('suggestion-button');
     const scaleNames = scaleButtons.map(
       (b) => within(b).getByTestId('suggestion-name').textContent!,
     );
@@ -117,9 +117,9 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
     expect(chordNames).toEqual(expect.arrayContaining(['Am', 'Am7', 'C6', 'Asus4']));
     expect(chordNames).not.toContain('Em');
 
-    // Modo Escalas: Do pentatónica mayor (relativa) va primero
-    fireEvent.click(within(panel).getByRole('button', { name: 'Escalas' }));
-    const scaleButtons = within(panel).getAllByTestId('suggestion-button');
+    // Columna 3 (Escalas): Do pentatónica mayor (relativa) va primero
+    const scalesPanel = screen.getByTestId('scales-panel');
+    const scaleButtons = within(scalesPanel).getAllByTestId('suggestion-button');
     const expectedRelated = relatedScales({
       tonic: 9,
       type: 'minorPentatonic',
@@ -157,12 +157,12 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
     expect(progTitles.some((t) => t.includes('C mayor') && t.includes('grado vi'))).toBe(true);
     expect(progTitles.some((t) => t.includes('G mayor') && t.includes('grado ii'))).toBe(true);
 
-    // En modo Escalas: dórico, eólico (Menor natural) y pentatónica menor por encima del frigio
-    fireEvent.click(within(panel).getByRole('button', { name: 'Escalas' }));
-    const showMoreScales = within(panel).queryByTestId('suggestions-show-more');
+    // En Columna 3 (Escalas): dórico, eólico (Menor natural) y pentatónica menor por encima del frigio
+    const scalesPanel = screen.getByTestId('scales-panel');
+    const showMoreScales = within(scalesPanel).queryByTestId('suggestions-show-more');
     if (showMoreScales) fireEvent.click(showMoreScales);
 
-    const scaleNames = within(panel)
+    const scaleNames = within(scalesPanel)
       .getAllByTestId('suggestion-name')
       .map((el) => el.textContent!);
 
@@ -371,9 +371,7 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
     render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
 
     expect(settingsStore.getState().suggestionsMode).toBe('chords');
-
-    const panel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
-    fireEvent.click(within(panel).getByRole('button', { name: 'Escalas' }));
+    settingsStore.getState().setSuggestionsMode('scales');
 
     expect(settingsStore.getState().suggestionsMode).toBe('scales');
     const raw = storage.getItem(SETTINGS_STORAGE_KEY);
@@ -416,5 +414,115 @@ describe('SuggestionsPanel e interacción de previsualizar y aplicar (U5)', () =
     );
     expect(within(panel).queryByRole('list')).toBeNull();
     expect(within(panel).queryByTestId('suggestions-subject-header')).toBeNull();
+  });
+
+  it('(m) criterios 1.1 (c), (d), (e) y (j): conmutador Tríadas/Cuatríadas (7ª), chordFocus sobre grados de escala, botón “Ir al acorde” y escalas relativas con grado respecto a la madre', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    const { container } = render(
+      <SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />,
+    );
+
+    // Seleccionar C mayor
+    fireEvent.change(screen.getByLabelText('Tónica de la escala'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Tipo de escala'), { target: { value: 'major' } });
+
+    const panel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
+    const harmonyToggle = within(panel).getByTestId('harmony-mode-toggle');
+
+    // Conmutar a Cuatríadas (7ª) -> Criterio (c)
+    fireEvent.click(within(harmonyToggle).getByRole('button', { name: 'Cuatríadas (7ª)' }));
+    const cMajSeventhNames = within(panel)
+      .getAllByTestId('suggestion-name')
+      .map((el) => el.textContent!);
+    expect(cMajSeventhNames).toEqual(['Cmaj7', 'Dm7', 'Em7', 'Fmaj7', 'G7', 'Am7', 'Bm7♭5']);
+
+    // Criterio (e): clic en G7 activa chordFocus dejando la escala en scale-bg
+    const g7Btn = within(panel)
+      .getAllByTestId('suggestion-button')
+      .find((b) => within(b).getByTestId('suggestion-name').textContent === 'G7')!;
+    fireEvent.click(g7Btn);
+
+    expect(sandboxStore.getState().context).toEqual({ kind: 'scale', root: 0, type: 'major' });
+    expect(sandboxStore.getState().chordFocus?.chord.name).toBe('G7');
+    expect(
+      container.querySelectorAll('[data-string][data-role="scale-bg"]').length,
+    ).toBeGreaterThan(0);
+
+    // Segundo clic en G7 desactiva chordFocus y restaura la escala
+    fireEvent.click(g7Btn);
+    expect(sandboxStore.getState().chordFocus).toBeNull();
+    expect(container.querySelectorAll('[data-string][data-role="scale-bg"]')).toHaveLength(0);
+
+    // Criterio (j): escalas relativas en Columna 3 muestran grados respecto a la madre sin incluirse a sí misma
+    const scalesPanel = screen.getByTestId('scales-panel');
+    const relativeHeader = within(scalesPanel).getByRole('button', {
+      name: /Escalas relativas \(mismas notas\)/i,
+    });
+    expect(relativeHeader.getAttribute('aria-expanded')).toBe('true');
+
+    // Botón "Ir al acorde G7" cambia el contexto principal a G7
+    const goToG7Btn = within(panel).getByRole('button', { name: 'Ir al acorde G7' });
+    fireEvent.click(goToG7Btn);
+    expect(sandboxStore.getState().context).toEqual({ kind: 'chord', root: 7, quality: '7' });
+
+    // Criterio (d): A menor armónica en Cuatríadas (7ª)
+    fireEvent.change(screen.getByLabelText('Tónica de la escala'), { target: { value: '9' } });
+    fireEvent.change(screen.getByLabelText('Tipo de escala'), {
+      target: { value: 'harmonicMinor' },
+    });
+    const aHarmSeventhNames = within(panel)
+      .getAllByTestId('suggestion-name')
+      .map((el) => el.textContent!);
+    expect(aHarmSeventhNames).toEqual([
+      'Am(maj7)',
+      'Bm7♭5',
+      'Cmaj7♯5',
+      'Dm7',
+      'E7',
+      'Fmaj7',
+      'G♯dim7',
+    ]);
+  });
+
+  it('(n) criterio 1.1 (f): con Dm como contexto, en las progresiones Dm se resalta como grado actual, clic en G activa chordFocus sin cambiar el contexto y “Volver a Dm” restaura Dm', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    // Seleccionar Dm como contexto
+    fireEvent.change(screen.getByLabelText('Tónica del acorde'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Calidad del acorde'), { target: { value: 'm' } });
+
+    const panel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
+    const showMore = within(panel).queryByTestId('suggestions-show-more');
+    if (showMore) fireEvent.click(showMore);
+
+    // Buscar una progresión de C mayor donde Dm es ii (p. ej. ii–V–I)
+    const progItems = within(panel).getAllByTestId('progression-item');
+    const cMajorProg = progItems.find((item) =>
+      within(item).getByTestId('progression-title').textContent?.includes('C mayor · grado ii'),
+    )!;
+    expect(cMajorProg).toBeDefined();
+
+    const stepButtons = within(cMajorProg).getAllByTestId('suggestion-button');
+    const dmBtn = stepButtons.find(
+      (b) => within(b).getByTestId('suggestion-name').textContent === 'Dm',
+    )!;
+    const gBtn = stepButtons.find(
+      (b) => within(b).getByTestId('suggestion-name').textContent === 'G',
+    )!;
+
+    expect(dmBtn.getAttribute('data-current-degree')).toBe('true');
+    expect(gBtn.getAttribute('data-current-degree')).toBeNull();
+
+    // Clic en G activa chordFocus sin cambiar el contexto principal Dm
+    fireEvent.click(gBtn);
+    expect(sandboxStore.getState().context).toEqual({ kind: 'chord', root: 2, quality: 'm' });
+    expect(sandboxStore.getState().chordFocus?.chord.name).toBe('G');
+
+    // Pulsar "Volver a Dm" restaura la visualización de Dm
+    const restoreBtn = within(panel).getByTestId('restore-context-chord');
+    expect(restoreBtn.textContent).toBe('Volver a Dm');
+    fireEvent.click(restoreBtn);
+    expect(sandboxStore.getState().chordFocus).toBeNull();
   });
 });

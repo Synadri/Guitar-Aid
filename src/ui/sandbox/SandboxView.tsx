@@ -1,24 +1,27 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
   DEFAULT_FRETS,
-  TUNINGS,
   getScaleType,
   positionToMidi,
   type FretPosition,
-  type NameMode,
+  type StringNumber,
 } from '../../theory';
 import {
   DEFAULT_PIANO_RANGE,
   bindSettingsToSandbox,
+  chordFocusVoicings,
+  contextVoicings,
+  effectiveNotesRoot,
   fretboardMarks,
   pianoMarks,
   resolveFocus,
   sandboxStore as defaultSandboxStore,
+  selectedChordFocusVoicing,
   selectedVoicing,
   settingsStore as defaultSettingsStore,
-  type LabelMode,
+  suggestionSubject,
   type SandboxStore,
   type SettingsStore,
 } from '../../state';
@@ -31,10 +34,17 @@ import {
   scaleEvents,
   type AudioEngine,
 } from '../../audio';
-import { Fretboard, Piano } from '../instruments';
-import { SandboxInfoPanel, SandboxSuggestionsPanel } from '../panels';
-import { SandboxContextPickers } from '../pickers';
+import { SideNav, type AppMode } from '../layout/SideNav';
+import { TopBar } from '../toolbar/TopBar';
+import { ContextStrip } from './ContextStrip';
+import { Fretboard } from '../instruments/Fretboard';
+import { Piano } from '../instruments/Piano';
+import { SandboxInfoPanel } from '../panels/InfoPanel';
+import { SandboxSuggestionsPanel } from '../panels/SuggestionsPanel';
+import { ScalesPanel } from '../panels/ScalesPanel';
 import styles from './SandboxView.module.css';
+
+export const SINGLE_INSTRUMENT_NOTICE = 'Siempre queda un instrumento visible';
 
 export interface SandboxViewProps {
   sandboxStore?: StoreApi<SandboxStore>;
@@ -42,122 +52,74 @@ export interface SandboxViewProps {
   audioEngine?: AudioEngine;
 }
 
-export const SINGLE_INSTRUMENT_NOTICE = 'Debe quedar al menos un instrumento visible';
-
-const LABEL_OPTIONS: readonly { value: LabelMode; label: string }[] = [
-  { value: 'note', label: 'Nota' },
-  { value: 'interval', label: 'Intervalo' },
-  { value: 'degree', label: 'Grado' },
-  { value: 'none', label: 'Ninguna' },
-];
-
-const NAME_MODE_OPTIONS: readonly { value: NameMode; label: string }[] = [
-  { value: 'sharps', label: 'Sostenidos' },
-  { value: 'flats', label: 'Bemoles' },
-];
-
-function isFormFieldElement(target: EventTarget | Element | null): boolean {
-  if (!target || typeof (target as Element).tagName !== 'string') return false;
-  const el = target as HTMLElement;
-  const tag = el.tagName.toUpperCase();
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
-    return true;
-  }
-  if (el.isContentEditable) {
-    return true;
-  }
-  return false;
-}
-
 export function SandboxView({
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
   audioEngine = defaultAudioEngine,
-}: SandboxViewProps = {}) {
-  const viewNoticeId = useId();
-
+}: SandboxViewProps) {
   useEffect(() => {
     return bindSettingsToSandbox(settingsStore, sandboxStore);
   }, [settingsStore, sandboxStore]);
 
-  // Ajustes (fuente de verdad de preferencias)
-  const tuning = useStore(settingsStore, (s) => s.tuning);
+  const [currentMode, setCurrentMode] = useState<AppMode>('sandbox');
+
+  // Estado del Sandbox
+  const notes = useStore(sandboxStore, (s) => s.notes);
+  const context = useStore(sandboxStore, (s) => s.context);
+  const preview = useStore(sandboxStore, (s) => s.preview);
+  const tuning = useStore(sandboxStore, (s) => s.tuning);
+  const showAllPositions = useStore(sandboxStore, (s) => s.showAllPositions);
+  const voicingIndex = useStore(sandboxStore, (s) => s.voicingIndex);
+  const focus = useStore(sandboxStore, (s) => s.focus);
+  const rootOverride = useStore(sandboxStore, (s) => s.rootOverride);
+  const chordFocus = useStore(sandboxStore, (s) => s.chordFocus);
+
+  // Estado de Ajustes
   const visibleInstruments = useStore(settingsStore, (s) => s.visibleInstruments);
-  const showAllPositions = useStore(settingsStore, (s) => s.showAllPositions);
   const leftHanded = useStore(settingsStore, (s) => s.leftHanded);
   const nameMode = useStore(settingsStore, (s) => s.nameMode);
   const labels = useStore(settingsStore, (s) => s.labels);
-  const soundEnabled = useStore(settingsStore, (s) => s.soundEnabled);
   const volume = useStore(settingsStore, (s) => s.volume);
-  const setTuning = useStore(settingsStore, (s) => s.setTuning);
-  const setVisibleInstruments = useStore(settingsStore, (s) => s.setVisibleInstruments);
-  const setLeftHanded = useStore(settingsStore, (s) => s.setLeftHanded);
-  const setShowAllPositions = useStore(settingsStore, (s) => s.setShowAllPositions);
-  const setLabels = useStore(settingsStore, (s) => s.setLabels);
-  const setNameMode = useStore(settingsStore, (s) => s.setNameMode);
-  const setSoundEnabled = useStore(settingsStore, (s) => s.setSoundEnabled);
-  const setVolume = useStore(settingsStore, (s) => s.setVolume);
+  const soundEnabled = useStore(settingsStore, (s) => s.soundEnabled);
+  const sideNavExpanded = useStore(settingsStore, (s) => s.sideNavExpanded);
 
+  // Sincronización del motor de audio
   useEffect(() => {
-    audioEngine.setSoundEnabled(soundEnabled);
-    audioEngine.setVolume(volume);
+    audioEngine?.setSoundEnabled?.(soundEnabled);
+    audioEngine?.setVolume?.(volume);
   }, [audioEngine, soundEnabled, volume]);
 
-  // Estado y acciones de la selección en el Sandbox
-  const notes = useStore(sandboxStore, (s) => s.notes);
-  const context = useStore(sandboxStore, (s) => s.context);
-  const voicingIndex = useStore(sandboxStore, (s) => s.voicingIndex);
-  const preview = useStore(sandboxStore, (s) => s.preview);
-  const rootOverride = useStore(sandboxStore, (s) => s.rootOverride);
-  const focus = useStore(sandboxStore, (s) => s.focus);
-  const chordFocus = useStore(sandboxStore, (s) => s.chordFocus);
-  const toggleFretPosition = useStore(sandboxStore, (s) => s.toggleFretPosition);
-  const togglePianoKey = useStore(sandboxStore, (s) => s.togglePianoKey);
-  const clear = useStore(sandboxStore, (s) => s.clear);
-
-  // Atajos globales de teclado (Requisitos §7): C limpia selección y M alterna sonido.
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (isFormFieldElement(e.target) || isFormFieldElement(document.activeElement)) return;
-
-      if (e.key === 'c' || e.key === 'C') {
-        e.preventDefault();
-        sandboxStore.getState().clear();
-      } else if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        const nextSound = !settingsStore.getState().soundEnabled;
-        settingsStore.getState().setSoundEnabled(nextSound);
-        audioEngine.setSoundEnabled(nextSound);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sandboxStore, settingsStore, audioEngine]);
-
-  const markState = {
-    tuning,
-    showAllPositions,
-    notes,
-    context,
-    voicingIndex,
-    preview,
-    rootOverride,
-    chordFocus,
-  };
-
-  const fretMarks = fretboardMarks(markState, { nameMode, labels });
-  const keyMarks = pianoMarks(markState, { nameMode, labels });
-
   const activeLayer = resolveFocus({ notes, context, focus });
+  const subject = useMemo(
+    () => suggestionSubject({ notes, context, focus, rootOverride }, nameMode),
+    [notes, context, focus, rootOverride, nameMode],
+  );
+  const notesRoot = useMemo(
+    () => effectiveNotesRoot({ notes, rootOverride }),
+    [notes, rootOverride],
+  );
   const canPlayChordAndArpeggio =
-    activeLayer === 'notes' || (activeLayer === 'context' && context?.kind === 'chord');
+    activeLayer === 'notes' ||
+    (activeLayer === 'context' && context?.kind === 'chord') ||
+    chordFocus !== null;
   const canPlayScale = activeLayer === 'context' && context?.kind === 'scale';
 
+  const syncEngineSettings = () => {
+    const currentSettings = settingsStore.getState();
+    audioEngine?.setSoundEnabled?.(currentSettings.soundEnabled);
+    audioEngine?.setVolume?.(currentSettings.volume);
+    return currentSettings;
+  };
+
   const resolveActiveChordOrNoteMidis = (): number[] => {
-    if (activeLayer === 'notes') {
+    if (activeLayer === 'notes' && !chordFocus) {
       return notes.map((n) => n.midi);
+    }
+    if (chordFocus) {
+      const voicing = selectedChordFocusVoicing({ chordFocus, tuning });
+      return voicing
+        ? [...voicing.midis]
+        : chordFallbackMidis(chordFocus.chord.root, chordFocus.chord.quality);
     }
     if (activeLayer === 'context' && context?.kind === 'chord') {
       const voicing = selectedVoicing({ context, tuning, voicingIndex });
@@ -166,13 +128,93 @@ export function SandboxView({
     return [];
   };
 
-  const syncEngineSettings = () => {
-    const currentSettings = settingsStore.getState();
-    audioEngine.setSoundEnabled(currentSettings.soundEnabled);
-    audioEngine.setVolume(currentSettings.volume);
-    return currentSettings;
-  };
+  // Atajos globales de teclado: C (limpiar), M (sonido), Esc (cerrar menús/foco)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'SELECT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
 
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        sandboxStore.getState().clear();
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const nextSound = !settingsStore.getState().soundEnabled;
+        settingsStore.getState().setSoundEnabled(nextSound);
+        audioEngine?.setSoundEnabled?.(nextSound);
+      } else if (e.key === 'Escape') {
+        sandboxStore.getState().clearChordFocus();
+        sandboxStore.getState().setPreview(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sandboxStore, settingsStore, audioEngine]);
+
+  // Cálculo reactivo de marcas para el mástil y el piano
+  const markState = useMemo(
+    () => ({
+      notes,
+      context,
+      preview,
+      chordFocus,
+      tuning,
+      showAllPositions,
+      voicingIndex,
+      labels,
+      nameMode,
+      rootOverride,
+    }),
+    [
+      notes,
+      context,
+      preview,
+      chordFocus,
+      tuning,
+      showAllPositions,
+      voicingIndex,
+      labels,
+      nameMode,
+      rootOverride,
+    ],
+  );
+
+  const fretMarks = fretboardMarks(markState, { nameMode, labels });
+  const keyMarks = pianoMarks(markState, { nameMode, labels });
+  const activeVoicings = chordFocus
+    ? chordFocusVoicings({ chordFocus, tuning })
+    : contextVoicings({ context, tuning });
+
+  const mutedStrings = useMemo<StringNumber[]>(() => {
+    const activeVoicing = chordFocus
+      ? chordFocus.mode === 'voicing'
+        ? selectedChordFocusVoicing({ chordFocus, tuning })
+        : null
+      : context?.kind === 'chord'
+        ? selectedVoicing({ context, tuning, voicingIndex })
+        : null;
+    if (!activeVoicing) return [];
+    const out: StringNumber[] = [];
+    for (let s = 1; s <= 6; s++) {
+      const str = s as StringNumber;
+      if (activeVoicing.frets[6 - str] === 'x') {
+        out.push(str);
+      }
+    }
+    return out;
+  }, [chordFocus, context, tuning, voicingIndex]);
+
+  // Manejo de interacción en el mástil
   const handlePositionClick = (pos: FretPosition) => {
     const currentState = sandboxStore.getState();
     const midi = positionToMidi(currentState.tuning, pos);
@@ -180,30 +222,38 @@ export function SandboxView({
     const wasPinned =
       existing?.pinned.some((p) => p.string === pos.string && p.fret === pos.fret) ?? false;
 
-    toggleFretPosition(pos);
+    sandboxStore.getState().toggleFretPosition(pos);
 
     if (!wasPinned) {
       const currentSettings = syncEngineSettings();
       if (currentSettings.soundEnabled) {
-        audioEngine.playNote(midi);
+        audioEngine?.playNote?.(midi);
       }
     }
   };
 
+  const handlePositionRightClick = (pos: FretPosition) => {
+    const midi = positionToMidi(tuning, pos);
+    const pc = (midi % 12) as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+    sandboxStore.getState().setRootOverride(pc);
+  };
+
+  // Manejo de interacción en el piano
   const handleKeyClick = (midi: number) => {
     const currentState = sandboxStore.getState();
     const wasActive = currentState.notes.some((n) => n.midi === midi);
 
-    togglePianoKey(midi);
+    sandboxStore.getState().togglePianoKey(midi);
 
     if (!wasActive) {
       const currentSettings = syncEngineSettings();
       if (currentSettings.soundEnabled) {
-        audioEngine.playNote(midi);
+        audioEngine?.playNote?.(midi);
       }
     }
   };
 
+  // Reproducción de audio
   const handlePlayChord = () => {
     const currentSettings = syncEngineSettings();
     if (!currentSettings.soundEnabled) return;
@@ -226,245 +276,266 @@ export function SandboxView({
     playEvents(scaleEvents(context.root, scaleType.intervals), audioEngine);
   };
 
-  const isFretboardSwitchDisabled = !visibleInstruments.piano;
-  const isPianoSwitchDisabled = !visibleInstruments.fretboard;
-  const hasSingleInstrumentVisible = isFretboardSwitchDisabled || isPianoSwitchDisabled;
+  const isOnlyOneInstrumentVisible =
+    (visibleInstruments.fretboard && !visibleInstruments.piano) ||
+    (!visibleInstruments.fretboard && visibleInstruments.piano);
 
   return (
-    <div className={styles.sandbox}>
-      <header className={styles.toolbar}>
-        <label className={styles.controlLabel}>
-          Afinación
-          <select
-            className={styles.select}
-            aria-label="Afinación"
-            value={tuning.id}
-            onChange={(e) => setTuning(e.target.value)}
-          >
-            {TUNINGS.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
+    <div
+      className={styles.sandbox}
+      data-testid="sandbox-container"
+      data-theme="dark"
+      role="application"
+      aria-label="Guitar Aid Sandbox"
+    >
+      {/* 1. Menú lateral (Navegación entre modos) */}
+      <SideNav
+        currentMode={currentMode}
+        onSelectMode={setCurrentMode}
+        expanded={sideNavExpanded}
+        onToggleExpand={() => settingsStore.getState().setSideNavExpanded(!sideNavExpanded)}
+      />
 
-        <label className={styles.controlLabel}>
-          Etiquetas
-          <select
-            className={styles.select}
-            aria-label="Etiquetas"
-            value={labels}
-            onChange={(e) => setLabels(e.target.value as LabelMode)}
-          >
-            {LABEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* 2. Área principal */}
+      <div className={styles.mainArea}>
+        {/* Barra superior (fila única) */}
+        <TopBar
+          context={context}
+          onSelectContext={(ctx) => sandboxStore.getState().setContext(ctx)}
+          nameMode={nameMode}
+          onNameModeChange={(mode) => settingsStore.getState().setNameMode(mode)}
+          labels={labels}
+          onLabelsChange={(lbl) => settingsStore.getState().setLabels(lbl)}
+          tuning={tuning}
+          onTuningChange={(tId) => settingsStore.getState().setTuning(tId)}
+          showAllPositions={showAllPositions}
+          onShowAllPositionsChange={(show) => settingsStore.getState().setShowAllPositions(show)}
+          leftHanded={leftHanded}
+          onLeftHandedChange={(lh) => settingsStore.getState().setLeftHanded(lh)}
+          visibleInstruments={visibleInstruments}
+          onToggleInstrument={(inst) => settingsStore.getState().toggleInstrument(inst)}
+          volume={volume}
+          onVolumeChange={(vol) => {
+            settingsStore.getState().setVolume(vol);
+            audioEngine?.setVolume?.(vol);
+          }}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => {
+            const next = !soundEnabled;
+            settingsStore.getState().setSoundEnabled(next);
+            audioEngine?.setSoundEnabled?.(next);
+          }}
+          onClear={() => sandboxStore.getState().clear()}
+          onPlayChord={handlePlayChord}
+          onPlayArpeggio={handlePlayArpeggio}
+          onPlayScale={handlePlayScale}
+          canPlayChordAndArpeggio={canPlayChordAndArpeggio}
+          canPlayScale={canPlayScale}
+          playbackDisabled={!canPlayChordAndArpeggio && !canPlayScale}
+        />
 
-        <label className={styles.controlLabel}>
-          Nombres
-          <select
-            className={styles.select}
-            aria-label="Nombres"
-            value={nameMode}
-            onChange={(e) => setNameMode(e.target.value as NameMode)}
-          >
-            {NAME_MODE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {currentMode === 'sandbox' ? (
+          <>
+            {/* Aviso accesible si solo queda un instrumento visible */}
+            {isOnlyOneInstrumentVisible && (
+              <span data-testid="single-instrument-notice" className={styles.visuallyHidden}>
+                {SINGLE_INSTRUMENT_NOTICE}
+              </span>
+            )}
 
-        <label className={styles.controlLabel}>
-          <input
-            type="checkbox"
-            aria-label="Mostrar todas las posiciones"
-            checked={showAllPositions}
-            onChange={(e) => setShowAllPositions(e.target.checked)}
-          />
-          Mostrar todas las posiciones
-        </label>
+            {/* 3. Área de instrumentos a ancho completo (Franja + Mástil + Piano) */}
+            <div className={styles.instrumentsArea} data-testid="instruments-area">
+              {/* Franja de contexto */}
+              <ContextStrip
+                context={context}
+                chordFocus={chordFocus}
+                notes={notes}
+                activeLayer={activeLayer}
+                onSelectLayer={(l) => sandboxStore.getState().setFocus(l)}
+                tuning={tuning}
+                activeVoicings={activeVoicings}
+                voicingIndex={chordFocus ? chordFocus.voicingIndex : voicingIndex}
+                onVoicingIndexChange={(idx) => {
+                  if (chordFocus) {
+                    sandboxStore.getState().setChordFocusVoicingIndex(idx);
+                  } else {
+                    sandboxStore.getState().setVoicingIndex(idx);
+                  }
+                }}
+                onClearChordFocus={() => sandboxStore.getState().clearChordFocus()}
+                onPromoteChordFocus={
+                  chordFocus
+                    ? () =>
+                        sandboxStore.getState().setContext({
+                          kind: 'chord',
+                          root: chordFocus.chord.root,
+                          quality: chordFocus.chord.quality,
+                        })
+                    : undefined
+                }
+                onSetChordFocusMode={(mode) => sandboxStore.getState().setChordFocusMode(mode)}
+                nameMode={nameMode}
+                labels={labels}
+                onLabelsChange={(lbl) => settingsStore.getState().setLabels(lbl)}
+              />
 
-        <fieldset className={styles.viewGroup} data-testid="view-group">
-          <legend className={styles.viewGroupLegend}>Vista</legend>
+              {/* Mástil */}
+              {visibleInstruments.fretboard && (
+                <Fretboard
+                  tuning={tuning}
+                  frets={DEFAULT_FRETS}
+                  leftHanded={leftHanded}
+                  marks={fretMarks}
+                  mutedStrings={mutedStrings}
+                  nameMode={nameMode}
+                  onPositionClick={handlePositionClick}
+                  onPositionRightClick={handlePositionRightClick}
+                />
+              )}
 
-          <label className={styles.controlLabel}>
-            <input
-              type="checkbox"
-              aria-label="Zurdo"
-              checked={leftHanded}
-              onChange={(e) => setLeftHanded(e.target.checked)}
-            />
-            Zurdo
-          </label>
+              {/* Piano */}
+              {visibleInstruments.piano && (
+                <Piano
+                  range={DEFAULT_PIANO_RANGE}
+                  marks={keyMarks}
+                  nameMode={nameMode}
+                  onKeyClick={handleKeyClick}
+                />
+              )}
+            </div>
 
-          <label
-            className={`${styles.controlLabel} ${isFretboardSwitchDisabled ? styles.controlLabelDisabled : ''}`}
-            title={isFretboardSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
-          >
-            <input
-              type="checkbox"
-              aria-label="Mostrar guitarra"
-              checked={visibleInstruments.fretboard}
-              disabled={isFretboardSwitchDisabled}
-              title={isFretboardSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
-              aria-describedby={isFretboardSwitchDisabled ? viewNoticeId : undefined}
-              onChange={(e) => setVisibleInstruments({ fretboard: e.target.checked })}
-            />
-            Mostrar guitarra
-          </label>
-
-          <label
-            className={`${styles.controlLabel} ${isPianoSwitchDisabled ? styles.controlLabelDisabled : ''}`}
-            title={isPianoSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
-          >
-            <input
-              type="checkbox"
-              aria-label="Mostrar piano"
-              checked={visibleInstruments.piano}
-              disabled={isPianoSwitchDisabled}
-              title={isPianoSwitchDisabled ? SINGLE_INSTRUMENT_NOTICE : undefined}
-              aria-describedby={isPianoSwitchDisabled ? viewNoticeId : undefined}
-              onChange={(e) => setVisibleInstruments({ piano: e.target.checked })}
-            />
-            Mostrar piano
-          </label>
-
-          {hasSingleInstrumentVisible && (
-            <span
-              id={viewNoticeId}
-              className={styles.viewNotice}
-              data-testid="single-instrument-notice"
+            {/* 4. Dashboard inferior en Grid de 3 columnas */}
+            <div
+              className={styles.dashboard}
+              data-testid="dashboard"
+              role="region"
+              aria-label="Panel de análisis y contexto"
             >
-              {SINGLE_INSTRUMENT_NOTICE}
-            </span>
-          )}
-        </fieldset>
+              {/* Columna 1 — Selección y Contexto */}
+              <div className={styles.dashboardColumn} data-testid="dashboard-col-1">
+                <header className={styles.dashboardColumnHeader}>
+                  <h2 className={styles.columnTitle}>Selección y Contexto</h2>
+                  <span className={styles.columnHint}>
+                    {activeLayer === 'notes'
+                      ? 'Notas pulsadas'
+                      : context
+                        ? 'Contexto de menú'
+                        : 'Sin selección'}
+                  </span>
+                </header>
+                <div className={styles.dashboardColumnContent}>
+                  <SandboxInfoPanel sandboxStore={sandboxStore} settingsStore={settingsStore} />
+                </div>
+              </div>
 
-        <label className={styles.controlLabel} title="Alternar sonido (atajo: M)">
-          <input
-            type="checkbox"
-            aria-label="Sonido"
-            aria-keyshortcuts="M"
-            title="Alternar sonido (atajo: M)"
-            checked={soundEnabled}
-            onChange={(e) => {
-              const enabled = e.target.checked;
-              setSoundEnabled(enabled);
-              audioEngine.setSoundEnabled(enabled);
-            }}
-          />
-          Sonido
-        </label>
+              {/* Columna 2 — Armonía y Progresiones */}
+              <div className={styles.dashboardColumn} data-testid="dashboard-col-2">
+                <header className={styles.dashboardColumnHeader}>
+                  <h2 className={styles.columnTitle}>Armonía y Progresiones</h2>
+                  <span className={styles.columnHint}>
+                    {activeLayer === 'context' && context?.kind === 'scale'
+                      ? 'clic = foco'
+                      : 'progresiones'}
+                  </span>
+                </header>
+                <div className={styles.dashboardColumnContent}>
+                  <SandboxSuggestionsPanel
+                    sandboxStore={sandboxStore}
+                    settingsStore={settingsStore}
+                  />
+                </div>
+              </div>
 
-        <label className={styles.controlLabel}>
-          Volumen
-          <input
-            type="range"
-            className={styles.volumeSlider}
-            aria-label="Volumen"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            onChange={(e) => {
-              const nextVol = Number(e.target.value);
-              setVolume(nextVol);
-              audioEngine.setVolume(nextVol);
-            }}
-          />
-        </label>
-
-        <div
-          className={styles.playbackGroup}
-          role="group"
-          aria-label="Reproducir"
-          data-testid="playback-group"
-        >
-          <span className={styles.playbackLabel}>Reproducir</span>
-          {canPlayChordAndArpeggio && (
-            <>
+              {/* Columna 3 — Escalas */}
+              <div className={styles.dashboardColumn} data-testid="dashboard-col-3">
+                <header className={styles.dashboardColumnHeader}>
+                  <h2 className={styles.columnTitle}>Escalas</h2>
+                  <span className={styles.columnHint}>
+                    {activeLayer === 'context' && context?.kind === 'scale'
+                      ? 'relativas · cercanas'
+                      : 'escalas compatibles'}
+                  </span>
+                </header>
+                <div className={styles.dashboardColumnContent}>
+                  <ScalesPanel
+                    context={context}
+                    subject={subject}
+                    notesRoot={notesRoot}
+                    chordFocus={chordFocus}
+                    nameMode={nameMode}
+                    onSelectContext={(ctx) => {
+                      sandboxStore.getState().setPreview(null);
+                      sandboxStore.getState().setContext(ctx);
+                    }}
+                    onPreviewScale={(scale) => {
+                      if (scale) {
+                        sandboxStore
+                          .getState()
+                          .setPreview({ kind: 'scale', root: scale.tonic, type: scale.type });
+                      } else {
+                        sandboxStore.getState().setPreview(null);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Pantalla Próximamente para Tests (Fase 2) y Canción (Fase 3) */
+          <div className={styles.comingSoonContainer}>
+            <div className={styles.comingSoonCard}>
+              <div className={styles.comingSoonIcon}>
+                {currentMode === 'tests' ? (
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="6" />
+                    <circle cx="12" cy="12" r="2" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 18V5l12-2v13" />
+                    <circle cx="6" cy="18" r="3" />
+                    <circle cx="18" cy="16" r="3" />
+                  </svg>
+                )}
+              </div>
+              <h2 className={styles.comingSoonTitle}>
+                {currentMode === 'tests' ? 'Modo Tests — Fase 2' : 'Modo Canción — Fase 3'}
+              </h2>
+              <p className={styles.comingSoonDesc}>
+                {currentMode === 'tests'
+                  ? 'Entrena el reconocimiento de notas, acordes y escalas en el mástil y el piano con ejercicios interactivos y seguimiento de progreso.'
+                  : 'Importa tablaturas, reproduce bucles, visualiza acordes en tiempo real y analiza progresiones de tus canciones favoritas.'}
+              </p>
               <button
                 type="button"
-                className={styles.playbackButton}
-                onClick={handlePlayChord}
-                data-testid="play-chord"
+                className={styles.comingSoonBtn}
+                onClick={() => setCurrentMode('sandbox')}
               >
-                Acorde
+                Volver a Sandbox
               </button>
-              <button
-                type="button"
-                className={styles.playbackButton}
-                onClick={handlePlayArpeggio}
-                data-testid="play-arpeggio"
-              >
-                Arpegio
-              </button>
-            </>
-          )}
-          {canPlayScale && (
-            <button
-              type="button"
-              className={styles.playbackButton}
-              onClick={handlePlayScale}
-              data-testid="play-scale"
-            >
-              Escala
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          className={styles.clearButton}
-          onClick={clear}
-          title="Limpiar selección (atajo: C)"
-          aria-keyshortcuts="C"
-        >
-          Limpiar
-        </button>
-
-        <p className={styles.shortcutsHint} data-testid="shortcuts-hint">
-          Atajos: <kbd className={styles.kbd}>C</kbd> limpiar selección ·{' '}
-          <kbd className={styles.kbd}>M</kbd> alternar sonido
-        </p>
-      </header>
-
-      <SandboxContextPickers sandboxStore={sandboxStore} settingsStore={settingsStore} />
-
-      <div className={styles.workspace}>
-        <div className={styles.instruments} data-testid="instruments-area">
-          {visibleInstruments.fretboard && (
-            <Fretboard
-              tuning={tuning}
-              frets={DEFAULT_FRETS}
-              leftHanded={leftHanded}
-              marks={fretMarks}
-              nameMode={nameMode}
-              onPositionClick={handlePositionClick}
-            />
-          )}
-
-          {visibleInstruments.piano && (
-            <Piano
-              range={DEFAULT_PIANO_RANGE}
-              marks={keyMarks}
-              nameMode={nameMode}
-              onKeyClick={handleKeyClick}
-            />
-          )}
-        </div>
-
-        <aside className={styles.sidePanel}>
-          <SandboxInfoPanel sandboxStore={sandboxStore} settingsStore={settingsStore} />
-          <SandboxSuggestionsPanel sandboxStore={sandboxStore} settingsStore={settingsStore} />
-        </aside>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

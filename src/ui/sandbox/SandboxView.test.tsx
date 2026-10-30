@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createMemoryStorage,
@@ -526,5 +526,166 @@ describe('SandboxView — vista, orientación, persistencia, atajos y accesibili
     for (const control of controls) {
       expect(hasAccessibleName(control, document)).toBe(true);
     }
+  });
+});
+
+describe('H5a — Layout, Barra compacta, Menú Ajustes y Dashboard de 3 columnas', () => {
+  it('(a) la barra superior compacta integra selectores de escala y acorde, reproducción, limpiar y botón ⚙ Ajustes', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    const toolbar = screen.getByTestId('toolbar');
+    expect(toolbar).toBeTruthy();
+
+    // Selectores de escala y acorde dentro de la barra
+    expect(within(toolbar).getByTestId('scale-picker-group')).toBeTruthy();
+    expect(within(toolbar).getByTestId('chord-picker-group')).toBeTruthy();
+    expect(within(toolbar).getByLabelText('Tónica de la escala')).toBeTruthy();
+    expect(within(toolbar).getByLabelText('Tipo de escala')).toBeTruthy();
+    expect(within(toolbar).getByLabelText('Tónica del acorde')).toBeTruthy();
+    expect(within(toolbar).getByLabelText('Calidad del acorde')).toBeTruthy();
+    expect(within(toolbar).getByTestId('clear-context')).toBeTruthy();
+
+    // Reproducción y sonido
+    expect(within(toolbar).getByTestId('playback-group')).toBeTruthy();
+    expect(within(toolbar).getByLabelText('Sonido')).toBeTruthy();
+
+    // Acciones globales
+    expect(within(toolbar).getByRole('button', { name: 'Limpiar' })).toBeTruthy();
+    const settingsBtn = within(toolbar).getByTestId('settings-button');
+    expect(settingsBtn).toBeTruthy();
+    expect(settingsBtn.textContent).toContain('Ajustes');
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false');
+
+    // Atajos
+    expect(within(toolbar).getByTestId('shortcuts-hint').textContent).toContain('C');
+    expect(within(toolbar).getByTestId('shortcuts-hint').textContent).toContain('M');
+  });
+
+  it('(b) el menú ⚙ Ajustes es un popover accesible que se abre con clic, se cierra con Escape, clic fuera y botón ✕, y permite cambiar ajustes', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    const settingsBtn = screen.getByTestId('settings-button');
+    const popover = screen.getByTestId('settings-popover');
+
+    // Inicialmente cerrado
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(popover.getAttribute('data-open')).toBe('false');
+
+    // Clic abre el popover
+    fireEvent.click(settingsBtn);
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('true');
+    expect(popover.getAttribute('data-open')).toBe('true');
+
+    // Controles dentro del popover de ajustes
+    const tuningSelect = within(popover).getByLabelText<HTMLSelectElement>('Afinación');
+    const labelsSelect = within(popover).getByLabelText<HTMLSelectElement>('Etiquetas');
+    const namesSelect = within(popover).getByLabelText<HTMLSelectElement>('Nombres');
+    const showAllCheckbox = within(popover).getByLabelText<HTMLInputElement>(
+      'Mostrar todas las posiciones',
+    );
+    const leftHandedCheckbox = within(popover).getByLabelText<HTMLInputElement>('Modo zurdo');
+    const guitarCheckbox = within(popover).getByLabelText<HTMLInputElement>('Mostrar guitarra');
+    const pianoCheckbox = within(popover).getByLabelText<HTMLInputElement>('Mostrar piano');
+    const volumeSlider = within(popover).getByLabelText<HTMLInputElement>('Volumen');
+
+    expect(tuningSelect).toBeTruthy();
+    expect(labelsSelect).toBeTruthy();
+    expect(namesSelect).toBeTruthy();
+    expect(showAllCheckbox).toBeTruthy();
+    expect(leftHandedCheckbox).toBeTruthy();
+    expect(guitarCheckbox).toBeTruthy();
+    expect(pianoCheckbox).toBeTruthy();
+    expect(volumeSlider).toBeTruthy();
+
+    // Modificar un ajuste (afinación a Drop D) desde el popover
+    fireEvent.change(tuningSelect, { target: { value: 'dropD' } });
+    expect(settingsStore.getState().tuning.id).toBe('dropD');
+    expect(sandboxStore.getState().tuning.id).toBe('dropD');
+
+    // Modificar volumen
+    fireEvent.change(volumeSlider, { target: { value: '0.45' } });
+    expect(settingsStore.getState().volume).toBe(0.45);
+
+    // Cerrar con Escape
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(popover.getAttribute('data-open')).toBe('false');
+
+    // Reabrir y cerrar con el botón ✕
+    fireEvent.click(settingsBtn);
+    expect(popover.getAttribute('data-open')).toBe('true');
+    const closeBtn = within(popover).getByRole('button', { name: 'Cerrar ajustes' });
+    fireEvent.click(closeBtn);
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(popover.getAttribute('data-open')).toBe('false');
+
+    // Reabrir y cerrar haciendo clic fuera
+    fireEvent.click(settingsBtn);
+    expect(popover.getAttribute('data-open')).toBe('true');
+    fireEvent.mouseDown(document.body);
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(popover.getAttribute('data-open')).toBe('false');
+  });
+
+  it('(c) el dashboard inferior en grid de 3 columnas muestra Selección y Contexto, Armonía y Progresiones, y Escalas', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    const dashboard = screen.getByTestId('dashboard');
+    expect(dashboard).toBeTruthy();
+
+    const col1 = within(dashboard).getByTestId('dashboard-col-1');
+    const col2 = within(dashboard).getByTestId('dashboard-col-2');
+    const col3 = within(dashboard).getByTestId('dashboard-col-3');
+
+    // Cabeceras de las 3 columnas
+    expect(
+      within(col1).getByRole('heading', { level: 2, name: 'Selección y Contexto' }),
+    ).toBeTruthy();
+    expect(
+      within(col2).getByRole('heading', { level: 2, name: 'Armonía y Progresiones' }),
+    ).toBeTruthy();
+    expect(within(col3).getByRole('heading', { level: 2, name: 'Escalas' })).toBeTruthy();
+
+    // Contenido de las columnas
+    expect(within(col1).getByTestId('info-panel')).toBeTruthy();
+    expect(within(col2).getByTestId('suggestions-panel')).toBeTruthy();
+    expect(within(col3).getByTestId('scales-panel-placeholder')).toBeTruthy();
+  });
+
+  it('(d) criterio (k) y presupuesto de altura (Sección 9): en escritorio la barra compacta, instrumentos a ancho completo y las 3 cabeceras del dashboard son visibles simultáneamente sin scroll vertical', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    // Contenedor principal del sandbox
+    const sandboxContainer = screen.getByTestId('sandbox-container');
+    expect(sandboxContainer).toBeTruthy();
+
+    // 1. Barra superior compacta presente
+    const toolbar = screen.getByTestId('toolbar');
+    expect(toolbar).toBeTruthy();
+
+    // 2. Área de instrumentos horizontal a ancho completo con mástil y piano
+    const instrumentsArea = screen.getByTestId('instruments-area');
+    expect(instrumentsArea).toBeTruthy();
+    expect(within(instrumentsArea).getByTestId('fretboard')).toBeTruthy();
+    expect(within(instrumentsArea).getByTestId('piano')).toBeTruthy();
+
+    // 3. Dashboard con las cabeceras de las 3 columnas simultáneamente visibles
+    const dashboard = screen.getByTestId('dashboard');
+    expect(dashboard).toBeTruthy();
+
+    const col1Heading = within(dashboard).getByRole('heading', { name: 'Selección y Contexto' });
+    const col2Heading = within(dashboard).getByRole('heading', { name: 'Armonía y Progresiones' });
+    const col3Heading = within(dashboard).getByRole('heading', { name: 'Escalas' });
+
+    expect(col1Heading).toBeTruthy();
+    expect(col2Heading).toBeTruthy();
+    expect(col3Heading).toBeTruthy();
+
+    // No existe selector de orientación vertical (eliminado en P0)
+    expect(screen.queryByLabelText('Orientación')).toBeNull();
   });
 });

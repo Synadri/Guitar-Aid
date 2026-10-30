@@ -1,143 +1,100 @@
-.container {
-  --fb-bg: #f8f5f0;
-  --fb-board: #eadfce;
-  --fb-board-border: #b8a386;
-  --fb-nut: #2d261e;
-  --fb-fret: #a39583;
-  --fb-string: #5c5346;
-  --fb-inlay: #c8b89e;
-  --fb-text: #2c251d;
-  --fb-muted-text: #54493b;
-  --fb-focus: #005fcc;
-  --fb-hover: rgba(15, 118, 110, 0.14);
-
-  /* Roles de marca (modo claro) */
+:root {
   --mark-pinned-fill: #0f766e;
-  --mark-pinned-stroke: #064e3b;
-  --mark-pinned-text: #ffffff;
-
-  --mark-equivalent-fill: #f8f5f0;
-  --mark-equivalent-stroke: #0f766e;
-  --mark-equivalent-text: #0f514c;
-
   --mark-tone-fill: #1d4ed8;
-  --mark-tone-stroke: #1e3a8a;
-  --mark-tone-text: #ffffff;
-
   --mark-root-fill: #b45309;
-  --mark-root-stroke: #78350f;
-  --mark-root-ring: #fef3c7;
-  --mark-root-text: #ffffff;
-
   --mark-scale-bg-fill: #dbeafe;
-  --mark-scale-bg-stroke: #3b82f6;
-  --mark-scale-bg-text: #1e3a8a;
-
-  --mark-preview-fill: #f3e8ff;
-  --mark-preview-stroke: #7e22ce;
-  --mark-preview-text: #4c1d95;
-
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
-  background-color: var(--fb-bg);
-  border: 1px solid var(--fb-board-border);
-  border-radius: 8px;
-  padding: 0.5rem;
-  box-sizing: border-box;
 }
 
 @media (prefers-color-scheme: dark) {
-  .container {
-    --fb-bg: #18181b;
-    --fb-board: #27231f;
-    --fb-board-border: #52473c;
-    --fb-nut: #e5e0d8;
-    --fb-fret: #6e6357;
-    --fb-string: #b8afa3;
-    --fb-inlay: #4a4138;
-    --fb-text: #f4f1ea;
-    --fb-muted-text: #bfb6a8;
-    --fb-focus: #60a5fa;
-    --fb-hover: rgba(45, 212, 191, 0.18);
-
-    /* Roles de marca (modo oscuro) */
+  :root {
     --mark-pinned-fill: #14b8a6;
-    --mark-pinned-stroke: #99f6e4;
-    --mark-pinned-text: #042f2e;
-
-    --mark-equivalent-fill: #27231f;
-    --mark-equivalent-stroke: #2dd4bf;
-    --mark-equivalent-text: #99f6e4;
-
     --mark-tone-fill: #3b82f6;
-    --mark-tone-stroke: #bfdbfe;
-    --mark-tone-text: #0f172a;
-
     --mark-root-fill: #f59e0b;
-    --mark-root-stroke: #fef3c7;
-    --mark-root-ring: #451a03;
-    --mark-root-text: #1c1917;
-
     --mark-scale-bg-fill: #1e293b;
-    --mark-scale-bg-stroke: #60a5fa;
-    --mark-scale-bg-text: #bfdbfe;
-
-    --mark-preview-fill: #3b0764;
-    --mark-preview-stroke: #d8b4fe;
-    --mark-preview-text: #f3e8ff;
   }
 }
 
-.svg {
-  display: block;
+.container {
   width: 100%;
-  min-width: 820px;
-  height: auto;
+  max-width: var(--content-max-width, 2440px);
+  height: var(--fretboard-height, 236px);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   user-select: none;
+  box-sizing: border-box;
+}
+
+.svg {
+  width: 100%;
+  height: 100%;
+  max-width: 1960px;
+  max-height: 100%;
+  display: block;
 }
 
 .board {
-  fill: var(--fb-board);
-  stroke: var(--fb-board-border);
-  stroke-width: 1.5;
+  fill: #181c24;
+  stroke: #252c3b;
+  stroke-width: 1;
 }
 
 .nut {
-  fill: var(--fb-nut);
+  fill: #e2e8f0;
+  stroke: #94a3b8;
+  stroke-width: 1;
 }
 
 .fretLine {
-  stroke: var(--fb-fret);
+  stroke: #333d4d;
   stroke-width: 1.5;
 }
 
 .stringLine {
-  stroke: var(--fb-string);
-  stroke-linecap: round;
-}
-
-.inlay {
-  fill: var(--fb-inlay);
+  stroke: #717d96;
+  opacity: 0.85;
 }
 
 .tuningLabel {
-  fill: var(--fb-text);
-  font-size: 12px;
-  font-weight: 700;
-  font-family: system-ui, sans-serif;
+  fill: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .fretNumber {
-  fill: var(--fb-muted-text);
+  fill: #64748b;
+  font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 600;
-  font-family: system-ui, sans-serif;
+  font-weight: 500;
+}
+
+.inlay {
+  fill: #2a3447;
+  opacity: 0.9;
+}
+
+.footerText {
+  fill: #64748b;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 .position {
   cursor: pointer;
+}
+
+.position:focus-visible {
   outline: none;
+}
+
+.position:focus-visible .hitArea {
+  stroke: var(--accent);
+  stroke-width: 2;
 }
 
 .hitArea {
@@ -146,89 +103,87 @@
 }
 
 .position:hover .hitArea {
-  fill: var(--fb-hover);
+  fill: rgba(59, 130, 246, 0.08);
 }
 
-.position:focus-visible .hitArea {
-  stroke: var(--fb-focus);
-  stroke-width: 2;
-  fill: var(--fb-hover);
-}
-
-.markLabel {
-  font-family: system-ui, sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  pointer-events: none;
-}
-
-/* Formas y bordes por rol (distinguibles sin depender solo del color) */
-.role_pinned .markCircle {
-  fill: var(--mark-pinned-fill);
-  stroke: var(--mark-pinned-stroke);
-  stroke-width: 2.25;
-}
-
-.role_pinned .markLabel {
-  fill: var(--mark-pinned-text);
-}
-
-.role_equivalent .markCircle {
-  fill: var(--mark-equivalent-fill);
-  stroke: var(--mark-equivalent-stroke);
-  stroke-width: 2.5;
-}
-
-.role_equivalent .markLabel {
-  fill: var(--mark-equivalent-text);
-}
-
-.role_tone .markCircle {
-  fill: var(--mark-tone-fill);
-  stroke: var(--mark-tone-stroke);
+.markCircle {
   stroke-width: 1.75;
-}
-
-.role_tone .markLabel {
-  fill: var(--mark-tone-text);
-}
-
-.role_root .markCircle {
-  fill: var(--mark-root-fill);
-  stroke: var(--mark-root-stroke);
-  stroke-width: 3.25;
+  transition: all 0.12s ease;
 }
 
 .rootInnerRing {
   fill: none;
-  stroke: var(--mark-root-ring);
+  stroke: #ffffff;
   stroke-width: 1.5;
+}
+
+.markLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
   pointer-events: none;
 }
 
+/* Roles de marca */
+.role_pinned .markCircle {
+  fill: var(--mark-pinned-fill);
+  stroke: #0d9488;
+  stroke-width: 2.25;
+}
+.role_pinned .markLabel {
+  fill: #02130f;
+}
+
+.role_tone .markCircle {
+  fill: var(--mark-tone-fill);
+  stroke: #1d4ed8;
+  stroke-width: 1.75;
+}
+.role_tone .markLabel {
+  fill: #04101f;
+}
+
+.role_root .markCircle {
+  fill: var(--mark-root-fill);
+  stroke: #d97706;
+  stroke-width: 2;
+}
 .role_root .markLabel {
-  fill: var(--mark-root-text);
+  fill: #1a1000;
 }
 
 .role_scale_bg .markCircle {
-  fill: var(--mark-scale-bg-fill);
-  stroke: var(--mark-scale-bg-stroke);
-  stroke-width: 1.5;
+  fill: #1a2233;
+  stroke: #3b82f6;
   stroke-dasharray: 2 2;
-  opacity: 0.85;
+  stroke-width: 1;
 }
-
 .role_scale_bg .markLabel {
-  fill: var(--mark-scale-bg-text);
+  fill: #93c5fd;
 }
 
 .role_preview .markCircle {
-  fill: var(--mark-preview-fill);
-  stroke: var(--mark-preview-stroke);
-  stroke-width: 2.25;
+  fill: #3b0764;
+  stroke: #a855f7;
   stroke-dasharray: 3.5 2;
+  stroke-width: 1.5;
+}
+.role_preview .markLabel {
+  fill: #f5d0fe;
 }
 
-.role_preview .markLabel {
-  fill: var(--mark-preview-text);
+.role_equivalent .markCircle {
+  fill: transparent;
+  stroke: var(--mark-pinned-fill);
+  stroke-width: 2;
+}
+.role_equivalent .markLabel {
+  fill: var(--mark-pinned-fill);
+}
+
+.mutedMarker {
+  fill: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
 }

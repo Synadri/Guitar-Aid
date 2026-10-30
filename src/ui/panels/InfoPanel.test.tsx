@@ -339,4 +339,23 @@ describe('InfoPanel y etiquetas en SandboxView (U3)', () => {
     expect(within(panel).queryByRole('region', { name: 'Contexto del menú' })).toBeNull();
     expect(within(panel).queryByRole('region', { name: 'Avisos' })).toBeNull();
   });
+
+  it('(l) criterio 1.1 (b): al seleccionar D dórico muestra “II grado de C mayor” como subtítulo del contexto y en escalas disminuidas muestra la nota de simetría', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    render(<SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />);
+
+    act(() => {
+      sandboxStore.getState().setContext({ kind: 'scale', root: 2, type: 'dorian' });
+    });
+
+    const panel = screen.getByRole('region', { name: 'Información de la selección' });
+    expect(within(panel).getByTestId('context-subtitle').textContent).toBe('II grado de C mayor');
+
+    act(() => {
+      sandboxStore.getState().setContext({ kind: 'scale', root: 0, type: 'diminishedHalfWhole' });
+    });
+    expect(within(panel).getByTestId('context-subtitle').textContent).toContain(
+      'Simétrica (C, D♯, F♯, A: las 4 tónicas a 3 semitonos comparten las 8 notas)',
+    );
+  });
 });

@@ -1,0 +1,133 @@
+.panelContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.accordionSection {
+  background-color: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-group);
+  overflow: hidden;
+}
+
+.accordionHeader {
+  width: 100%;
+  padding: 7px 10px;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.accordionHeader:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.countBadge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #94a3b8;
+}
+
+.accordionBody {
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 4px;
+  padding: 6px;
+}
+
+.scaleRow {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+  cursor: pointer;
+  text-align: left;
+}
+
+.scaleRow:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.scaleLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.romanDegree {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  min-width: 24px;
+}
+
+.scaleName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fitBadge {
+  padding: 2px 6px;
+  background-color: #101b33;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.sectionHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 6px 0 2px 0;
+}
+
+.placeholderText {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: center;
+}

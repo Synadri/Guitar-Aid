@@ -32,9 +32,12 @@ export function formatChordQualityOption(quality: ChordQuality): string {
   return quality.name;
 }
 
-/** Etiqueta de opción para cada escala del catálogo, incluyendo sus alias (p. ej. "Mayor / Jónico"). */
+/** Etiqueta concisa de opción para cada escala del catálogo. */
 export function formatScaleTypeOption(scale: ScaleType): string {
-  return [scale.name, ...scale.aliases].join(' / ');
+  if (scale.aliases.length > 0) {
+    return [scale.name, ...scale.aliases].join(' / ');
+  }
+  return scale.name;
 }
 
 export interface ContextPickersProps {
@@ -90,54 +93,6 @@ export function ContextPickers({
       data-testid="context-pickers"
     >
       <fieldset
-        className={`${styles.group} ${context?.kind === 'chord' ? styles.groupActive : ''}`}
-        data-testid="chord-picker-group"
-      >
-        <legend className={styles.groupLegend}>Acorde</legend>
-
-        <label className={styles.controlLabel}>
-          Tónica
-          <select
-            className={styles.select}
-            aria-label="Tónica del acorde"
-            value={String(displayedChordRoot)}
-            onChange={(e) => handleChordRootChange(Number(e.target.value) as PitchClass)}
-          >
-            {PITCH_CLASSES.map((pc) => (
-              <option key={pc} value={String(pc)}>
-                {pcName(pc, nameMode)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.controlLabel}>
-          Calidad
-          <select
-            className={styles.select}
-            aria-label="Calidad del acorde"
-            value={displayedChordQuality}
-            onChange={(e) => handleChordQualityChange(e.target.value as ChordQualityId)}
-          >
-            {CHORD_QUALITIES.map((q) => (
-              <option key={q.id} value={q.id}>
-                {formatChordQualityOption(q)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          className={styles.applyButton}
-          onClick={handleApplyChord}
-          data-testid="apply-chord"
-        >
-          Aplicar
-        </button>
-      </fieldset>
-
-      <fieldset
         className={`${styles.group} ${context?.kind === 'scale' ? styles.groupActive : ''}`}
         data-testid="scale-picker-group"
       >
@@ -180,6 +135,54 @@ export function ContextPickers({
           className={styles.applyButton}
           onClick={handleApplyScale}
           data-testid="apply-scale"
+        >
+          Aplicar
+        </button>
+      </fieldset>
+
+      <fieldset
+        className={`${styles.group} ${context?.kind === 'chord' ? styles.groupActive : ''}`}
+        data-testid="chord-picker-group"
+      >
+        <legend className={styles.groupLegend}>Acorde</legend>
+
+        <label className={styles.controlLabel}>
+          Tónica
+          <select
+            className={styles.select}
+            aria-label="Tónica del acorde"
+            value={String(displayedChordRoot)}
+            onChange={(e) => handleChordRootChange(Number(e.target.value) as PitchClass)}
+          >
+            {PITCH_CLASSES.map((pc) => (
+              <option key={pc} value={String(pc)}>
+                {pcName(pc, nameMode)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className={styles.controlLabel}>
+          Calidad
+          <select
+            className={styles.select}
+            aria-label="Calidad del acorde"
+            value={displayedChordQuality}
+            onChange={(e) => handleChordQualityChange(e.target.value as ChordQualityId)}
+          >
+            {CHORD_QUALITIES.map((q) => (
+              <option key={q.id} value={q.id}>
+                {formatChordQualityOption(q)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          className={styles.applyButton}
+          onClick={handleApplyChord}
+          data-testid="apply-chord"
         >
           Aplicar
         </button>

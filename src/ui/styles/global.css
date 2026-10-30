@@ -1,43 +1,205 @@
 :root {
-  color-scheme: light dark;
-  --app-bg: #f3efe8;
-  --app-card: #ffffff;
-  --app-border: #d6c8b4;
-  --app-text: #1f1b16;
-  --app-muted: #52483c;
-  --app-control-bg: #fcfaf7;
-  --app-focus: #005fcc;
-  --fb-bg: #f8f5f0;
-  --fb-text: #2c251d;
+  color-scheme: dark;
+
+  /* Tipografía (100% local / offline) */
+  --font-sans:
+    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-xl: 28px;
+
+  /* Dimensiones adaptativas (optimizadas para 1920×1080 y 2560×1440) */
+  --topbar-height: clamp(46px, 4.4vh, 52px);
+  --strip-height: clamp(38px, 3.7vh, 44px);
+  --fretboard-height: clamp(196px, 22vh, 300px);
+  --piano-height: clamp(96px, 10.8vh, 148px);
+  --content-max-width: 2440px;
+
+  /* Superficies modo oscuro (por defecto) */
+  --surface-0: #0e1014;
+  --surface-1: #11141a;
+  --surface-2: #131720;
+  --surface-3: #10131a;
+  --border: #232936;
+  --control-bg: #171b24;
+  --control-border: #2a303c;
+  --control-hover: #1f2533;
+
+  /* Texto */
+  --text-primary: #e7e9ee;
+  --text-muted: #9aa3b2;
+
+  /* Acento */
+  --accent: #3b82f6;
+  --accent-bg: #101b33;
+  --accent-hover: #2563eb;
+  --app-focus: #3b82f6;
+
+  /* Radios */
+  --radius-sm: 4px;
+  --radius-control: 8px;
+  --radius-group: 10px;
+  --radius-card: 12px;
+
+  /* Marcas (modo oscuro) */
+  --mark-pinned-fill: #14b8a6;
+  --mark-pinned-stroke: #0d9488;
+  --mark-pinned-text: #02130f;
+
+  --mark-root-fill: #f59e0b;
+  --mark-root-stroke: #d97706;
+  --mark-root-text: #1a1000;
+
+  --mark-tone-fill: #3b82f6;
+  --mark-tone-stroke: #1d4ed8;
+  --mark-tone-text: #04101f;
+
+  --mark-scale-bg-fill: #1a2233;
+  --mark-scale-bg-stroke: #3b82f6;
+  --mark-scale-bg-text: #93c5fd;
+
+  --mark-preview-fill: #3b0764;
+  --mark-preview-stroke: #a855f7;
+  --mark-preview-text: #f5d0fe;
+
+  --mark-equivalent-fill: transparent;
+  --mark-equivalent-stroke: #14b8a6;
+  --mark-equivalent-text: #14b8a6;
+
+  /* Variables legacy para compatibilidad */
+  --app-bg: var(--surface-0);
+  --app-card: var(--surface-2);
+  --app-border: var(--border);
+  --app-text: var(--text-primary);
+  --app-muted: var(--text-muted);
+  --app-control-bg: var(--control-bg);
+  --fb-bg: var(--surface-2);
+  --fb-text: var(--text-primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --app-bg: #0f0f12;
-    --app-card: #1a1917;
-    --app-border: #3a342c;
-    --app-text: #f4f1ea;
-    --app-muted: #bfb6a8;
-    --app-control-bg: #26231f;
-    --app-focus: #60a5fa;
-    --fb-bg: #18181b;
-    --fb-text: #f4f1ea;
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --surface-0: #f8fafc;
+    --surface-1: #ffffff;
+    --surface-2: #f1f5f9;
+    --surface-3: #e2e8f0;
+    --border: #cbd5e1;
+    --control-bg: #ffffff;
+    --control-border: #94a3b8;
+    --control-hover: #f1f5f9;
+
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+
+    --accent: #2563eb;
+    --accent-bg: #dbeafe;
+    --accent-hover: #1d4ed8;
+    --app-focus: #2563eb;
+
+    --mark-pinned-fill: #0f766e;
+    --mark-pinned-stroke: #115e59;
+    --mark-pinned-text: #ffffff;
+
+    --mark-root-fill: #b45309;
+    --mark-root-stroke: #92400e;
+    --mark-root-text: #ffffff;
+
+    --mark-tone-fill: #1d4ed8;
+    --mark-tone-stroke: #1e40af;
+    --mark-tone-text: #ffffff;
+
+    --mark-scale-bg-fill: #dbeafe;
+    --mark-scale-bg-stroke: #93c5fd;
+    --mark-scale-bg-text: #1e3a8a;
+
+    --mark-preview-fill: #f3e8ff;
+    --mark-preview-stroke: #c084fc;
+    --mark-preview-text: #581c87;
+
+    --mark-equivalent-fill: transparent;
+    --mark-equivalent-stroke: #0f766e;
+    --mark-equivalent-text: #0f766e;
   }
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --surface-0: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --border: #cbd5e1;
+  --control-bg: #ffffff;
+  --control-border: #94a3b8;
+  --control-hover: #f1f5f9;
+
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+
+  --accent: #2563eb;
+  --accent-bg: #dbeafe;
+  --accent-hover: #1d4ed8;
+  --app-focus: #2563eb;
+
+  --mark-pinned-fill: #0f766e;
+  --mark-root-fill: #b45309;
+  --mark-tone-fill: #1d4ed8;
+  --mark-scale-bg-fill: #dbeafe;
+  --mark-preview-fill: #f3e8ff;
+  --mark-equivalent-stroke: #0f766e;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--app-bg);
-  color: var(--app-text);
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  width: 100%;
+  height: 100%;
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1100px) {
+  html,
+  body {
+    overflow-y: auto;
+  }
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
 
 button:focus-visible,
 select:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--app-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

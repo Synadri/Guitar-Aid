@@ -177,17 +177,23 @@ describe('criterios de aceptación (teoría)', () => {
     expect(grouped.byProximity.every((c) => c.value.tonic === 0)).toBe(true);
   });
 
-  it('Fase 1.1 criterio (i): para C mayor en estándar, las cuerdas 1–3 incluyen xxx553 (fundamental), xxx988 (1ª inv) y xxx010 (2ª inv)', () => {
+  it('Fase 1.1 criterio (i): para C mayor en estándar, las cuerdas 1–3 incluyen x-x-x-5-5-3 (fundamental), x-x-x-9-8-8 (1ª inv) y x-x-x-0-1-0 (2ª inv)', () => {
     const voicings = voicingsForChord(0, 'maj');
     const strings13 = voicings.filter((v) => v.family === 'strings-1-3');
     const compacts = strings13.map((v) => formatCompactFrets(v.frets));
 
-    expect(compacts).toContain('xxx553');
-    expect(compacts).toContain('xxx988');
-    expect(compacts).toContain('xxx010');
+    expect(compacts).toContain('x-x-x-5-5-3');
+    expect(compacts).toContain('x-x-x-9-8-8');
+    expect(compacts).toContain('x-x-x-0-1-0');
 
-    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx553')!.inversion).toBe('root');
-    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx988')!.inversion).toBe('1st');
-    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'xxx010')!.inversion).toBe('2nd');
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-5-5-3')!.inversion).toBe(
+      'root',
+    );
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-9-8-8')!.inversion).toBe(
+      '1st',
+    );
+    expect(strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-0-1-0')!.inversion).toBe(
+      '2nd',
+    );
   });
 });

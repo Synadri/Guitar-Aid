@@ -67,5 +67,6 @@ npx serve dist
 - [Requisitos de la Fase 1](docs/Requisitos.md)
 - [Plan de implementación de la Fase 1](docs/plan_fase1.md)
 - [Plan de la Fase 1.1](docs/plan_fase1_1.md)
+- [Especificación de interfaz (Sandbox, Fase 1.1)](docs/interfaz.md)
 - [Registro de decisiones de diseño](docs/decisiones.md)
 - [Catálogo de digitaciones (voicings)](docs/voicings.md)

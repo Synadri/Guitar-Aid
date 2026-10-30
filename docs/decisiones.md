@@ -315,7 +315,7 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
   - Para `add9` y `madd9`, las plantillas móviles de cejilla en 5ª cuerda mutean selectivamente cuerdas interiores/agudas para garantizar la ergonomía (`span <= 3` trastes y $\le 4$ dedos).
   - Se regenera `docs/voicings.md` mediante `pnpm voicings:print`, verificando que el 100% de las 228 combinaciones (`19 calidades × 12 raíces`) cuentan con al menos un voicing válido.
 - **Ampliación del catálogo de escalas a 22 familias (`src/theory/data/scales.ts`):**
-  - **5 escalas Bebop:** Bebop mayor, Bebop dominante, Bebop menor dórica, Bebop menor melódica y Bebop menor armónica (8 notas), enlazadas a su modo diatónico de origen mediante la propiedad `baseScale`.
+  - **5 escalas Bebop:** Bebop mayor, Bebop dominante, Bebop dórico, Bebop menor melódica y Bebop menor natural (8 notas), enlazadas a su modo diatónico de origen mediante la propiedad `baseScale`.
   - **2 escalas Napolitanas:** Napolitana mayor y Napolitana menor (7 notas).
   - **2 escalas Disminuidas simétricas:** semitono–tono (auxiliar disminuida) y tono–semitono (disminuida completa, 8 notas), con propiedad `symmetric: true` y nota técnica sobre su ambigüedad de tónica por simetría a distancia de 3 semitonos (3ª menor).
 
@@ -402,3 +402,101 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
   - `SandboxView` se suscribe a `chordFocus` desde `sandboxStore` y lo propaga a `markState` para recalcular `fretboardMarks` y `pianoMarks` de forma reactiva.
 - **Verificación completa:**
   - 38 tests en `src/state/sandbox/sandbox.test.ts` y 262 tests globales pasando al 100% con `tsc`, `vite build` y `eslint` limpios.
+
+## 2026-10-29 — Hito H5a (Fase 1.1): Layout, Barra compacta, Menú Ajustes y Dashboard de 3 columnas
+
+- **Rediseño de la Barra Superior Compacta (≤ 52px, fila única):**
+  - La cabecera se compacta a una sola fila fija de 48px (`max-height: 52px`) integrando horizontalmente de izquierda a derecha:
+    1. `ContextPickers`: selectores compactos de Escala (Tónica y Tipo) y Acorde (Tónica y Calidad) con sus botones `"Aplicar"` y botón `"Quitar"` para deseleccionar el contexto sin borrar las notas manuales. Se reordenó situando Escala primero y Acorde después según §6.1.
+    2. Grupo de Reproducción: botones `▶ Acorde`, `▶ Arpegio` y `▶ Escala` (con `aria-label` correspondiente para preservar accesibilidad) junto con el interruptor de sonido (`M`).
+    3. Acciones globales: indicador compacto de atajos (`C` limpiar · `M` sonido), botón `"Limpiar"` (`sandboxStore.clear`) y botón de apertura del menú `⚙ Ajustes`.
+- **Menú `⚙ Ajustes` con Popover Accesible (`SandboxView.tsx` y `SandboxView.module.css`):**
+  - Se extraen de la barra superior los controles de configuración general a un popover accesible (`role="dialog"`, `aria-label="Menú de ajustes"`, `aria-controls="settings-popover"`):
+    - Selector de `Afinación` (7 opciones de `TUNINGS`).
+    - Selector de `Etiquetas` (`Nota`, `Intervalo`, `Grado`, `Ninguna`).
+    - Selector de `Nombres` (`Sostenidos ♯`, `Bemoles ♭`).
+    - Casilla `Mostrar todas las posiciones`.
+    - Grupo `Vista` con `Modo zurdo`, `Mostrar guitarra` y `Mostrar piano` (con el aviso `SINGLE_INSTRUMENT_NOTICE` si se oculta uno de los dos).
+    - Control deslizante de `Volumen` (`0..1`).
+  - Interacción: el menú se abre o cierra pulsando `⚙ Ajustes` (`aria-expanded`), y se cierra automáticamente al pulsar el botón `✕` de la cabecera, al presionar la tecla `Escape` o al hacer clic fuera del contenedor del menú.
+  - Compatibilidad: los selectores se renderizan dentro del árbol DOM del popover y controlan su visibilidad visual mediante CSS Modules / atributos `data-open` y `aria-expanded`, manteniendo 100% compatibles las consultas de los tests existentes de integración sin requerir apertura manual en cada prueba unitaria anterior.
+- **Área de Instrumentos a Ancho Completo (`≤ 410px`):**
+  - El mástil (`Fretboard`), el navegador de digitaciones (`VoicingNavigator`) y el piano horizontal (`Piano`) pasan a ocupar todo el ancho disponible en la parte superior sin la antigua columna lateral divisoria, asegurando un presupuesto vertical conjunto `≤ 410px`.
+- **Dashboard inferior en Grid de 3 Columnas y Presupuesto de Altura (Sección 9 / Criterio k):**
+  - Se sustituye el antiguo panel lateral único por un grid de 3 columnas (`grid-template-columns: repeat(3, minmax(0, 1fr))`):
+    - **Columna 1 — Selección y Contexto (`dashboard-col-1`):** cabecera fija y contenedor con `overflow-y: auto` alojando `SandboxInfoPanel`.
+    - **Columna 2 — Armonía y Progresiones (`dashboard-col-2`):** cabecera fija y contenedor con `overflow-y: auto` alojando temporalmente `SandboxSuggestionsPanel` a la espera de los paneles dedicados de H5c y H5d.
+    - **Columna 3 — Escalas (`dashboard-col-3`):** cabecera fija y sección estructurada con `overflow-y: auto` (`scales-panel-placeholder`) para la futura integración de escalas relativas y proximidad de H5e.
+  - En un viewport de escritorio estándar (`1440×900`), el contenedor principal `.sandbox` fija `height: 100vh; max-height: 100vh; overflow: hidden;`: la barra compacta (`≤ 52px`), los instrumentos (`≤ 410px`) y las cabeceras de las 3 columnas del dashboard son visibles simultáneamente sin scroll vertical del documento (Criterio k).
+- **Verificación y tests:**
+  - Añadidos 4 tests de integración específicos en `src/ui/sandbox/SandboxView.test.tsx` (barra compacta, menú de ajustes, dashboard de 3 columnas y criterio k), alcanzando 266 tests globales pasando al 100% con `tsc`, `vite build` y `eslint` impecables.
+
+## 2026-10-29 — Reimpresión integral de la Interfaz (Hito H5a completado según `docs/interfaz.md` y maquetas)
+
+- **Menú lateral de modos (`SideNav`, 76px colapsado / 240px expandido):**
+  - Implementado en `src/ui/layout/SideNav.tsx` y `SideNav.module.css`.
+  - Incluye isotipo/logotipo de Guitar Aid, botones de navegación vertical con tooltip para `Sandbox`, `Tests` y `Canción` (los dos últimos preparados con badge *próx.* para hitos futuros), tarjeta de atajos rápidos (<kbd>C</kbd> limpiar, <kbd>M</kbd> sonido, <kbd>Esc</kbd> cerrar) y botón inferior para expandir o colapsar el menú en modo overlay con versión `v0.1.0`.
+  - Persistencia del estado `sideNavExpanded` en `settingsStore`.
+- **Barra superior compacta (`TopBar`, 52px en fila única):**
+  - Integrada en `src/ui/toolbar/TopBar.tsx` y `TopBar.module.css`.
+  - Grupos de selección nativos para Escala (`ScalePicker`) y Acorde (`ChordPicker`) que aplican al instante en el evento `change` sin necesidad de botón "Aplicar" manual (conservando controles de accesibilidad y tests).
+  - Resaltado con borde azul (`#3b82f6`) y fondo (`#101b33`) para el grupo cuyo contexto está activo.
+  - Grupo de reproducción segmentado (`PlaybackGroup`) siempre visible que habilita `▶ Acorde` y `▶ Arpegio` si hay notas, acorde o `chordFocus` activo, `▶ Escala` si hay escala activa, o muestra los botones deshabilitados si no hay selección reproducible.
+  - Controles globales rápidos para alternar `Sonido [M]`, `Limpiar [C]` y botón `Ajustes` (`aria-haspopup="dialog"`, `aria-expanded`).
+- **Menú de configuración flotante (`SettingsPopover`, 392px con flecha caret superior):**
+  - Implementado en `src/ui/toolbar/SettingsPopover.tsx` y `SettingsPopover.module.css`.
+  - Selector de afinación con pills de notas de cuerdas de grave a aguda (`cuerdas 6 → 1`).
+  - Selector segmentado de alteraciones (`Sostenidos ♯` / `Bemoles ♭`).
+  - Conmutadores visuales de palanca (`role="switch"`) para `Mostrar todas las posiciones`, `Modo zurdo`, `Mostrar guitarra` y `Mostrar piano` (con el aviso accesible `SINGLE_INSTRUMENT_NOTICE` si se intenta ocultar el único instrumento restante).
+  - Control de volumen con slider y lectura de porcentaje numérico en tiempo real.
+  - Cierre accesible con tecla `Escape`, botón `✕` y clic exterior.
+- **Franja de contexto unificada (`ContextStrip`, 44px sobre el mástil):**
+  - Ubicada directamente entre la barra superior y el mástil (`src/ui/sandbox/ContextStrip.tsx`).
+  - Muestra el sujeto analizado (`Analizando X`), insignia de foco (`chordFocus`), pestañas de alternancia cuando coexisten notas manuales y contexto, selector de familias de digitación (`Todos`, `Abiertos`, `Cejilla`, etc.), navegador de digitaciones con flechas y soporte de teclado (`← / →`), conmutador `Digitación | Notas en la escala`, botón `Quitar foco` y conmutador segmentado de etiquetas (`Nota · Intervalo · Grado · Ninguna`).
+- **Mástil Proporcional (`Fretboard`, 1316×214 px SVG):**
+  - Cálculo de trastes físico real decreciente mediante la fórmula $x(n) = 64 + 1236 \cdot \frac{1 - 2^{-n/12}}{0.75}$.
+  - Cejuela en $x=64$, notas al aire a la izquierda ($x=44$), marcadores en trastes 3, 5, 7, 9, 12 (doble punto), 15, 17, 19, 21.
+  - Marcas circulares SVG de 24px con tipografía IBM Plex Sans / Mono y colores de tokens (`pinned`, `root`, `tone`, `scale-bg`).
+- **Piano Horizontal Proporcional (`Piano`, 1316×108 px SVG):**
+  - 36 teclas blancas (36×102 px) y 25 teclas negras (22×52 px) que cubren el rango C2–C7.
+  - Indicadores de octava en el borde inferior de cada do (C2, C3, C4, C5, C6, C7).
+  - Marcas circulares de 22px centradas sobre las teclas.
+- **Dashboard de 3 Columnas:**
+  - Columna 1: Información de la selección y detección de acordes (`InfoPanel`).
+  - Columna 2: Armonía y progresiones (`SuggestionsPanel`).
+  - Columna 3: Escalas relativas y por proximidad (`ScalesPanel`).
+  - Cada columna dispone de cabecera fija de 40px y contenedor interno con `overflow-y: auto`.
+- **Presupuesto y ergonomía (1440×900 sin scroll de ventana):**
+  - Contenedor con `height: 100vh; overflow: hidden;`.
+  - Tipografías cargadas: IBM Plex Sans e IBM Plex Mono.
+  - Sistema de tokens de color oscuro (`--surface-0`, `--surface-1`, `--surface-2`, `--border`, `--accent`).
+- **Verificación completa:**
+  - 266 de 266 tests pasando en Vitest (`pnpm test`).
+  - Compilación TypeScript estricta (`tsc --noEmit`) y empaquetado Vite (`vite build`) sin ningún error.
+  - Linters (`eslint src/`) 100% limpios sin advertencias.
+  - Separación de capas arquitectónicas verificada (`src/architecture/layers.test.ts`).
+
+## 2026-10-30 — Refinamiento ergonómico y estabilización del layout (Hito H5 a cerrado)
+
+- **Estabilidad de la franja de contexto (`ContextStrip`):**
+  - **Formato consistente de digitaciones:** `formatCompactFrets` genera siempre trastes separados por guiones (`x-0-2-0-1-0`, `x-x-10-12-11-12`), evitando ambigüedades como `xx1413`.
+  - **Navegador de voicings estático:** contenedor de texto (`.voicingTextWrapper`) con ancho fijo de 270 px y texto centrado. Los botones `‹` y `›` no se desplazan ni saltan al recorrer digitaciones.
+  - **Ocultación visual del voicing shape:** se oculta visualmente el shape en la franja por ser redundante con el mástil, conservándolo en el DOM (`visuallyHidden`) para accesibilidad y tests.
+  - **Anclaje de secciones:** sección izquierda reservada con `min-width: 290px`, selector de familia con ancho fijo de 95 px (evitando que salte a izquierda o derecha), y sección derecha de etiquetas anclada con `margin-left: auto; flex-shrink: 0;`.
+- **Reorganización del Dashboard (Columnas 2 y 3):**
+  - **Columna 2 (Armonía y Progresiones):** se elimina el submenú selector entre acordes y escalas. La columna central se dedica exclusivamente a progresiones armónicas y acordes diatónicos. Su cabecera interna compacta integra el sujeto analizado (`Analizando: <contexto>`) como `<h2>`, ahorrando espacio vertical. Hint ajustado a `clic = foco` (en escala) y `progresiones` en los demás casos.
+  - **Columna 3 (Escalas):** siempre activa y complementaria a la columna 2. Muestra escalas relativas/cercanas en modo escala (con la relativa directa al frente), y escalas compatibles en modo acorde o modo notas sueltas con previsualización y aplicación inmediata.
+- **Optimización vertical global:**
+  - Recuperación de ~92 px de altura vertical distribuidos en TopBar (46 px), ContextStrip (38 px), Fretboard (196 px), Piano (96 px) y cabeceras de columnas (36 px), permitiendo que el dashboard cuente con espacio holgado en pantallas estándar 1440×900 sin scroll del documento.
+
+## 2026-10-30 — Auditoría, conexión funcional H5b–H5e y optimización para 1920×1080 y 2560×1440
+
+- **Conexión completa del estado de Fase 1.1 con los paneles de la interfaz (`H5a–H5e` unificados):**
+  - **`InfoPanel` y `selectors/info.ts`:** se calcula `subtitle` en `ContextInfo` usando `scaleParentContext` (p. ej. `"II grado de C mayor"` en `D dórico`) y la nota de simetría de 4 tónicas en escalas disminuidas; se muestra tarjeta informativa para `chordFocus` activo y se sincroniza la vista entre `notes-section` y `context-section` según la pestaña de capa activa (`activeLayer`).
+  - **`ContextStrip`:** cambiar el filtro de familia (`voicing-family-select`) actualiza inmediatamente el `voicingIndex` en `sandboxStore` a la primera digitación de esa familia, deshabilita familias vacías y mantiene la navegación `‹ / ›` sincronizada con la digitación activa en el mástil; se añade el botón `"Ir al acorde"` junto a `"Quitar foco"` y se formatea el resumen de notas pulsadas como `"notas pulsadas C3 E3 G3"`.
+  - **`SuggestionsPanel`:** se fija `suggestionsMode="chords"` en `SandboxSuggestionsPanel` (evitando que un valor persistido `'scales'` rompa la Columna 2); en modo escala se añade el conmutador **`Tríadas` / `Cuatríadas (7ª)`**, el clic sobre un grado activa/desactiva `chordFocus` (dejando la escala en `scale-bg`) y el botón lateral `↗` (`"Ir al acorde [Nombre]"`) pivota el contexto principal; en modo acorde se resalta el grado actual en cada progresión (`data-current-degree="true"`), hacer clic en otro acorde de la progresión activa `chordFocus` sin perder el acorde de contexto y muestra la barra con `"Volver a [Acorde]"` e `"Ir al acorde"`.
+  - **`ScalesPanel`:** respeta la capa activa (`subject.layer === 'notes'`), excluye la propia escala activa de la lista de relativas y preserva el orden de grados `I..VII` en escalas heptatónicas manteniendo la relativa directa en primer lugar para pentatónicas y blues.
+  - **`Fretboard`, `Piano` y `TopBar`:** se renderizan las marcas `×` (`data-muted-string`) para las cuerdas muteadas de la digitación activa, se alinea el pie del mástil a la derecha, se conecta el auto-scroll horizontal del piano a la primera tecla marcada, se habilitan `▶ Acorde` y `▶ Arpegio` cuando hay `chordFocus` activo y se unifica el botón `"Quitar"` en la barra superior.
+- **Optimización para 1920×1080 y 2560×1440 y 100% offline:**
+  - Se elimina el `@import` externo de Google Fonts en `global.css` para cumplir estrictamente el requisito de funcionamiento 100% offline.
+  - Se dimensionan variables adaptativas para **1920×1080** (`--topbar-height: 48px`, `--strip-height: 40px`, `--fretboard-height: 220px`, `--piano-height: 108px`), **2560×1440** (`54px`, `44px`, `270px`, `136px`, con `--content-max-width: 2440px`) y `≤ 950px` de altura (`46px`, `38px`, `196px`, `96px`), además de cuadrículas multicolumna adaptativas en `SuggestionsPanel` y `ScalesPanel` que minimizan el scroll vertical en todo momento.

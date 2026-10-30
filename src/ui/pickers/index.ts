@@ -15,3 +15,5 @@ export {
   formatVoicingInversion,
   type VoicingNavigatorProps,
 } from './VoicingNavigator';
+export { ScalePicker, type ScalePickerProps } from './ScalePicker';
+export { ChordPicker, type ChordPickerProps } from './ChordPicker';

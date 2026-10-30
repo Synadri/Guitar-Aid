@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   DEFAULT_FRETS,
   midiToName,
@@ -18,18 +18,20 @@ export interface FretboardProps {
   frets?: number;
   leftHanded?: boolean;
   marks?: readonly FretMark[];
+  mutedStrings?: readonly StringNumber[];
   nameMode?: NameMode;
   onPositionClick?: (position: FretPosition) => void;
+  onPositionRightClick?: (position: FretPosition) => void;
 }
 
 const STRINGS: readonly StringNumber[] = [1, 2, 3, 4, 5, 6];
 const STRING_WIDTHS: Record<StringNumber, number> = {
-  1: 1.2,
-  2: 1.5,
-  3: 1.9,
-  4: 2.4,
-  5: 2.9,
-  6: 3.5,
+  1: 1.0,
+  2: 1.4,
+  3: 1.8,
+  4: 2.2,
+  5: 2.7,
+  6: 3.2,
 };
 
 const SINGLE_INLAY_FRETS = new Set([3, 5, 7, 9, 15, 17, 19, 21]);
@@ -44,45 +46,60 @@ const ROLE_CLASS: Record<MarkRole, string | undefined> = {
   preview: styles.role_preview,
 };
 
-const TOP_PAD = 24;
-const BOTTOM_PAD = 30;
-const STRING_GAP = 28;
-const TUNING_COL_WIDTH = 28;
-const OPEN_COL_WIDTH = 34;
+const TOTAL_WIDTH = 1316;
+const TOTAL_HEIGHT = 214;
+const NUT_X = 64;
 const NUT_WIDTH = 6;
-const FRET_WIDTH = 38;
-const SIDE_PAD = 12;
+const OPEN_X = 44;
+const TUNING_LABEL_X = 22;
+
+const BOARD_TOP_Y = 16;
+const BOARD_BOTTOM_Y = 170;
+const BOARD_HEIGHT = BOARD_BOTTOM_Y - BOARD_TOP_Y;
+
+const STRING_Y: Record<StringNumber, number> = {
+  1: 28,
+  2: 54,
+  3: 80,
+  4: 106,
+  5: 132,
+  6: 158,
+};
+
+function rawFretWireX(n: number): number {
+  if (n <= 0) return NUT_X;
+  return NUT_X + (1236 * (1 - Math.pow(2, -n / 12))) / 0.75;
+}
 
 export function Fretboard({
   tuning,
   frets = DEFAULT_FRETS,
   leftHanded = false,
   marks = [],
+  mutedStrings = [],
   nameMode = 'sharps',
   onPositionClick,
+  onPositionRightClick,
 }: FretboardProps) {
-  const boardSpan = (STRINGS.length - 1) * STRING_GAP;
-  const neckSpan = frets * FRET_WIDTH;
+  const mutedSet = new Set<StringNumber>(mutedStrings);
+  const neckEndWireX = rawFretWireX(frets);
+  const neckSpan = neckEndWireX - (NUT_X + NUT_WIDTH);
 
-  const totalWidth = SIDE_PAD * 2 + TUNING_COL_WIDTH + OPEN_COL_WIDTH + NUT_WIDTH + neckSpan;
-  const totalHeight = TOP_PAD + boardSpan + BOTTOM_PAD;
+  // Coordenada horizontal reflejada en modo zurdo
+  const mirrorX = (x: number, width = 0): number => (leftHanded ? TOTAL_WIDTH - x - width : x);
 
-  // Coordenada X horizontal (reflejada si leftHanded está activo).
-  const mirrorX = (x: number, width = 0): number => (leftHanded ? totalWidth - x - width : x);
+  const tuningCenterX = mirrorX(TUNING_LABEL_X);
+  const openCenterX = mirrorX(OPEN_X);
+  const nutX = mirrorX(NUT_X, NUT_WIDTH);
+  const boardRectX = mirrorX(NUT_X + NUT_WIDTH, neckSpan);
 
-  const tuningCenterX = mirrorX(SIDE_PAD + TUNING_COL_WIDTH / 2);
-  const openCenterX = mirrorX(SIDE_PAD + TUNING_COL_WIDTH + OPEN_COL_WIDTH / 2);
-  const nutX = mirrorX(SIDE_PAD + TUNING_COL_WIDTH + OPEN_COL_WIDTH, NUT_WIDTH);
-  const neckStartX = SIDE_PAD + TUNING_COL_WIDTH + OPEN_COL_WIDTH + NUT_WIDTH;
-  const boardRectX = mirrorX(neckStartX, neckSpan);
+  const fretWireX = (n: number): number => mirrorX(rawFretWireX(n));
 
-  const fretCenterX = (fret: number): number => {
-    if (fret === 0) return openCenterX;
-    return mirrorX(neckStartX + (fret - 0.5) * FRET_WIDTH);
+  const fretCenterX = (n: number): number => {
+    if (n === 0) return openCenterX;
+    const center = (rawFretWireX(n - 1) + rawFretWireX(n)) / 2;
+    return mirrorX(center);
   };
-
-  const fretWireX = (fret: number): number => mirrorX(neckStartX + fret * FRET_WIDTH);
-  const stringY = (string: StringNumber): number => TOP_PAD + (string - 1) * STRING_GAP;
 
   const marksByPos = new Map<string, FretMark>();
   for (const m of marks) {
@@ -91,6 +108,13 @@ export function Fretboard({
 
   const handleActivate = (pos: FretPosition) => {
     onPositionClick?.(pos);
+  };
+
+  const handleContextMenu = (e: MouseEvent, pos: FretPosition) => {
+    if (onPositionRightClick) {
+      e.preventDefault();
+      onPositionRightClick(pos);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<SVGGElement>, pos: FretPosition) => {
@@ -103,6 +127,11 @@ export function Fretboard({
   const fretNumbers = Array.from({ length: frets }, (_, i) => i + 1);
   const allFrets = Array.from({ length: frets + 1 }, (_, i) => i);
 
+  const tuningDisplayString = tuning.strings
+    .map((s) => pcName(pitchClassOf(s), nameMode))
+    .join(' ');
+  const footerText = `${tuning.name} · ${tuningDisplayString} · ${frets} trastes`;
+
   return (
     <div
       className={styles.container}
@@ -111,18 +140,18 @@ export function Fretboard({
     >
       <svg
         className={styles.svg}
-        viewBox={`0 0 ${totalWidth} ${totalHeight}`}
+        viewBox={`0 0 ${TOTAL_WIDTH} ${TOTAL_HEIGHT}`}
         role="group"
         aria-label="Mástil de guitarra"
         data-mirrored={leftHanded ? 'true' : 'false'}
       >
-        {/* Fondo del diapasón (trastes 1..frets) */}
+        {/* Fondo del diapasón */}
         <rect
           className={styles.board}
           x={boardRectX}
-          y={TOP_PAD}
+          y={BOARD_TOP_Y}
           width={neckSpan}
-          height={boardSpan}
+          height={BOARD_HEIGHT}
           rx={2}
         />
 
@@ -134,7 +163,7 @@ export function Fretboard({
                 key={`inlay-${fret}`}
                 className={styles.inlay}
                 cx={fretCenterX(fret)}
-                cy={TOP_PAD + boardSpan / 2}
+                cy={(STRING_Y[1] + STRING_Y[6]) / 2}
                 r={5.5}
                 data-inlay-fret={fret}
               />
@@ -142,8 +171,8 @@ export function Fretboard({
           }
           if (DOUBLE_INLAY_FRETS.has(fret) && fret <= frets) {
             const cx = fretCenterX(fret);
-            const cyTop = TOP_PAD + STRING_GAP * 1.5;
-            const cyBottom = TOP_PAD + STRING_GAP * 3.5;
+            const cyTop = STRING_Y[2] + 4;
+            const cyBottom = STRING_Y[5] - 4;
             return (
               <g key={`inlay-${fret}`} data-inlay-fret={fret}>
                 <circle className={styles.inlay} cx={cx} cy={cyTop} r={5.5} />
@@ -154,7 +183,7 @@ export function Fretboard({
           return null;
         })}
 
-        {/* Líneas de trastes */}
+        {/* Líneas de trastes proporcionales */}
         {fretNumbers.map((fret) => {
           const x = fretWireX(fret);
           return (
@@ -162,9 +191,9 @@ export function Fretboard({
               key={`fret-${fret}`}
               className={styles.fretLine}
               x1={x}
-              y1={TOP_PAD}
+              y1={BOARD_TOP_Y}
               x2={x}
-              y2={TOP_PAD + boardSpan}
+              y2={BOARD_BOTTOM_Y}
             />
           );
         })}
@@ -173,20 +202,21 @@ export function Fretboard({
         <rect
           className={styles.nut}
           x={nutX}
-          y={TOP_PAD - 1}
+          y={BOARD_TOP_Y - 2}
           width={NUT_WIDTH}
-          height={boardSpan + 2}
+          height={BOARD_HEIGHT + 4}
           rx={1}
           data-testid="fretboard-nut"
         />
 
-        {/* Cuerdas y etiquetas de afinación */}
+        {/* Cuerdas, nombres de notas al aire y marcadores de cuerda muteada (×) */}
         {STRINGS.map((string) => {
           const openMidi = positionToMidi(tuning, { string, fret: 0 });
           const openNoteName = pcName(pitchClassOf(openMidi), nameMode);
-          const y = stringY(string);
+          const y = STRING_Y[string];
           const lineStartX = leftHanded ? boardRectX : nutX;
           const lineEndX = leftHanded ? nutX + NUT_WIDTH : boardRectX + neckSpan;
+          const isMuted = mutedSet.has(string) && !marksByPos.has(`${string}:0`);
           return (
             <g key={`string-row-${string}`}>
               <line
@@ -208,35 +238,73 @@ export function Fretboard({
               >
                 {openNoteName}
               </text>
+              {isMuted && (
+                <text
+                  className={styles.mutedMarker}
+                  x={openCenterX}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  aria-hidden="true"
+                  data-muted-string={string}
+                >
+                  ×
+                </text>
+              )}
             </g>
           );
         })}
 
-        {/* Numeración de trastes */}
-        {fretNumbers.map((fret) => (
-          <text
-            key={`fret-num-${fret}`}
-            className={styles.fretNumber}
-            x={fretCenterX(fret)}
-            y={TOP_PAD + boardSpan + 18}
-            textAnchor="middle"
-            dominantBaseline="central"
-          >
-            {fret}
-          </text>
-        ))}
+        {/* Numeración de trastes (bajo los trastes con marcadores) */}
+        {fretNumbers.map((fret) => {
+          if (!SINGLE_INLAY_FRETS.has(fret) && !DOUBLE_INLAY_FRETS.has(fret)) {
+            return null;
+          }
+          return (
+            <text
+              key={`fret-num-${fret}`}
+              className={styles.fretNumber}
+              x={fretCenterX(fret)}
+              y={BOARD_BOTTOM_Y + 14}
+              textAnchor="middle"
+              dominantBaseline="central"
+            >
+              {fret}
+            </text>
+          );
+        })}
+
+        {/* Pie derecho informativo */}
+        <text
+          className={styles.footerText}
+          x={leftHanded ? mirrorX(neckEndWireX) : neckEndWireX}
+          y={TOTAL_HEIGHT - 12}
+          textAnchor={leftHanded ? 'start' : 'end'}
+          dominantBaseline="central"
+        >
+          {footerText}
+        </text>
 
         {/* Posiciones interactivas (6 cuerdas × (frets + 1) trastes) */}
         {STRINGS.map((string) => {
           return allFrets.map((fret) => {
             const cx = fretCenterX(fret);
-            const cy = stringY(string);
+            const cy = STRING_Y[string];
             const pos: FretPosition = { string, fret };
             const midi = positionToMidi(tuning, pos);
             const noteName = midiToName(midi, nameMode);
             const mark = marksByPos.get(`${string}:${fret}`);
-            const hitWidth = fret === 0 ? OPEN_COL_WIDTH - 2 : FRET_WIDTH - 2;
-            const hitHeight = STRING_GAP - 2;
+
+            // Cálculo del ancho interactivo
+            let hitWidth = 32;
+            if (fret === 0) {
+              hitWidth = 26;
+            } else {
+              const span = Math.abs(rawFretWireX(fret) - rawFretWireX(fret - 1));
+              hitWidth = Math.max(16, span - 2);
+            }
+            const hitHeight = 24;
+
             const roleClass = mark ? ROLE_CLASS[mark.role] : undefined;
             const hasRootRing = mark ? mark.role === 'root' || mark.isRoot === true : false;
 
@@ -254,6 +322,7 @@ export function Fretboard({
                 data-role={mark?.role}
                 data-is-root={hasRootRing ? 'true' : undefined}
                 onClick={() => handleActivate(pos)}
+                onContextMenu={(e) => handleContextMenu(e, pos)}
                 onKeyDown={(e) => handleKeyDown(e, pos)}
               >
                 <rect

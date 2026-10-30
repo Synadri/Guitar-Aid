@@ -270,9 +270,7 @@ export function createSandboxStore(overrides: Partial<SandboxState> = {}): Store
 
     setChordFocusVoicingIndex: (index) =>
       set((s) =>
-        s.chordFocus
-          ? { chordFocus: { ...s.chordFocus, voicingIndex: Math.max(0, index) } }
-          : s,
+        s.chordFocus ? { chordFocus: { ...s.chordFocus, voicingIndex: Math.max(0, index) } } : s,
       ),
 
     setChordFocusMode: (mode) =>

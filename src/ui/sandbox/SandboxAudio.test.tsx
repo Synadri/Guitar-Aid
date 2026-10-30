@@ -146,20 +146,34 @@ describe('SandboxView — integración de sonido en la interfaz (U6)', () => {
 
     const playbackGroup = screen.getByRole('group', { name: 'Reproducir' });
 
-    // Sin selección: ningún modo disponible
-    expect(within(playbackGroup).queryByRole('button', { name: 'Acorde' })).toBeNull();
-    expect(within(playbackGroup).queryByRole('button', { name: 'Arpegio' })).toBeNull();
-    expect(within(playbackGroup).queryByRole('button', { name: 'Escala' })).toBeNull();
+    // Sin selección: botones visibles pero deshabilitados (no disponibles)
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Acorde' }).disabled,
+    ).toBe(true);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Arpegio' }).disabled,
+    ).toBe(true);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Escala' }).disabled,
+    ).toBe(true);
 
     // Pulsar G3 (55), C3 (48) y E3 (52) en el piano (en orden desordenado)
     fireEvent.click(screen.getByRole('button', { name: 'G3' }));
     fireEvent.click(screen.getByRole('button', { name: 'C3' }));
     fireEvent.click(screen.getByRole('button', { name: 'E3' }));
 
-    // Con notas pulsadas en foco: muestra Acorde y Arpegio, y no Escala
-    const btnChord = within(playbackGroup).getByRole('button', { name: 'Acorde' });
-    const btnArpeggio = within(playbackGroup).getByRole('button', { name: 'Arpegio' });
-    expect(within(playbackGroup).queryByRole('button', { name: 'Escala' })).toBeNull();
+    // Con notas pulsadas en foco: muestra Acorde y Arpegio habilitados, y Escala deshabilitada
+    const btnChord = within(playbackGroup).getByRole<HTMLButtonElement>('button', {
+      name: 'Acorde',
+    });
+    const btnArpeggio = within(playbackGroup).getByRole<HTMLButtonElement>('button', {
+      name: 'Arpegio',
+    });
+    expect(btnChord.disabled).toBe(false);
+    expect(btnArpeggio.disabled).toBe(false);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Escala' }).disabled,
+    ).toBe(true);
 
     // Pulsar "Arpegio": llama a playEvents con los tres eventos de C3 (48), E3 (52), G3 (55) en orden
     playEventsSpy.mockClear();
@@ -186,9 +200,15 @@ describe('SandboxView — integración de sonido en la interfaz (U6)', () => {
     fireEvent.change(screen.getByLabelText('Tónica del acorde'), { target: { value: '9' } }); // A
     fireEvent.change(screen.getByLabelText('Calidad del acorde'), { target: { value: 'm7' } });
 
-    expect(within(playbackGroup).getByRole('button', { name: 'Acorde' })).toBeTruthy();
-    expect(within(playbackGroup).getByRole('button', { name: 'Arpegio' })).toBeTruthy();
-    expect(within(playbackGroup).queryByRole('button', { name: 'Escala' })).toBeNull();
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Acorde' }).disabled,
+    ).toBe(false);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Arpegio' }).disabled,
+    ).toBe(false);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Escala' }).disabled,
+    ).toBe(true);
 
     const activeVoicing = selectedVoicing(sandboxStore.getState())!;
     expect(activeVoicing).not.toBeNull();
@@ -208,9 +228,16 @@ describe('SandboxView — integración de sonido en la interfaz (U6)', () => {
 
     // Elegir una escala del menú (C Mayor): muestra únicamente "Escala" y toca C3..C4 (8 notas)
     fireEvent.change(screen.getByLabelText('Tónica de la escala'), { target: { value: '0' } }); // C
-    expect(within(playbackGroup).queryByRole('button', { name: 'Acorde' })).toBeNull();
-    expect(within(playbackGroup).queryByRole('button', { name: 'Arpegio' })).toBeNull();
-    const btnScale = within(playbackGroup).getByRole('button', { name: 'Escala' });
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Acorde' }).disabled,
+    ).toBe(true);
+    expect(
+      within(playbackGroup).getByRole<HTMLButtonElement>('button', { name: 'Arpegio' }).disabled,
+    ).toBe(true);
+    const btnScale = within(playbackGroup).getByRole<HTMLButtonElement>('button', {
+      name: 'Escala',
+    });
+    expect(btnScale.disabled).toBe(false);
 
     playEventsSpy.mockClear();
     fireEvent.click(btnScale);

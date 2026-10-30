@@ -50,13 +50,13 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     fireEvent.change(chordRootSelect, { target: { value: '9' } });
     fireEvent.change(chordQualitySelect, { target: { value: 'm7' } });
 
-    // Navegador de voicings muestra la primera digitación: x02010 (abierta)
+    // Navegador de voicings muestra la primera digitación: x-0-2-0-1-0 (abierta)
     const total = voicingsForChord(9, 'm7').length;
     const navigator = screen.getByRole('region', { name: 'Navegador de digitaciones' });
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
       `Digitación 1 de ${total}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-0-2-0-1-0');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('abierta');
 
     // El mástil dibuja solo las 5 posiciones de x02010 (sin equivalentes)
@@ -119,22 +119,22 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     const prevBtn = within(navigator).getByRole('button', { name: 'Anterior' });
     const nextBtn = within(navigator).getByRole('button', { name: 'Siguiente' });
 
-    // Digitación 1: x02010 (abierta)
+    // Digitación 1: x-0-2-0-1-0 (abierta)
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
       `Digitación 1 de ${total}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-0-2-0-1-0');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('abierta');
     expect(
       container.querySelector('[data-string="5"][data-fret="0"]')?.getAttribute('data-role'),
     ).toBe('root');
 
-    // Siguiente → Digitación 2: 575555 (cejilla en 6ª)
+    // Siguiente → Digitación 2: 5-7-5-5-5-5 (cejilla en 6ª)
     fireEvent.click(nextBtn);
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
       `Digitación 2 de ${total}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('575555');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('5-7-5-5-5-5');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('cejilla en 6ª');
     expect(
       container.querySelector('[data-string="5"][data-fret="0"]')?.getAttribute('data-role'),
@@ -169,7 +169,7 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
       `Digitación 1 de ${total}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-0-2-0-1-0');
 
     // Anterior desde la 1ª → bucle hacia la última digitación
     fireEvent.click(prevBtn);
@@ -204,11 +204,11 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(within(navigator).getByTestId('voicing-indicator').textContent).toBe(
       `Digitación 1 de ${dropDVoicings.length}`,
     );
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x02010');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('x-0-2-0-1-0');
 
-    // La segunda digitación adaptada a Drop D tiene el bajo en el traste 7 de la 6ª cuerda (775555)
+    // La segunda digitación adaptada a Drop D tiene el bajo en el traste 7 de la 6ª cuerda (7-7-5-5-5-5)
     fireEvent.click(within(navigator).getByRole('button', { name: 'Siguiente' }));
-    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('775555');
+    expect(within(navigator).getByTestId('voicing-shape').textContent).toBe('7-7-5-5-5-5');
     expect(within(navigator).getByTestId('voicing-family').textContent).toBe('cejilla en 6ª');
   });
 
@@ -467,10 +467,9 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(scaleRoot.value).toBe('0');
     expect(scaleType.value).toBe('major');
 
-    // 2. Vía sugerencia aplicada desde el panel de sugerencias (p. ej. pasar a Escalas y aplicar la primera sugerencia, D Menor natural)
-    const suggestionsPanel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
-    fireEvent.click(within(suggestionsPanel).getByRole('button', { name: 'Escalas' }));
-    const firstScaleSuggestion = within(suggestionsPanel).getAllByTestId('suggestion-button')[0]!;
+    // 2. Vía sugerencia aplicada desde el panel de escalas en Columna 3 (aplicar la primera sugerencia, D Menor natural)
+    const scalesPanel = screen.getByTestId('scales-panel');
+    const firstScaleSuggestion = within(scalesPanel).getAllByTestId('suggestion-button')[0]!;
     fireEvent.click(firstScaleSuggestion);
 
     expect(sandboxStore.getState().context).toEqual({
@@ -484,10 +483,19 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     expect(chordRoot.value).toBe('0');
     expect(chordQuality.value).toBe('maj');
 
-    // 3. Aplicar una sugerencia de acorde (p. ej. en modo Acordes, aplicar el primer acorde diatónico Dm)
-    fireEvent.click(within(suggestionsPanel).getByRole('button', { name: 'Acordes' }));
+    // 3. En modo escala, clic en el acorde diatónico activa chordFocus y clic en "Ir al acorde" pivota context
+    const suggestionsPanel = screen.getByRole('region', { name: 'Sugerencias teóricas' });
     const firstChordSuggestion = within(suggestionsPanel).getAllByTestId('suggestion-button')[0]!;
     fireEvent.click(firstChordSuggestion);
+
+    expect(sandboxStore.getState().chordFocus?.chord).toEqual({
+      root: 2,
+      quality: 'm',
+      name: 'Dm',
+    });
+
+    const firstGoToChord = within(suggestionsPanel).getAllByTestId('go-to-chord-button')[0]!;
+    fireEvent.click(firstGoToChord);
 
     expect(sandboxStore.getState().context).toEqual({
       kind: 'chord',
@@ -522,5 +530,40 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
       root: 0,
       type: 'major',
     });
+  });
+
+  it('(l) el filtro por familia de cuerdas actualiza la digitación activa en el mástil y marca con × las cuerdas muteadas', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    const { container } = render(
+      <SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />,
+    );
+
+    // Aplicar C mayor (0, maj)
+    fireEvent.click(screen.getByTestId('apply-chord'));
+    expect(sandboxStore.getState().voicingIndex).toBe(0);
+
+    // En C mayor abierta (x-3-2-0-1-0), la cuerda 6 está muteada
+    expect(container.querySelector('[data-muted-string="6"]')).not.toBeNull();
+
+    // Filtrar por familia "Cuerdas 1–3"
+    const familySelect = screen.getByTestId('voicing-family-select');
+    fireEvent.change(familySelect, { target: { value: 'strings-1-3' } });
+
+    const allC = voicingsForChord(0, 'maj');
+    const firstStrings13Idx = allC.findIndex((v) => v.family === 'strings-1-3');
+    expect(sandboxStore.getState().voicingIndex).toBe(firstStrings13Idx);
+
+    // En Cuerdas 1–3, las cuerdas 6, 5 y 4 están muteadas
+    expect(container.querySelector('[data-muted-string="6"]')).not.toBeNull();
+    expect(container.querySelector('[data-muted-string="5"]')).not.toBeNull();
+    expect(container.querySelector('[data-muted-string="4"]')).not.toBeNull();
+
+    // Al pulsar Siguiente recorre dentro de la familia Cuerdas 1–3
+    const nextBtn = screen.getByRole('button', { name: 'Siguiente' });
+    fireEvent.click(nextBtn);
+    const secondStrings13Idx = allC.findIndex(
+      (v, idx) => idx > firstStrings13Idx && v.family === 'strings-1-3',
+    );
+    expect(sandboxStore.getState().voicingIndex).toBe(secondStrings13Idx);
   });
 });

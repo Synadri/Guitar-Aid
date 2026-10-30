@@ -60,13 +60,7 @@ const ROLE_PRIORITY: Record<MarkRole, number> = {
 
 type SandboxView = Pick<
   SandboxState,
-  | 'tuning'
-  | 'showAllPositions'
-  | 'notes'
-  | 'context'
-  | 'voicingIndex'
-  | 'preview'
-  | 'rootOverride'
+  'tuning' | 'showAllPositions' | 'notes' | 'context' | 'voicingIndex' | 'preview' | 'rootOverride'
 > & {
   chordFocus?: ChordFocus | null;
 };
@@ -104,18 +98,20 @@ export function selectedVoicing(
 }
 
 /** Voicings del acorde en foco en la afinación actual ([] si no hay foco o no hay ninguno). */
-export function chordFocusVoicings(
-  state: { chordFocus?: ChordFocus | null; tuning: Tuning },
-): Voicing[] {
+export function chordFocusVoicings(state: {
+  chordFocus?: ChordFocus | null;
+  tuning: Tuning;
+}): Voicing[] {
   const cf = state.chordFocus;
   if (!cf) return [];
   return voicingsForChord(cf.chord, state.tuning);
 }
 
 /** Voicing elegido del acorde en foco (índice acotado) o null si no hay ninguno válido. */
-export function selectedChordFocusVoicing(
-  state: { chordFocus?: ChordFocus | null; tuning: Tuning },
-): Voicing | null {
+export function selectedChordFocusVoicing(state: {
+  chordFocus?: ChordFocus | null;
+  tuning: Tuning;
+}): Voicing | null {
   const cf = state.chordFocus;
   if (!cf) return null;
   const list = chordFocusVoicings(state);
@@ -261,7 +257,7 @@ export function fretboardMarks(state: SandboxView, options: MarksOptions = {}): 
       const label = (pc: PitchClass) => makeLabel(pc, ctx.root, opts.labels, opts.nameMode);
       for (const p of allPositionsOf(state.tuning, pcs)) {
         const pc = pitchClassOf(positionToMidi(state.tuning, p));
-        const role: MarkRole = cf ? 'scale-bg' : (pc === ctx.root ? 'root' : 'tone');
+        const role: MarkRole = cf ? 'scale-bg' : pc === ctx.root ? 'root' : 'tone';
         pushFret(into, withLabel({ string: p.string, fret: p.fret, role }, label(pc)));
       }
     } else if (ctx.kind === 'chord') {
@@ -356,7 +352,7 @@ export function pianoMarks(state: SandboxView, options: MarksOptions = {}): KeyM
       const label = (pc: PitchClass) => makeLabel(pc, ctx.root, opts.labels, opts.nameMode);
       for (const midi of keysOf(pcs, range)) {
         const pc = pitchClassOf(midi);
-        const role: MarkRole = cf ? 'scale-bg' : (pc === ctx.root ? 'root' : 'tone');
+        const role: MarkRole = cf ? 'scale-bg' : pc === ctx.root ? 'root' : 'tone';
         pushKey(into, withLabel({ midi, role }, label(pc)));
       }
     } else if (ctx.kind === 'chord') {

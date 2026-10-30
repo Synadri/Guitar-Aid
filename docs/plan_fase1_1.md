@@ -43,7 +43,7 @@ Se amplía `ChordQualityId` de 12 a **19 calidades**:
 - **Puntuación y ranking**: se asigna un peso en `CHORD_QUALITY_WEIGHTS` equilibrado para que `5` puntúe por debajo de tríadas completas pero se elija prioritariamente cuando la entrada contiene únicamente la quinta.
 
 > [!IMPORTANT]
-> **Invariante de cobertura de voicings en H1**: En el mismo hito H1 se añaden las formas móviles de cejilla (`barre-E` con raíz en 6ª cuerda y `barre-A` con raíz en 5ª cuerda) para las 7 nuevas calidades en `src/theory/data/voicings/standard.ts` (para `5`, plantillas móviles de 2 y 3 cuerdas como `[0, 2, 2, 'x', 'x', 'x']` y `['x', 0, 2, 2, 'x', 'x']`, más las formas abiertas canónicas `E5` `022xxx`, `A5` `x022xx` y `D5` `xx023x`), garantizando que el test `cada calidad × 12 raíces tiene al menos un voicing` (19 × 12 = 228 combinaciones) pase sin excepciones tras cerrar H1.
+> **Invariante de cobertura de voicings en H1**: En el mismo hito H1 se añaden las formas móviles de cejilla (`barre-E` con raíz en 6ª cuerda y `barre-A` con raíz en 5ª cuerda) para las 7 nuevas calidades en `src/theory/data/voicings/standard.ts` (para `5`, plantillas móviles de 2 y 3 cuerdas como `[0, 2, 2, 'x', 'x', 'x']` y `['x', 0, 2, 2, 'x', 'x']`, más las formas abiertas canónicas `E5` `0-2-2-x-x-x`, `A5` `x-0-2-2-x-x` y `D5` `x-x-0-2-3-x`), garantizando que el test `cada calidad × 12 raíces tiene al menos un voicing` (19 × 12 = 228 combinaciones) pase sin excepciones tras cerrar H1.
 
 ### 2.3. Nuevas escalas de 7 y 8 notas (`src/theory/data/scales.ts`)
 
@@ -59,7 +59,7 @@ Se amplía `ScaleType` con `baseScale?: ScaleTypeId` (para escalas de 8 notas de
 | ID | Nombre | Intervalos | Fórmula | `baseScale` | Relación con escala madre |
 |---|---|---|---|---|---|
 | `bebopDominant` | Bebop dominante | `[0, 2, 4, 5, 7, 9, 10, 11]` | `1 2 3 4 5 6 ♭7 7` | `mixolydian` | V grado de Mayor (+ `7` de paso) |
-| `bebopDorian` | Bebop menor (dórica) | `[0, 2, 3, 4, 5, 7, 9, 10]` | `1 2 ♭3 3 4 5 6 ♭7` | `dorian` | II grado de Mayor (+ `3` de paso) |
+| `bebopDorian` | Bebop dórico | `[0, 2, 3, 4, 5, 7, 9, 10]` | `1 2 ♭3 3 4 5 6 ♭7` | `dorian` | II grado de Mayor (+ `3` de paso) |
 | `bebopMajor` | Bebop mayor | `[0, 2, 4, 5, 7, 8, 9, 11]` | `1 2 3 4 5 ♯5 6 7` | `major` | I grado de Mayor (+ `♯5` de paso) |
 | `bebopMelodicMinor` | Bebop menor melódica | `[0, 2, 3, 5, 7, 8, 9, 11]` | `1 2 ♭3 4 5 ♯5 6 7` | `melodicMinor` | I grado de Menor melódica (+ `♯5` de paso) |
 | `bebopNaturalMinor` | Bebop menor natural | `[0, 2, 3, 5, 7, 8, 10, 11]` | `1 2 ♭3 4 5 ♭6 ♭7 7` | `minor` | VI grado de Mayor (+ `7` de paso) |
@@ -67,8 +67,8 @@ Se amplía `ScaleType` con `baseScale?: ScaleTypeId` (para escalas de 8 notas de
 #### Escalas octatónicas simétricas (8 notas, opcionales / incluidas con nota de simetría)
 | ID | Nombre | Intervalos | Fórmula | `symmetric` |
 |---|---|---|---|---|
-| `diminishedHalfWhole` | Disminuida (semitono–tono) | `[0, 1, 3, 4, 6, 7, 9, 10]` | `1 ♭2 ♯2 3 ♯4 5 6 ♭7` | `true` |
-| `diminishedWholeHalf` | Disminuida (tono–semitono) | `[0, 2, 3, 5, 6, 8, 9, 11]` | `1 2 ♭3 4 ♭5 ♭6 6 7` | `true` |
+| `diminishedHalfWhole` | Disminuida semitono-tono | `[0, 1, 3, 4, 6, 7, 9, 10]` | `1 ♭2 ♯2 3 ♯4 5 6 ♭7` | `true` |
+| `diminishedWholeHalf` | Disminuida tono-semitono | `[0, 2, 3, 5, 6, 8, 9, 11]` | `1 2 ♭3 4 ♭5 ♭6 6 7` | `true` |
 
 > [!NOTE]
 > **Simetría de las escalas disminuidas**: Ambas escalas disminuidas son periódicas cada 3 semitonos (`rotateMask(mask, 3) === mask`). Solo existen 3 conjuntos de alturas distintos en las 12 notas, por lo que **la raíz es intrínsecamente ambigua** entre las 4 notas separadas por terceras menores (`0, 3, 6, 9`). En el panel de información y sugerencias se muestra una nota explícita indicando esta simetría (sus relativas por transposición a `+3, +6, +9` semitonos contienen exactamente las mismas 8 notas) y para sus acordes se usa `chordsWithinScale`.
@@ -114,9 +114,9 @@ export type VoicingInversion = 'root' | '1st' | '2nd' | '3rd';
 
 - **Familia `'strings-1-3'` (cuerdas 3, 2 y 1: `G–B–E`)**:
   - Tríadas cerradas en las 3 posiciones a lo largo del mástil:
-    - **Posición fundamental (`inversion: 'root'`)**: raíz en 3ª cuerda (`rootString: 3`, desplazamientos `[x, x, x, 0, -2, -2]` para mayor → en Do mayor, raíz C en `(3, 5)` da **`xxx553`**).
-    - **1ª inversión (`inversion: '1st'`)**: 3ª en el bajo en 3ª cuerda, raíz en 1ª cuerda (`rootString: 1`, desplazamientos `[x, x, x, +1, 0, 0]` para mayor → en Do mayor, raíz C en `(1, 8)` da **`xxx988`**).
-    - **2ª inversión (`inversion: '2nd'`)**: 5ª en el bajo en 3ª cuerda, raíz en 2ª cuerda (`rootString: 2`, desplazamientos `[x, x, x, -1, 0, -1]` para mayor → en Do mayor, raíz C en `(2, 1)` da **`xxx010`**).
+    - **Posición fundamental (`inversion: 'root'`)**: raíz en 3ª cuerda (`rootString: 3`, desplazamientos `[x, x, x, 0, -2, -2]` para mayor → en Do mayor, raíz C en `(3, 5)` da **`x-x-x-5-5-3`**).
+    - **1ª inversión (`inversion: '1st'`)**: 3ª en el bajo en 3ª cuerda, raíz en 1ª cuerda (`rootString: 1`, desplazamientos `[x, x, x, +1, 0, 0]` para mayor → en Do mayor, raíz C en `(1, 8)` da **`x-x-x-9-8-8`**).
+    - **2ª inversión (`inversion: '2nd'`)**: 5ª en el bajo en 3ª cuerda, raíz en 2ª cuerda (`rootString: 2`, desplazamientos `[x, x, x, -1, 0, -1]` para mayor → en Do mayor, raíz C en `(2, 1)` da **`x-x-x-0-1-0`**).
   - Equivalentes para `m`, `dim`, `aug`, `sus2`, `sus4` y formas reducidas de 3 cuerdas para 7ª/add9.
 - **Familia `'strings-1-4'` (cuerdas 4, 3, 2 y 1: `D–G–B–E`)**:
   - Formas en posición fundamental con raíz en 4ª cuerda (`rootString: 4`) y Drop 2 en 1ª y 2ª inversión para tríadas y cuatríadas (`maj`, `m`, `7`, `maj7`, `m7`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `add9`, `madd9`, `6`, `m6`, `9`). (Los power chords `5` se concentran por ergonomía en las cuerdas graves 6ª–4ª introducidos en H1).
@@ -210,7 +210,7 @@ Además, `SandboxState` añade:
 Integrado junto al mástil cuando hay un acorde activo (sea `context.kind === 'chord'` o un `chordFocus` activo):
 - Filtros por grupo de cuerdas: **`Todos`**, **`Abiertos`**, **`Cejilla (5ª–6ª)`**, **`4 cuerdas (1–4)`**, **`3 cuerdas (1–3)`**.
 - Si el acorde viene de `chordFocus` sobre una escala, incluye el conmutador **`Digitación (Voicing)` / `Notas en la escala`** y el botón **`Quitar foco`**.
-- Muestra el nombre de la forma y su inversión (p. ej. `Cuerdas 1–3 · 1ª inversión · xxx988`).
+- Muestra el nombre de la forma y su inversión (p. ej. `Cuerdas 1–3 · 1ª inversión · x-x-x-9-8-8`).
 
 ### 6.3. Dashboard inferior en Grid de 3 columnas
 
@@ -223,14 +223,14 @@ Integrado junto al mástil cuando hay un acorde activo (sea `context.kind === 'c
      - Conmutador **`Tríadas` / `Cuatríadas (7ª)`**.
      - Tarjetas de los 7 grados (con su numeral romano relativo a la tónica de la escala y nombre del acorde):
        - **Clic en la tarjeta**: activa/desactiva `chordFocus` sobre ese grado (la escala queda en `scale-bg` atenuada y el grado resalta con sus notas o voicings).
-       - **Botón `+`**: añade el grado al constructor de progresión (`harmonyProgression`).
+       - **Botón `+`**: añade el grado al constructor de progresión (`harmonyProgression`, en H5f).
        - **Botón `"Ir al acorde"`** (con tooltip y `aria-label="Ir al acorde [Nombre]"`): cambia `context` a ese acorde.
-     - Barra del **Constructor de progresión**: chips de los grados añadidos, botón **`▶ Reproducir progresión`** y botón de vaciar progresión.
+     - Barra del **Constructor de progresión** (en H5f): chips de los grados añadidos, botón **`▶ Reproducir progresión`** y botón de vaciar progresión.
    - **En modo Acorde → Panel de Progresiones**:
      - En cada progresión sugerida, el chip del grado correspondiente al acorde de contexto lleva **color de acento** (`data-current-degree="true"`).
      - **Clic en otro grado de la progresión**: activa `chordFocus` en ese acorde sin cambiar `context`; muestra una barra de aviso con el botón **`"Volver a [Acorde]"`**.
      - **Botón `"Ir al acorde"`** (con tooltip y `aria-label`): pivota `context` a ese acorde.
-     - **Botón `"▶ Reproducir"`**: reproduce todos los acordes de esa progresión en orden.
+     - **Botón `"▶ Reproducir"`** (en H5f): reproduce todos los acordes de esa progresión en orden.
 3. **Columna 3 — Escalas**:
    - **En modo Escala**:
      - Bloque desplegable **`Escalas relativas (mismas notas)`**: al expandir lista cada escala relativa junto a su grado en la escala madre (`I · C mayor`, `II · D dórico`, etc.).
@@ -241,14 +241,14 @@ Integrado junto al mástil cuando hay un acorde activo (sea `context.kind === 'c
 
 ## 7. Sección 9 — Presupuesto de Altura y Layout (Criterio `k`)
 
-Para evitar el problema de tener que hacer scroll de página mientras parte de la pantalla queda desaprovechada:
+Para evitar el problema de tener que hacer scroll de página mientras parte de la pantalla queda desaprovechada, optimizando principalmente para **`1920×1080`** y **`2560×1440`** (con soporte también para `1440×900`):
 
-1. **Distribución vertical en pantalla de escritorio (`1440×900`)**:
-   - Barra superior compacta: `≤ 52px`.
-   - Área de instrumentos a ancho completo (Mástil + barra de voicings + Piano horizontal compactado): `≤ 410px`.
-   - Dashboard inferior de 3 columnas: ocupa el resto de la altura disponible (`min-height: 280px`, `max-height: calc(100vh - 490px)` en pantallas anchas), con `overflow-y: auto` interno en las listas de cada columna.
+1. **Distribución vertical en pantallas de escritorio (`1920×1080`, `2560×1440` y `1440×900`)**:
+   - Barra superior compacta: `48px` en `1080p` (`54px` en `1440p`, `46px` en `≤ 950p`).
+   - Área de instrumentos a ancho completo (Franja de contexto + Mástil + Piano horizontal): `378px` en `1080p` (`462px` en `1440p`, `346px` en `≤ 950p`), escalando proporcionalmente hasta `--content-max-width: 2440px`.
+   - Dashboard inferior de 3 columnas: ocupa el resto de la altura disponible (`≈ 634px` en `1080p`, `≈ 904px` en `1440p`, `≈ 480px` en `900p`), con cuadrículas multicolumna adaptativas en las listas internas para minimizar el scroll en todo momento.
 2. **Regla verificable (Criterio `k`)**:
-   - En un viewport de escritorio estándar (`1440×900`), la altura total del contenedor `.sandbox` no supera `900px` (`100vh`) y tanto el mástil, el piano como las cabeceras de las 3 columnas del dashboard son visibles simultáneamente sin scroll vertical del documento.
+   - En un viewport de escritorio (`1920×1080`, `2560×1440` o `1440×900`), la altura total del contenedor `.sandbox` no supera `100vh` y tanto el mástil, el piano como las cabeceras y listas principales de las 3 columnas del dashboard son visibles simultáneamente sin scroll vertical del documento.
 
 ---
 
@@ -270,14 +270,10 @@ Quedan explícitamente fuera de la Fase 1.1 (reservados para fases posteriores o
 | **P0 · Roles en piano/mástil, quitar vista vertical y `Requisitos.md`** | Asignar `role: 'pinned'` a `state.notes` en `pianoMarks`; añadir `isRoot` (coexistencia `pinned` + `root`) y el nuevo rol `scale-bg` con variables CSS (claro/oscuro) y formas/bordes diferenciados; eliminar orientación vertical de UI y stores; actualizar `docs/Requisitos.md` (incluido el criterio 8). | Tests de `marks.ts`, `Piano.test.tsx`, `Fretboard.test.tsx`, `SandboxView.test.tsx` |
 | **H1 · Catálogo 1.1 + Voicings de cejilla y Power Chords** | Añadir las 7 calidades (`add9`, `madd9`, `m7b5`, `dim7`, `mMaj7`, `maj7#5`, `5`) en `chords.ts` **con sus voicings de cejilla (raíz en 6ª y 5ª)** y formas abiertas canónicas de `5` en `standard.ts`; soporte para díadas `[0, 7]` en `detectChords.ts`; añadir las 5 escalas Bebop, las 2 Napolitanas y las 2 Disminuidas (con metadato de simetría) en `scales.ts`. | `dictionary.test.ts` (cobertura 19 × 12 = 228), `detectChords.test.ts` (`Dadd9`, `C5`, `E5`), `scales` tests (`G bebop dominante`) |
 | **H2 · Armonía en cuatríadas y Escalas Relativas** | `diatonicChords(scale, mode, 'triads' \| 'sevenths')` con los 7 grados en mayor, menor natural, armónica y melódica (y soporte `baseScale`); `scaleParentContext` y `groupedRelatedScales` (relativas con su grado en la madre + proximidad). | Tests unitarios para criterios (b), (c), (d), (j) |
-| **H3 · Voicings en cuerdas 1–3 y 1–4** | Añadir familias `'strings-1-3'` y `'strings-1-4'` (fundamental, 1ª y 2ª inversión) en `standard.ts`, actualizar `dictionary.ts`, tests de integridad de inversiones y regenerar `docs/voicings.md`. | `dictionary.test.ts` + test explícito del criterio (i) (`xxx553`, `xxx988`, `xxx010`) |
+| **H3 · Voicings en cuerdas 1–3 y 1–4** | Añadir familias `'strings-1-3'` y `'strings-1-4'` (fundamental, 1ª y 2ª inversión) en `standard.ts`, actualizar `dictionary.ts`, tests de integridad de inversiones y regenerar `docs/voicings.md`. | `dictionary.test.ts` + test explícito del criterio (i) (`x-x-x-5-5-3`, `x-x-x-9-8-8`, `x-x-x-0-1-0`) |
 | **H4 · Estado (`chordFocus`, armonía y reglas de reinicio)** | Añadir `chordFocus`, `harmonyMode` y `harmonyProgression` a `sandboxStore`, conectar `marks.ts` para dibujar la escala en `scale-bg` cuando hay `chordFocus`, y probar todas las reglas de reinicio (cambio de contexto, afinación, "Quitar"/"Volver" y "Limpiar"). | `sandbox.test.ts` |
-| **H5a · Layout, Barra compacta y Menú Ajustes** | Rediseñar `SandboxView` con barra superior compacta (escala, acorde, reproducción, limpiar y menú `⚙ Ajustes`), instrumentos arriba a ancho completo y grid inferior de 3 columnas cumpliendo el presupuesto de altura (sección 9). | Tests de integración de barra, menú Ajustes y criterio (k) |
-| **H5b · Navegador de Voicings con filtro por grupo** | Añadir filtro por familia de cuerdas (`Todos`, `Abiertos`, `Cejilla`, `4 cuerdas`, `3 cuerdas`), indicador de inversión y soporte para `chordFocus` (modo voicing vs. notas). | `ContextPickers.test.tsx` |
-| **H5c · Panel de Análisis Armónico** | En modo escala: conmutador `Tríadas / Cuatríadas (7ª)`, tarjetas de grados (clic alterna `chordFocus`, botón `"Ir al acorde"` con tooltip y `aria-label` pivota `context`) y constructor de progresión. | Tests para criterio (e) |
-| **H5d · Panel de Progresiones** | En modo acorde: grado del acorde actual con color de acento, clic en otros acordes activa `chordFocus` sin cambiar `context`, botón `"Volver a [Acorde]"` restaura y botón `"Ir al acorde"` pivota. | Tests para criterio (f) |
-| **H5e · Panel de Escalas y Contexto Madre** | Mostrar `scaleParentContext` en info/cabecera, desplegable agrupado de escalas relativas mostrando cada una con su grado respecto a la madre y lista inferior por proximidad/popularidad. | Tests para criterios (b) y (j) |
-| **H5f · Reproducción de Progresiones** | Función `progressionEvents` en `src/audio/playback.ts` y botón `▶ Reproducir progresión` tanto en progresiones sugeridas como en el Análisis Armónico. | Test de audio para criterio (l) |
+| **H5a–e · Rediseño integral de Interfaz, Navegador de Voicings, Armonía, Progresiones y Escalas** | Rediseñar `SandboxView` según [interfaz.md](interfaz.md) optimizado para `1920×1080` y `2560×1440` (barra superior compacta, menú `⚙ Ajustes`, `ContextStrip` con filtro por familia y soporte `chordFocus`, mástil con `×` en cuerdas muteadas, `InfoPanel` con `scaleParentContext`, `SuggestionsPanel` con `Tríadas / Cuatríadas (7ª)`, `chordFocus` en grados y progresiones con `"Volver a [Acorde]"` e `"Ir al acorde"`, y `ScalesPanel` con escalas relativas y compatibles). | Tests de integración de barra, menú Ajustes, `ContextPickers.test.tsx`, `InfoPanel.test.tsx`, `SuggestionsPanel.test.tsx` y criterios (b), (c), (d), (e), (f), (j), (k) |
+| **H5f · Reproducción de Progresiones** | Función `progressionEvents` en `src/audio/playback.ts`, constructor de progresión en Análisis Armónico y botón `▶ Reproducir progresión` tanto en progresiones sugeridas como en el constructor. | Test de audio para criterio (l) |
 
 ---
 
@@ -293,8 +289,8 @@ La Fase 1.1 está terminada cuando todos los tests existen y pasan para los sigu
 - **(f)** Con el acorde **Dm** como contexto, en la progresión `ii–V–I` de Do mayor el grado `Dm` (`ii`) se dibuja con color de acento distinto al resto; hacer clic en `G` (`V`) muestra `G` sin cambiar el contexto principal de `Dm`, y pulsar **"Volver a Dm"** restaura la visualización de `Dm`.
 - **(g)** Seleccionar las notas **D, F♯, A, E** con raíz **D** hace que el detector reconozca **`Dadd9`**.
 - **(h)** Seleccionar la escala **Bebop dominante de G** produce exactamente las 8 notas **`G, A, B, C, D, E, F, F♯`**.
-- **(i)** Para el acorde **C mayor** en afinación estándar, el catálogo de voicings en las **cuerdas 1–3** incluye la posición fundamental **`xxx553`**, la 1ª inversión **`xxx988`** y la 2ª inversión **`xxx010`**.
+- **(i)** Para el acorde **C mayor** en afinación estándar, el catálogo de voicings en las **cuerdas 1–3** incluye la posición fundamental **`x-x-x-5-5-3`**, la 1ª inversión **`x-x-x-9-8-8`** y la 2ª inversión **`x-x-x-0-1-0`**.
 - **(j)** Al seleccionar **C mayor**, las escalas relativas aparecen agrupadas en un único bloque desplegable y, al expandirlo, cada escala relativa se muestra junto a su grado respecto a la escala madre (`I`, `II`, `III`, `IV`, `V`, `VI`, `VII`).
-- **(k)** Se cumple el criterio de altura de la **Sección 9**: en un viewport de escritorio (`1440×900`), la barra compacta, los instrumentos horizontales y el dashboard de 3 columnas caben dentro de la ventana sin desbordar la altura ni requerir vista vertical.
+- **(k)** Se cumple el criterio de altura de la **Sección 9**: en un viewport de escritorio (`1920×1080`, `2560×1440` o `1440×900`), la barra compacta, los instrumentos horizontales y el dashboard de 3 columnas caben dentro de la ventana sin desbordar la altura ni requerir vista vertical.
 - **(l)** Reproducir la progresión **`I–V–vi–IV` en Do mayor** programa y reproduce secuencialmente los acordes **`C` → `G` → `Am` → `F`** correctamente.
-- **(m)** Al seleccionar las notas **C y G** (o pulsar la digitación de power chord `x355xx` o `355xxx`), el detector de acordes reconoce de forma unívoca **`C5`**; y en afinación estándar todas las 12 raíces cuentan con al menos un voicing para la calidad `5` en el catálogo (incluyendo las formas abiertas canónicas `E5` `022xxx`, `A5` `x022xx`, `D5` `xx023x` y las móviles de cejilla en 6ª y 5ª cuerda).
+- **(m)** Al seleccionar las notas **C y G** (o pulsar la digitación de power chord `x-3-5-5-x-x` o `3-5-5-x-x-x`), el detector de acordes reconoce de forma unívoca **`C5`**; y en afinación estándar todas las 12 raíces cuentan con al menos un voicing para la calidad `5` en el catálogo (incluyendo las formas abiertas canónicas `E5` `0-2-2-x-x-x`, `A5` `x-0-2-2-x-x`, `D5` `x-x-0-2-3-x` y las móviles de cejilla en 6ª y 5ª cuerda).

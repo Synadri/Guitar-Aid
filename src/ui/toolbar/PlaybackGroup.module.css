@@ -1,0 +1,48 @@
+.group {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-group);
+  padding: 2px;
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+.playbackBtn {
+  height: 26px;
+  padding: 0 8px;
+  background-color: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.playbackBtn:hover:not(:disabled) {
+  background-color: var(--control-hover);
+  color: #fff;
+}
+
+.playbackBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.playbackBtn:disabled .playIcon {
+  color: var(--text-muted);
+}
+
+.playIcon {
+  font-size: 9px;
+  color: var(--accent);
+}

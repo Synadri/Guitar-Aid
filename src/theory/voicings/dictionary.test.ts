@@ -163,19 +163,19 @@ describe('voicings/dictionary — integridad con positionToMidi y cobertura de l
     const strings13 = voicings.filter((v) => v.family === 'strings-1-3');
     const compacts = strings13.map((v) => formatCompactFrets(v.frets));
 
-    expect(compacts).toContain('xxx553');
-    expect(compacts).toContain('xxx988');
-    expect(compacts).toContain('xxx010');
+    expect(compacts).toContain('x-x-x-5-5-3');
+    expect(compacts).toContain('x-x-x-9-8-8');
+    expect(compacts).toContain('x-x-x-0-1-0');
 
-    const rootVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx553')!;
+    const rootVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-5-5-3')!;
     expect(rootVoicing.inversion).toBe('root');
     expect(rootVoicing.rootString).toBe(3);
 
-    const firstInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx988')!;
+    const firstInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-9-8-8')!;
     expect(firstInvVoicing.inversion).toBe('1st');
     expect(firstInvVoicing.rootString).toBe(1);
 
-    const secondInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'xxx010')!;
+    const secondInvVoicing = strings13.find((v) => formatCompactFrets(v.frets) === 'x-x-x-0-1-0')!;
     expect(secondInvVoicing.inversion).toBe('2nd');
     expect(secondInvVoicing.rootString).toBe(2);
   });
@@ -185,24 +185,24 @@ describe('voicings/dictionary — integridad con positionToMidi y cobertura de l
     expect(cMaj7Voicings.length).toBeGreaterThanOrEqual(3);
 
     const cMaj7Compacts = cMaj7Voicings.map((v) => formatCompactFrets(v.frets));
-    // Fundamental (x-x-10-12-12-12), 1ª inv (xx2413), 2ª inv (xx5557), 3ª inv (xx9988)
+    // Fundamental (x-x-10-12-12-12), 1ª inv (x-x-2-4-1-3), 2ª inv (x-x-5-5-5-7), 3ª inv (x-x-9-9-8-8)
     expect(cMaj7Compacts).toContain('x-x-10-12-12-12');
-    expect(cMaj7Compacts).toContain('xx2413');
-    expect(cMaj7Compacts).toContain('xx5557');
-    expect(cMaj7Compacts).toContain('xx9988');
+    expect(cMaj7Compacts).toContain('x-x-2-4-1-3');
+    expect(cMaj7Compacts).toContain('x-x-5-5-5-7');
+    expect(cMaj7Compacts).toContain('x-x-9-9-8-8');
   });
 });
 
 describe('voicings/dictionary — impresión de formas y tablatura', () => {
-  it('formatea Am7 con x02010 · A C E G · open en primer lugar', () => {
+  it('formatea Am7 con x-0-2-0-1-0 · A C E G · open en primer lugar', () => {
     const parsed = parseChordSymbol('Am7');
     expect(parsed).toEqual({ root: 9, quality: 'm7', mode: 'sharps' });
 
     const voicings = voicingsForChord(parsed!.root, parsed!.quality);
     const lines = voicings.map((v) => formatVoicingLine(v, parsed!.mode));
 
-    expect(lines[0]).toBe('x02010 · A C E G · open');
-    expect(lines).toContain('575555 · A C E G · barre-E');
+    expect(lines[0]).toBe('x-0-2-0-1-0 · A C E G · open');
+    expect(lines).toContain('5-7-5-5-5-5 · A C E G · barre-E');
     expect(lines).toContain('x-12-14-12-13-12 · A C E G · barre-A');
   });
 
@@ -212,7 +212,7 @@ describe('voicings/dictionary — impresión de formas y tablatura', () => {
     expect(tab.split('\n')).toEqual(['e|-0-|', 'B|-1-|', 'G|-0-|', 'D|-2-|', 'A|-0-|', 'E|-x-|']);
 
     const md = generateVoicingsMarkdown();
-    expect(md).toContain('x02010 · A C E G · open');
+    expect(md).toContain('x-0-2-0-1-0 · A C E G · open');
     for (const q of CHORD_QUALITIES) {
       expect(md).toContain(`(${q.name})`);
     }
@@ -249,14 +249,14 @@ describe('voicings/adapt — adaptación a otras afinaciones (T4b)', () => {
   it('en D (wholeDown), Re mayor incluye 022100 y en Eb (halfDown), Mi bemol mayor también', () => {
     const wholeDown = getTuning('wholeDown')!;
     const dMajorVoicings = voicingsForChord({ root: 2, quality: 'maj' }, wholeDown);
-    expect(dMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('022100');
+    expect(dMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('0-2-2-1-0-0');
     for (const v of dMajorVoicings) {
       verifyVoicingIntegrity(v, wholeDown);
     }
 
     const halfDown = getTuning('halfDown')!;
     const ebMajorVoicings = voicingsForChord({ root: 3, quality: 'maj' }, halfDown);
-    expect(ebMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('022100');
+    expect(ebMajorVoicings.map((v) => formatCompactFrets(v.frets))).toContain('0-2-2-1-0-0');
     for (const v of ebMajorVoicings) {
       verifyVoicingIntegrity(v, halfDown);
     }
@@ -266,10 +266,10 @@ describe('voicings/adapt — adaptación a otras afinaciones (T4b)', () => {
     const dropD = getTuning('dropD')!;
 
     const amVoicings = voicingsForChord({ root: 9, quality: 'm' }, dropD);
-    expect(amVoicings.map((v) => formatCompactFrets(v.frets))).toContain('x02210');
+    expect(amVoicings.map((v) => formatCompactFrets(v.frets))).toContain('x-0-2-2-1-0');
 
     const eMajVoicings = voicingsForChord({ root: 4, quality: 'maj' }, dropD);
-    expect(eMajVoicings.map((v) => formatCompactFrets(v.frets))).toContain('222100');
+    expect(eMajVoicings.map((v) => formatCompactFrets(v.frets))).toContain('2-2-2-1-0-0');
 
     let withoutVoicingCount = 0;
     for (const quality of CHORD_QUALITIES) {

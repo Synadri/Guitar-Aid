@@ -1,0 +1,345 @@
+.navWrapper {
+  position: relative;
+  height: 100vh;
+  width: 76px;
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+.navContainer {
+  height: 100%;
+  background-color: var(--surface-1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition:
+    width 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.collapsed {
+  width: 76px;
+  align-items: center;
+}
+
+.expanded {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5);
+  background-color: #11141a;
+  z-index: 50;
+}
+
+/* Header (alineado con TopBar) */
+.header {
+  height: var(--topbar-height, 48px);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.collapsed .header {
+  justify-content: center;
+}
+
+.expanded .header {
+  padding: 0 14px;
+  justify-content: space-between;
+}
+
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoIcon {
+  width: 32px;
+  height: 32px;
+  background-color: #0d9488;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3.5px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.logoBar {
+  width: 16px;
+  height: 2px;
+  background-color: #ffffff;
+  border-radius: 1px;
+}
+
+.brandName {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.toggleButton {
+  width: 28px;
+  height: 28px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggleButton:hover {
+  background-color: var(--control-hover);
+  color: var(--text-primary);
+}
+
+/* Section label */
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 18px 16px 8px 16px;
+}
+
+/* Modes list */
+.modesList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  width: 100%;
+}
+
+.modeItem {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: background-color 0.12s ease;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+/* Collapsed mode button */
+.collapsed .modeItem {
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 4px;
+  height: 68px;
+}
+
+.collapsed .modeIconWrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #94a3b8;
+}
+
+.collapsed .modeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.collapsed .modeItem[aria-current='page'] {
+  background-color: #1d2a45;
+}
+
+.collapsed .modeItem[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background-color: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.collapsed .modeItem[aria-current='page'] .modeIconWrap,
+.collapsed .modeItem[aria-current='page'] .modeLabel {
+  color: #ffffff;
+}
+
+.collapsedBadge {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 1px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+/* Expanded mode button */
+.expanded .modeItem {
+  padding: 10px 14px;
+  gap: 12px;
+  border-radius: 8px;
+  margin: 0 8px;
+  width: calc(100% - 16px);
+}
+
+.expanded .modeItem:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.expanded .modeItem[aria-current='page'] {
+  background-color: #1d2a45;
+}
+
+.expanded .modeItem[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background-color: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.expanded .modeIconWrap {
+  width: 36px;
+  height: 36px;
+  background-color: #182030;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #93c5fd;
+  flex-shrink: 0;
+}
+
+.expanded .modeTextCol {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.expanded .modeTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.expanded .modeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.expanded .modeDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.expandedBadge {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+}
+
+/* Spacer */
+.spacer {
+  flex: 1;
+}
+
+/* Shortcuts card (Expanded) */
+.shortcutsCard {
+  margin: 12px;
+  padding: 12px;
+  background-color: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-group);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcutsTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  color: var(--text-primary);
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Footer */
+.footer {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.versionText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #64748b;
+}
