@@ -166,3 +166,87 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
 ### 6. Cumplimiento estricto de la regla de capas
 - Toda la lógica desarrollada en `src/learning/` es TypeScript puro. Importa exclusivamente de `src/theory/` y de utilidades internas de `src/learning/`.
 - Queda verificado mediante ESLint y `src/architecture/layers.test.ts`, manteniendo el aislamiento total de UI, DOM, Audio y Zustand.
+
+---
+
+## 2026-10-30 — Hito A3: Tarjetas y Repetición Espaciada pura (SRS)
+
+### 1. Estructura y gramática canónica de IDs de tarjeta (`src/learning/cards/ids.ts`)
+- **Decisión:** Se implementó el formato canónico `cardId = "<sujeto>|<faceta>"` para los 10 sujetos musicales del catálogo (§6.1):
+  1. `interval:<semitonos>` (`name>semitones`, `semitones>name`)
+  2. `fretnote:s<c>f<t>` (`pos>name`, `name>pos`)
+  3. `notestring:<pc>:s<c>` (`name>pos`, `pos>name`)
+  4. `quality:<id>` (`name>formula`, `formula>name`)
+  5. `chord:<pc>:<id>` (`name>notes`, `notes>name`, `name>formula`)
+  6. `voicing:<plantilla>@<pc>` (`name>shape`, `shape>name`)
+  7. `scaletype:<id>` (`name>formula`, `formula>name`, `mode>parent`)
+  8. `scale:<pc>:<id>` (`name>notes`, `notes>name`, `name>parent`, `name>formula`)
+  9. `degree:<pc>:<modo>:<grado>:<triads|sevenths>` (`roman>chord`, `chord>roman`)
+  10. `progression:<id>:<pc>` (`roman>chords`, `chords>roman`)
+- **Validación bidireccional:** `formatCardId` genera el identificador determinista y `parseCardId` valida no solo la sintaxis, sino la coherencia semántica (rechaza facetas incompatibles con el sujeto, números de cuerda fuera de 1–6, trastes negativos o clases de altura fuera de 0–11).
+
+### 2. Resolución de tarjetas y contenido dinámico (`src/learning/cards/facets.ts`)
+- **Decisión:** Las tarjetas no almacenan cadenas de texto estáticas ni HTML; su contenido se calcula dinámicamente mediante `resolveCard(cardId, tuning)` a partir de la teoría pura y la afinación activa (`STANDARD_TUNING` por defecto).
+- **Estructura de `ResolvedCard`:** Proporciona los datos desacoplados de la interfaz:
+  - `front` y `back`: títulos principales, subtítulos descriptivos, detalles, listas de notas, grados y posiciones físicas en el diapasón (`positions`, `voicingFrets`).
+  - `audioMidis`: lista de alturas MIDI para reproducción auditiva inmediata con el botón «Escuchar».
+  - `sandboxContext`: configuración `{ root, chordQuality, scaleType, mode }` preparada para el botón «Abrir en Sandbox».
+- **Tratamiento de tarjetas no resolubles:** Si una digitación (`voicing`) no existe en el catálogo o no puede transportarse dentro del límite físico de 24 trastes con la afinación actual, `resolveCard` devuelve `null` de forma segura. El sistema SRS omite la presentación de dicha tarjeta sin alterar su estado ni borrar su progreso.
+
+### 3. Constructor declarativo de mazos (`src/learning/cards/builder.ts`) (Criterio i)
+- **Decisión:** Se creó el motor puro `buildDeckCardIds(sources: DeckSource[])` que procesa colecciones de reglas declarativas basadas en productos cartesianos y fuentes especializadas:
+  - `voicings`: filtra formas abiertas por raíz fija y expande formas móviles (`barre-E`, `barre-A`, etc.) por las raíces seleccionadas.
+  - `chords` y `qualities`: expansión de calidades y acordes concretos.
+  - `scales`, `scaleTypes` y `scaleModes`: soporte del atajo «modos de una escala madre», resolviendo de manera transparente los 7 modos de una tonalidad madre hacia sus facetas de notas o fórmulas.
+  - `degrees` y `progressions`: armonía diatónica y secuencias armónicas.
+  - `fretNotes` y `stringNotes`: notas en mástil y cuerdas individuales con filtro opcional de notas naturales.
+- **Verificación de Criterio (i):** El mazo de ejemplo *«tríadas maj/m en open y cejilla + modos de C mayor»* genera exactamente las tarjetas esperadas (incluyendo `voicing:open-C-maj@0|name>shape` y `scale:2:dorian|name>notes`), sin ninguna tarjeta ajena a las fuentes declaradas.
+
+### 4. Mazos predefinidos y recuentos de tarjetas (`src/learning/cards/presets.ts`) (Criterio l)
+- **Decisión:** Se definieron las plantillas declarativas de los 3 mazos predefinidos y la función `createDeckFromPreset` que genera una copia editable e independiente con identificador y marcas de tiempo propios.
+- **Recuentos exactos materializados en afinación estándar:**
+  - **Mazo Principiante (`112 tarjetas`):**
+    - Notas naturales en cuerdas 6 y 5 (trastes 0–12, `pos>name`).
+    - Intervalos de `m2` a `P8` en ambos sentidos (nombre ↔ semitonos).
+    - Fórmulas de `maj`, `m`, `5`, `7` (ambos sentidos).
+    - Digitaciones abiertas de `maj`, `m` y `7` (nombre ↔ forma).
+    - Fórmulas de escala mayor, menor natural y pentatónicas.
+    - Notas de C, G y D mayor y A y E menor (con sus pentatónicas).
+    - Progresiones `I–IV–V` e `I–V–vi–IV` en C, G, D, A y E (ambos sentidos).
+  - **Mazo Intermedio (`362 tarjetas`):**
+    - Todas las notas (con alteraciones) en las 6 cuerdas, trastes 0–12 (`pos>name`).
+    - Fórmulas de 12 calidades de 7ª y extensiones (`m7`, `maj7`, `6`, `m6`, `sus2`, `sus4`, `dim`, `aug`, `add9`, `m7b5`, `dim7`, `9`).
+    - Cejillas `barre-E` y `barre-A` de `maj`, `m`, `7`, `m7` y `maj7` en raíces naturales.
+    - Los 7 modos de la escala mayor (fórmula, grado en la madre y notas de los modos de C mayor).
+    - Fórmulas de menor armónica y menor melódica.
+    - Armonía diatónica en tríadas de C, G, D, F, A mayor y A, E, D menor (`roman>chord`).
+    - Progresiones `ii–V–I`, `vi–IV–I–V`, andaluza e `i–iv–v` en tonalidades comunes.
+  - **Mazo Avanzado (`1022 tarjetas`):**
+    - Todo el mástil (0–24) en ambos sentidos (`pos>name` y `name>pos`).
+    - Catálogo completo de fórmulas (19 calidades) en ambos sentidos.
+    - Digitaciones `strings-1-4` (Drop 2 e inversiones) y `strings-1-3` (inversiones de tríadas) de `maj`, `m`, `maj7`, `m7` y `7` en raíces naturales.
+    - Fórmulas de 9 escalas avanzadas (bebop, disminuidas y napolitanas).
+    - Armonía diatónica en cuatríadas en las 12 tonalidades mayores y menores (`roman>chord`).
+    - Las 10 plantillas de progresiones en las 12 tonalidades (ambos sentidos).
+- **Validación del 100 % de resolución (Criterio l):** Se verificó mediante tests automatizados que las 1496 tarjetas generadas por los 3 mazos predefinidos se resuelven satisfactoriamente en afinación estándar sin generar ningún error ni valor `null`.
+
+### 5. Planificador SM-2 y vista previa de intervalos (`src/learning/srs/scheduler.ts`) (Criterio h)
+- **Decisión:** Se implementó el planificador puro SM-2 (variante clásica de Anki) con reloj determinista inyectable `now` y sin fluctuación aleatoria (*fuzz*), cumpliendo con exactitud matemática las transiciones especificadas:
+  - *Nueva + Bien:* paso 2 de aprendizaje a **10 min**.
+  - *Aprendizaje (paso 2) + Bien:* graduación a repaso con intervalo de **1 d**.
+  - *Repaso 1 d (facilidad 2,50) + Bien:* $\max(1 + 1, \text{round}(1 \times 2.50)) = $ **3 d**.
+  - *Repaso 3 d + Difícil:* $\text{round}(3 \times 1.2) = $ **4 d**, facilidad reducida en $-0.15$ a **2,35**.
+  - *Repaso 10 d + Fácil:* $\text{round}(10 \times 2.50 \times 1.3) = $ **33 d**, facilidad incrementada en $+0.15$ a **2,65**.
+  - *Repaso 10 d + Otra vez:* paso a reaprendizaje a **10 min**, lapsus $+1$, facilidad reducida en $-0.20$ a **2,30** y, tras pulsar *Bien*, retorno a repaso con intervalo de **1 d**.
+  - *Nueva + Fácil:* graduación inmediata con intervalo fácil de **4 d**.
+  - *Suelo de facilidad:* límite inferior inmutable de **1,30**, verificado tras 10 fallos consecutivos en repaso.
+- **Vista previa accesible (`previewIntervals`):** Se implementó la proyección previa para los 4 botones (`Otra vez`, `Difícil`, `Bien`, `Fácil`), formateando los tiempos de forma concisa y amigable en español (`1 min`, `5,5 min`, `10 min`, `1 d`, `3 d`, `4 d`, `33 d`).
+
+### 6. Cola de estudio, límites diarios y corte a las 04:00 (`src/learning/srs/queue.ts`) (Criterio k)
+- **Decisión:**
+  - **Corte de día a las 04:00 hora local:** `getStudyDayKey(timestamp)` desplaza 4 horas el reloj de referencia local. De este modo, una sesión a las 03:59:59 pertenece aún al día de estudio previo, y a las 04:00:00 exactas el día avanza y se renuevan automáticamente los cupos diarios sin requerir procesos en segundo plano.
+  - **Límites diarios por defecto:** 20 tarjetas nuevas y 200 repasos por mazo.
+  - **Ensamblado de cola en `buildStudyQueue`:**
+    1. Tarjetas en aprendizaje o reaprendizaje cuyo vencimiento ya ha llegado (`due <= now`), ordenadas por urgencia temporal.
+    2. Repasos vencidos (acotados por el límite diario restante) y tarjetas nuevas (acotadas por el cupo de 20 diario restante), intercaladas alternativamente para distribuir la carga cognitiva durante la sesión.
+
