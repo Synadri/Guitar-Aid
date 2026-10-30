@@ -220,21 +220,40 @@ export function Piano({
             data-mark-role={mark.role}
             data-is-root={hasRootRing ? 'true' : undefined}
           >
-            <circle
-              className={styles.markCircle}
-              cx={layout.markX}
-              cy={layout.markY}
-              r={
-                mark.role === 'scale-bg'
-                  ? 9
-                  : mark.role === 'root' || mark.role === 'pinned'
+            {mark.role === 'wrong' ? (
+              <rect
+                className={styles.markSquare}
+                x={layout.markX - 11}
+                y={layout.markY - 11}
+                width={22}
+                height={22}
+                rx={5}
+              />
+            ) : (
+              <circle
+                className={styles.markCircle}
+                cx={layout.markX}
+                cy={layout.markY}
+                r={
+                  mark.role === 'question'
                     ? 11
-                    : 10
-              }
-              strokeDasharray={
-                mark.role === 'preview' ? '3.5 2' : mark.role === 'scale-bg' ? '2 2' : undefined
-              }
-            />
+                    : mark.role === 'scale-bg'
+                      ? 9
+                      : mark.role === 'root' || mark.role === 'pinned'
+                        ? 11
+                        : 10
+                }
+                strokeDasharray={
+                  mark.role === 'missed'
+                    ? '3.5 2.5'
+                    : mark.role === 'preview'
+                      ? '3.5 2'
+                      : mark.role === 'scale-bg'
+                        ? '2 2'
+                        : undefined
+                }
+              />
+            )}
             {hasRootRing && (
               <circle
                 className={styles.rootInnerRing}
@@ -244,17 +263,21 @@ export function Piano({
                 data-testid="root-inner-ring"
               />
             )}
-            {mark.label !== undefined && (
-              <text
-                className={styles.markLabel}
-                x={layout.markX}
-                y={layout.markY}
-                textAnchor="middle"
-                dominantBaseline="central"
-              >
-                {mark.label}
-              </text>
-            )}
+            <text
+              className={styles.markLabel}
+              x={layout.markX}
+              y={layout.markY}
+              textAnchor="middle"
+              dominantBaseline="central"
+            >
+              {mark.label !== undefined && mark.label !== ''
+                ? mark.label
+                : mark.role === 'wrong'
+                  ? '×'
+                  : mark.role === 'correct'
+                    ? '✓'
+                    : ''}
+            </text>
           </g>
         )}
       </g>

@@ -16,11 +16,18 @@ import styles from './Fretboard.module.css';
 export interface FretboardProps {
   tuning: Tuning;
   frets?: number;
+  /** Rango visible de trastes (por defecto { from: 0, to: frets ?? 24 }). */
+  fretRange?: { from: number; to: number };
+  /** Subconjunto de cuerdas activas (1..6). Las demás se atenúan y no aceptan clic. */
+  activeStrings?: ReadonlySet<StringNumber>;
+  /** Muestra u oculta los puntos de referencia de los trastes 3, 5, 7, 9, 12… (por defecto true). */
+  showInlays?: boolean;
   leftHanded?: boolean;
   marks?: readonly FretMark[];
-  mutedStrings?: readonly StringNumber[];
+  mutedStrings?: ReadonlySet<StringNumber> | readonly StringNumber[];
   nameMode?: NameMode;
   onPositionClick?: (position: FretPosition) => void;
+  onPositionContextMenu?: (position: FretPosition) => void;
   onPositionRightClick?: (position: FretPosition) => void;
 }
 
@@ -70,23 +77,46 @@ const STRING_Y: Record<StringNumber, number> = {
   6: 158,
 };
 
-function rawFretWireX(n: number): number {
+function rawFretWireX(
+  n: number,
+  fromFret: number = 0,
+  toFret: number = DEFAULT_FRETS,
+): number {
   if (n <= 0) return NUT_X;
-  return NUT_X + (1236 * (1 - Math.pow(2, -n / 12))) / 0.75;
+  const totalSpan = 1236;
+  if (fromFret === 0) {
+    const maxFrac = 1 - Math.pow(2, -toFret / 12);
+    const frac = 1 - Math.pow(2, -n / 12);
+    return NUT_X + (totalSpan * frac) / (maxFrac || 1);
+  } else {
+    const minFrac = 1 - Math.pow(2, -(fromFret - 1) / 12);
+    const maxFrac = 1 - Math.pow(2, -toFret / 12);
+    const frac = 1 - Math.pow(2, -n / 12);
+    return NUT_X + (totalSpan * (frac - minFrac)) / (maxFrac - minFrac || 1);
+  }
 }
 
 export function Fretboard({
   tuning,
   frets = DEFAULT_FRETS,
+  fretRange,
+  activeStrings,
+  showInlays = true,
   leftHanded = false,
   marks = [],
   mutedStrings = [],
   nameMode = 'sharps',
   onPositionClick,
+  onPositionContextMenu,
   onPositionRightClick,
 }: FretboardProps) {
-  const mutedSet = new Set<StringNumber>(mutedStrings);
-  const neckEndWireX = rawFretWireX(frets);
+  const fromFret = fretRange?.from ?? 0;
+  const toFret = fretRange?.to ?? frets;
+  const mutedSet =
+    mutedStrings instanceof Set
+      ? mutedStrings
+      : new Set<StringNumber>(mutedStrings as readonly StringNumber[]);
+  const neckEndWireX = rawFretWireX(toFret, fromFret, toFret);
   const neckSpan = neckEndWireX - (NUT_X + NUT_WIDTH);
 
   // Coordenada horizontal reflejada en modo zurdo
@@ -97,11 +127,13 @@ export function Fretboard({
   const nutX = mirrorX(NUT_X, NUT_WIDTH);
   const boardRectX = mirrorX(NUT_X + NUT_WIDTH, neckSpan);
 
-  const fretWireX = (n: number): number => mirrorX(rawFretWireX(n));
+  const fretWireX = (n: number): number => mirrorX(rawFretWireX(n, fromFret, toFret));
 
   const fretCenterX = (n: number): number => {
     if (n === 0) return openCenterX;
-    const center = (rawFretWireX(n - 1) + rawFretWireX(n)) / 2;
+    const prevWire = n - 1 === 0 ? NUT_X : rawFretWireX(n - 1, fromFret, toFret);
+    const currWire = rawFretWireX(n, fromFret, toFret);
+    const center = (prevWire + currWire) / 2;
     return mirrorX(center);
   };
 
@@ -115,9 +147,10 @@ export function Fretboard({
   };
 
   const handleContextMenu = (e: MouseEvent, pos: FretPosition) => {
-    if (onPositionRightClick) {
+    if (onPositionContextMenu || onPositionRightClick) {
       e.preventDefault();
-      onPositionRightClick(pos);
+      onPositionContextMenu?.(pos);
+      onPositionRightClick?.(pos);
     }
   };
 
@@ -128,8 +161,11 @@ export function Fretboard({
     }
   };
 
-  const fretNumbers = Array.from({ length: frets }, (_, i) => i + 1);
-  const allFrets = Array.from({ length: frets + 1 }, (_, i) => i);
+  const allFrets: number[] = [];
+  for (let f = fromFret; f <= toFret; f++) {
+    allFrets.push(f);
+  }
+  const fretNumbers = allFrets.filter((f) => f > 0);
 
   const tuningDisplayString = tuning.strings
     .map((s) => pcName(pitchClassOf(s), nameMode))
@@ -160,32 +196,33 @@ export function Fretboard({
         />
 
         {/* Puntos de referencia (inlays) */}
-        {fretNumbers.map((fret) => {
-          if (SINGLE_INLAY_FRETS.has(fret) && fret <= frets) {
-            return (
-              <circle
-                key={`inlay-${fret}`}
-                className={styles.inlay}
-                cx={fretCenterX(fret)}
-                cy={(STRING_Y[1] + STRING_Y[6]) / 2}
-                r={5.5}
-                data-inlay-fret={fret}
-              />
-            );
-          }
-          if (DOUBLE_INLAY_FRETS.has(fret) && fret <= frets) {
-            const cx = fretCenterX(fret);
-            const cyTop = STRING_Y[2] + 4;
-            const cyBottom = STRING_Y[5] - 4;
-            return (
-              <g key={`inlay-${fret}`} data-inlay-fret={fret}>
-                <circle className={styles.inlay} cx={cx} cy={cyTop} r={5.5} />
-                <circle className={styles.inlay} cx={cx} cy={cyBottom} r={5.5} />
-              </g>
-            );
-          }
-          return null;
-        })}
+        {showInlays !== false &&
+          fretNumbers.map((fret) => {
+            if (SINGLE_INLAY_FRETS.has(fret) && fret <= toFret) {
+              return (
+                <circle
+                  key={`inlay-${fret}`}
+                  className={styles.inlay}
+                  cx={fretCenterX(fret)}
+                  cy={(STRING_Y[1] + STRING_Y[6]) / 2}
+                  r={5.5}
+                  data-inlay-fret={fret}
+                />
+              );
+            }
+            if (DOUBLE_INLAY_FRETS.has(fret) && fret <= toFret) {
+              const cx = fretCenterX(fret);
+              const cyTop = STRING_Y[2] + 4;
+              const cyBottom = STRING_Y[5] - 4;
+              return (
+                <g key={`inlay-${fret}`} data-inlay-fret={fret}>
+                  <circle className={styles.inlay} cx={cx} cy={cyTop} r={5.5} />
+                  <circle className={styles.inlay} cx={cx} cy={cyBottom} r={5.5} />
+                </g>
+              );
+            }
+            return null;
+          })}
 
         {/* Líneas de trastes proporcionales */}
         {fretNumbers.map((fret) => {
@@ -215,6 +252,7 @@ export function Fretboard({
 
         {/* Cuerdas, nombres de notas al aire y marcadores de cuerda muteada (×) */}
         {STRINGS.map((string) => {
+          const isActive = !activeStrings || activeStrings.has(string);
           const openMidi = positionToMidi(tuning, { string, fret: 0 });
           const openNoteName = pcName(pitchClassOf(openMidi), nameMode);
           const y = STRING_Y[string];
@@ -222,7 +260,11 @@ export function Fretboard({
           const lineEndX = leftHanded ? nutX + NUT_WIDTH : boardRectX + neckSpan;
           const isMuted = mutedSet.has(string) && !marksByPos.has(`${string}:0`);
           return (
-            <g key={`string-row-${string}`}>
+            <g
+              key={`string-row-${string}`}
+              style={!isActive ? { opacity: 0.28 } : undefined}
+              data-active-string={isActive ? 'true' : 'false'}
+            >
               <line
                 className={styles.stringLine}
                 x1={lineStartX}
@@ -289,8 +331,9 @@ export function Fretboard({
           {footerText}
         </text>
 
-        {/* Posiciones interactivas (6 cuerdas × (frets + 1) trastes) */}
+        {/* Posiciones interactivas (6 cuerdas × trastes visibles) */}
         {STRINGS.map((string) => {
+          const isActiveString = !activeStrings || activeStrings.has(string);
           return allFrets.map((fret) => {
             const cx = fretCenterX(fret);
             const cy = STRING_Y[string];
@@ -304,7 +347,8 @@ export function Fretboard({
             if (fret === 0) {
               hitWidth = 26;
             } else {
-              const span = Math.abs(rawFretWireX(fret) - rawFretWireX(fret - 1));
+              const prevWire = fret - 1 === 0 ? NUT_X : rawFretWireX(fret - 1, fromFret, toFret);
+              const span = Math.abs(rawFretWireX(fret, fromFret, toFret) - prevWire);
               hitWidth = Math.max(16, span - 2);
             }
             const hitHeight = 24;
@@ -317,7 +361,9 @@ export function Fretboard({
                 key={`pos-${string}-${fret}`}
                 className={`${styles.position} ${roleClass ?? ''}`}
                 role="button"
-                tabIndex={0}
+                tabIndex={isActiveString ? 0 : -1}
+                aria-disabled={!isActiveString ? 'true' : undefined}
+                style={!isActiveString ? { pointerEvents: 'none', opacity: 0.28 } : undefined}
                 aria-label={`Cuerda ${string}, traste ${fret}, ${noteName}`}
                 aria-pressed={mark ? true : false}
                 data-string={string}
@@ -325,9 +371,9 @@ export function Fretboard({
                 data-note={noteName}
                 data-role={mark?.role}
                 data-is-root={hasRootRing ? 'true' : undefined}
-                onClick={() => handleActivate(pos)}
-                onContextMenu={(e) => handleContextMenu(e, pos)}
-                onKeyDown={(e) => handleKeyDown(e, pos)}
+                onClick={isActiveString ? () => handleActivate(pos) : undefined}
+                onContextMenu={isActiveString ? (e) => handleContextMenu(e, pos) : undefined}
+                onKeyDown={isActiveString ? (e) => handleKeyDown(e, pos) : undefined}
               >
                 <rect
                   className={styles.hitArea}
@@ -343,25 +389,40 @@ export function Fretboard({
                     data-mark-role={mark.role}
                     data-is-root={hasRootRing ? 'true' : undefined}
                   >
-                    <circle
-                      className={styles.markCircle}
-                      cx={cx}
-                      cy={cy}
-                      r={
-                        mark.role === 'root' || mark.role === 'pinned'
-                          ? 11.5
-                          : mark.role === 'scale-bg'
-                            ? 9
-                            : 10.5
-                      }
-                      strokeDasharray={
-                        mark.role === 'preview'
-                          ? '3.5 2'
-                          : mark.role === 'scale-bg'
-                            ? '2 2'
-                            : undefined
-                      }
-                    />
+                    {mark.role === 'wrong' ? (
+                      <rect
+                        className={styles.markSquare}
+                        x={cx - 11}
+                        y={cy - 11}
+                        width={22}
+                        height={22}
+                        rx={5}
+                      />
+                    ) : (
+                      <circle
+                        className={styles.markCircle}
+                        cx={cx}
+                        cy={cy}
+                        r={
+                          mark.role === 'question'
+                            ? 12
+                            : mark.role === 'root' || mark.role === 'pinned'
+                              ? 11.5
+                              : mark.role === 'scale-bg'
+                                ? 9
+                                : 10.5
+                        }
+                        strokeDasharray={
+                          mark.role === 'missed'
+                            ? '3.5 2.5'
+                            : mark.role === 'preview'
+                              ? '3.5 2'
+                              : mark.role === 'scale-bg'
+                                ? '2 2'
+                                : undefined
+                        }
+                      />
+                    )}
                     {hasRootRing && (
                       <circle
                         className={styles.rootInnerRing}
@@ -371,17 +432,21 @@ export function Fretboard({
                         data-testid="root-inner-ring"
                       />
                     )}
-                    {mark.label !== undefined && (
-                      <text
-                        className={styles.markLabel}
-                        x={cx}
-                        y={cy}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                      >
-                        {mark.label}
-                      </text>
-                    )}
+                    <text
+                      className={styles.markLabel}
+                      x={cx}
+                      y={cy}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      {mark.label !== undefined && mark.label !== ''
+                        ? mark.label
+                        : mark.role === 'wrong'
+                          ? '×'
+                          : mark.role === 'correct'
+                            ? '✓'
+                            : ''}
+                    </text>
                   </g>
                 )}
               </g>

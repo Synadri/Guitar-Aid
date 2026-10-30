@@ -1,0 +1,433 @@
+.container {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .container {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.formulaForwardCard,
+.formulaReverseCard {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 10px);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px 0;
+}
+
+/* Columna izquierda: Selectores */
+.selectorsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.segmentedControl {
+  display: inline-flex;
+  border-radius: 7px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  padding: 2px;
+  gap: 2px;
+}
+
+.segmentedBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--app-muted, #94a3b8);
+  padding: 5px 14px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.segmentedBtnActive {
+  background: #101b33;
+  border: 1px solid #3b82f6;
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.selectInput {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.selectInput:focus {
+  border-color: #3b82f6;
+}
+
+/* Ecuación destacada */
+.equationBox {
+  margin-bottom: 20px;
+  padding: 12px 18px;
+  background: var(--surface-0);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.equationText {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -0.02em;
+}
+
+.equationDegrees {
+  color: #14b8a6;
+  margin-left: 8px;
+}
+
+/* Tabla de composición */
+.tableWrapper {
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.compositionTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.compositionTable th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compositionTable td {
+  height: 38px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.degreeCell {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: #14b8a6;
+}
+
+.intervalCell {
+  color: var(--text);
+}
+
+.semitonesCell {
+  font-family: var(--font-mono, monospace);
+  color: var(--app-muted, #94a3b8);
+}
+
+.noteCell {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Regla cromática lineal */
+.rulerSection {
+  margin-bottom: 24px;
+}
+
+.rulerHeader {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}
+
+.rulerGrid {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.rulerCell {
+  height: 68px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 2px 0;
+  transition: all 0.15s ease;
+}
+
+.rulerCellActive {
+  border: 1.5px solid #14b8a6;
+  background: rgba(20, 184, 166, 0.14);
+}
+
+.rulerSemi {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--app-muted, #94a3b8);
+}
+
+.rulerNote {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rulerDegree {
+  font-size: 12px;
+  font-weight: 700;
+  color: #14b8a6;
+  min-height: 16px;
+}
+
+.rulerDegreeInactive {
+  min-height: 16px;
+}
+
+/* Botones de acción inferiores */
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.listenBtn {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.listenBtn:hover {
+  background: var(--surface-3, #334155);
+}
+
+.openSandboxBtn {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 7px;
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.openSandboxBtn:hover {
+  background: #1d4ed8;
+}
+
+/* Columna derecha: Píldoras de grados */
+.degreeSelectorHeader {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}
+
+.pillsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.pillBtn {
+  min-width: 38px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pillBtnActive {
+  border: 1px solid #3b82f6;
+  background: #101b33;
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.pillBtnFixed {
+  cursor: default;
+}
+
+/* Filtro raíz opcional */
+.rootFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rootFilterLabel {
+  font-size: 13px;
+  color: var(--app-muted, #94a3b8);
+}
+
+/* Secciones de resultados */
+.resultsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sectionHeader {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.cardsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exactCard {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1.5px solid #14b8a6;
+  background: rgba(20, 184, 166, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.exactCard:hover {
+  transform: translateY(-1px);
+  border-color: #2dd4bf;
+}
+
+.exactName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.exactNotes {
+  font-size: 13px;
+  font-family: var(--font-mono, monospace);
+  color: #14b8a6;
+  font-weight: 600;
+}
+
+.noExactMsg {
+  font-size: 13px;
+  color: var(--app-muted, #94a3b8);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.secondaryCard {
+  padding: 10px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.secondaryCard:hover {
+  background: var(--surface-0);
+  border-color: #3b82f6;
+}
+
+.secondaryName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.secondaryDetail {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+  font-family: var(--font-mono, monospace);
+}

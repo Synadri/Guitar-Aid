@@ -75,7 +75,14 @@ export function AppShell({
           />
         )}
 
-        {(currentMode === 'learn' || currentMode === 'tests') && <LearnView />}
+        {(currentMode === 'learn' || currentMode === 'tests') && (
+          <LearnView
+            sandboxStore={sandboxStore}
+            settingsStore={settingsStore}
+            audioEngine={audioEngine}
+            onNavigateToSandbox={() => setCurrentMode('sandbox')}
+          />
+        )}
 
         {currentMode === 'cancion' && (
           <div className={styles.comingSoonContainer}>

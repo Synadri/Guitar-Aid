@@ -111,6 +111,11 @@
   transition: all 0.12s ease;
 }
 
+.markSquare {
+  stroke-width: 2px;
+  transition: all 0.12s ease;
+}
+
 .rootInnerRing {
   fill: none;
   stroke: #ffffff;
@@ -191,7 +196,8 @@
   font-weight: 700;
 }
 
-.role_wrong .markCircle {
+.role_wrong .markCircle,
+.role_wrong .markSquare {
   fill: rgba(127, 29, 29, 0.55);
   stroke: #f87171;
   stroke-width: 2px;

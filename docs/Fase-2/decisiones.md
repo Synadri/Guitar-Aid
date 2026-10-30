@@ -250,3 +250,175 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
     1. Tarjetas en aprendizaje o reaprendizaje cuyo vencimiento ya ha llegado (`due <= now`), ordenadas por urgencia temporal.
     2. Repasos vencidos (acotados por el límite diario restante) y tarjetas nuevas (acotadas por el cupo de 20 diario restante), intercaladas alternativamente para distribuir la carga cognitiva durante la sesión.
 
+---
+
+## 2026-10-30 — Hito A4: Estado de ejercicios (`state/drills`)
+
+### 1. Arquitectura y modularización desacoplada (`src/state/drills/`)
+- **Decisión:** Se creó el módulo `src/state/drills/` organizado en:
+  - `types.ts`: contratos de tipos para el ciclo de vida de la sesión (`DrillSessionPhase`), métricas en curso (`SessionRunningStats`), registros de historial (`DrillSessionRecord`), estado global (`DrillsState`), acciones (`DrillsActions`) y esquema persistido (`PersistedDrillsState`).
+  - `store.ts`: tienda implementada con Zustand vainilla y middleware `persist`, desacoplada de React y del DOM para permitir su uso directo en la UI o en tests unitarios. Soporta inyección de generador pseudoaleatorio (`rng` o `seed`), reloj inyectable (`now`) y almacenamiento personalizado (`storage`).
+  - `selectors/marks.ts`: selectores puros `selectDrillFretboardMarks` y `selectDrillPianoMarks` que transforman el estado de la pregunta y corrección en marcas visuales tipadas para `Fretboard` y `Piano`.
+  - `selectors/stats.ts`: selectores de análisis para la futura vista de progreso (`selectFretboardAccuracyMap`, `selectWeakIntervals`, `selectRecentSessionEvolution`).
+  - `selectors/index.ts` e `index.ts`: puntos de entrada y reexportación global en `src/state/index.ts`.
+- **Cumplimiento de capas (ESLint y layers.test.ts):** `src/state/drills` importa exclusivamente de `src/theory` y `src/learning`, sin dependencias prohibidas de React, DOM, Audio ni Tonal.
+
+### 2. Máquina de estados de la sesión (`configurar → preguntar → responder → corregir → resumen`)
+- **Decisión:** Se implementó una máquina de estados determinista para modelar el flujo de práctica intensiva:
+  - **`configuring`:** fase de preparación o cambio de ejercicio en la barra lateral (`setDrill`). Carga la configuración predeterminada o previamente personalizada (`configs[drillId]`) y limpia cualquier sesión previa.
+  - **`question`:** iniciada mediante `startSession()` o `nextQuestion()`. Invoca `generateDrillQuestion()` con la afinación y configuración activas, inyectando el mapa de estadísticas (`itemStats`) para el algoritmo adaptativo, inicia el cronómetro de respuesta (`questionStartTime = now()`) y presenta la pregunta limpia con sus marcas de referencia (`role: 'question'`).
+  - **`answering`:** se activa al interactuar con el mástil (`togglePosition`) en ejercicios de selección múltiple (modo `all`, como B4, B5, C1, C2) o al asignar etiquetas de grado (`assignLabel` en B5), acumulando las respuestas en `pinnedPositions` y `assignedLabels`.
+  - **`corrected`:** al invocar `submitAnswer()` o `checkAnswer()` (o de forma instantánea al clicar en ejercicios de modo `first` como B1, B2, A2 o B3):
+    1. Ejecuta el corrector puro `grade(currentQuestion, input)`.
+    2. Calcula el tiempo exacto transcurrido `elapsedMs`.
+    3. Acumula las métricas de la sesión (`questionsAnswered`, `correctCount`, `totalTimeMs`).
+    4. Actualiza las estadísticas persistidas por `itemKey`: incrementa intentos y aciertos, añade el booleano al array `recentResults` (acotado a los últimos 20 resultados) y actualiza el promedio móvil de tiempo `averageTimeMs`.
+    5. Fija `lastGrade` y transiciona a `'corrected'` para exhibir la corrección visual y explicativa.
+  - **`summary`:** al completar la última pregunta de la sesión (`questionNumber >= totalQuestions`), `nextQuestion()` genera un registro inmutable `DrillSessionRecord` en `history` (acotado a las últimas 100 sesiones) con fecha ISO, precisión porcentual y tiempo medio por pregunta, transicionando a la pantalla de resumen.
+  - **Reinicio y salida:** `restartSession()` reanuda una nueva tanda con la misma configuración; `endSession()` regresa a `'configuring'`.
+
+### 3. Criterios de evaluación (d) y (g) integrados y verificados en el store
+- **Criterio (d) — B1 en estándar:**
+  - Pregunta con referencia (5, 3) [C3] y objetivo 3ª mayor ascendente en la misma cuerda.
+  - Si el usuario marca (4, 2) (también E3, pero en la cuerda 4), `submitAnswer` evalúa `correct: false`, `score: 0`, `misses: [(5, 7)]` y `extras: [(4, 2)]`.
+  - El selector de marcas proyecta (5, 3) como `question`, (5, 7) como `missed` con etiqueta `M3`, y (4, 2) como `wrong`. Marcar (5, 7) evalúa `correct: true` con marca `correct` y etiqueta `M3`.
+- **Criterio (g) — B5 con voicing `x-0-2-2-1-0` (Am abierto):**
+  - La pregunta proporciona las posiciones físicas del voicing y la raíz en cuerda 5 traste 0.
+  - Mediante `assignLabel()`, el usuario introduce los grados de la cuerda 5 a la 1: `1, 5, 1, ♭3, 5`.
+  - `checkAnswer()` califica con `correct: true`, `score: 1`, y el selector de marcas proyecta cada cuerda con su grado correspondiente bajo el rol `correct`. Si se asigna un grado incorrecto (ej. `3` en vez de `♭3`), se proyecta con rol `wrong` y la etiqueta errónea introducida.
+
+### 4. Criterio (n) — Selectores de marcas en mástil y piano con etiquetas de intervalo relativas a la referencia
+- **Decisión:**
+  - `selectDrillFretboardMarks(state, options)`:
+    - En fase `question`/`answering`: marca la referencia con `role: 'question'` (y `isRoot: true`), y las selecciones provisionales con `role: 'pinned'`.
+    - En fase `corrected`:
+      - La referencia permanece con `role: 'question'` y etiqueta `1` (o nombre de nota).
+      - Los aciertos (`hits`) llevan `role: 'correct'` con la etiqueta del intervalo en semitonos respecto a la referencia (`intervalName(semis)`, ej. `M3`, `P4`, `P5`), o el grado en B5.
+      - Los olvidos (`misses`) llevan `role: 'missed'` con la etiqueta del intervalo esperado respecto a la referencia.
+      - Los errores o sobrantes (`extras`) llevan `role: 'wrong'` con la etiqueta del intervalo real que el usuario marcó respecto a la referencia (permitiendo entender pedagógicamente el desvío, ej. `m3` en vez de `M3`).
+  - `selectDrillPianoMarks(state, options)`:
+    - Traduce cada `FretMark` a tecla MIDI lineal mediante `positionToMidi(tuning, pos)`.
+    - Resuelve solapes en la misma tecla MIDI usando la jerarquía estricta `ROLE_PRIORITY` (`correct`/`wrong` [9] > `missed` [8] > `question` [7] > `pinned` [6]), asegurando concordancia visual total entre mástil y piano.
+
+### 5. Criterio (m) — Persistencia (`version: 1`), exportar/importar y tolerancia a datos corruptos
+- **Decisión:**
+  - **Almacenamiento persistido:** utiliza la clave `guitar-aid:drills` y `version: 1`.
+  - **Aislamiento de sesión en recarga:** la función `partialize` solo persiste las estructuras duraderas (`itemStats`, `history`, `configs`, `lastDrillId`). El estado volátil de la sesión activa (`phase`, `currentQuestion`, `lastGrade`, `pinnedPositions`) se descarta intencionadamente al guardar, garantizando que tras recargar el navegador el store siempre inicie limpio en `phase: 'configuring'` sin estados huérfanos.
+  - **Ida y vuelta de copia de seguridad:**
+    - `exportData()` serializa a JSON la versión 1, `itemStats`, `history` y configuraciones.
+    - `importData(json)` valida exhaustivamente la estructura y tipos numéricos antes de aplicar, devolviendo `true` si es válida o `false` seguro si el JSON está mal formado o no cumple el esquema.
+  - **Tolerancia a datos corruptos:** la función `merge` del middleware `persist` analiza y sanea cada clave de `itemStats` e `history`. Si el almacenamiento local contiene datos manipulados, tipos incorrectos (ej. cadenas en vez de números) o valores nulos, inicializa con valores por defecto seguros (`itemStats: {}`, `history: []`, `drillId: 'A1'`) sin lanzar ninguna excepción.
+
+### 6. Selectores analíticos de progreso
+- **Decisión:** Se crearon tres selectores puros para alimentar la pestaña `Progreso`:
+  - `selectFretboardAccuracyMap(state, maxFret)`: genera la cuadrícula de 6 cuerdas × 13 trastes (0..12) categorizando cada posición según su tasa de acierto en las estadísticas acumuladas: `mastered` (≥ 85 %), `learning` (60–84 %), `weak` (< 60 %) o `untested` (0 intentos).
+  - `selectWeakIntervals(state, limit)`: agrega las variantes de cuerdas de los ejercicios de intervalos (claves `interval:<nombre>|...`), calcula la precisión combinada de cada intervalo y devuelve los $N$ más débiles ordenados por menor precisión.
+  - `selectRecentSessionEvolution(state, limit)`: extrae las últimas sesiones del historial para alimentar el gráfico de barras de evolución temporal.
+
+---
+
+## 2026-10-30 — Hito A5: Estado de mazos y progreso (`state/decks`)
+
+### 1. Arquitectura y modularización desacoplada (`src/state/decks/`)
+- **Decisión:** Se creó el módulo `src/state/decks/` organizado en:
+  - `types.ts`: contratos de tipos para mazos (`Deck`, `CreateDeckInput`, `UpdateDeckInput`), sesión de estudio (`FlashcardSession`), registros de historial (`ReviewLogEntry`), estado global (`DecksState`), acciones (`DecksActions`), métricas de progreso (`DeckStats`, `GlobalDeckStats`) y esquema persistido (`PersistedDecksState`).
+  - `store.ts`: tienda implementada con Zustand vainilla y middleware `persist` (`guitar-aid:decks`, `version: 1`), desacoplada de React y del DOM. Soporta inyección de reloj (`now`), generador de identificadores (`idGenerator`), configuración del planificador (`schedulerConfig`) y almacenamiento configurable (`storage`).
+  - `selectors.ts`: selectores puros para la UI: mazo activo, búsqueda por ID, estado SRS por mazo, contadores de cola hoy, proyección previa de intervalos (`previewIntervals`), resolución de tarjeta en anverso y reverso (`resolveCard`) y estadísticas agregadas para la pantalla de Progreso (§7.3: `pendientesHoy`, `retención`, `nuevas`, `enAprendizaje`, `totalRepasos`).
+  - `index.ts`: punto de entrada reexportado en `src/state/index.ts`.
+- **Cumplimiento de capas (ESLint y layers.test.ts):** `src/state/decks` importa exclusivamente de `src/theory` y `src/learning`, sin dependencias prohibidas de React, DOM, Audio ni Tonal.
+
+### 2. CRUD completo de mazos y conservación de progreso al editar (Criterio j)
+- **Decisión:**
+  - **Creación (`createDeck`):** genera un identificador único, materializa la lista de tarjetas (`cardIds`) ejecutando el constructor puro `buildDeckCardIds(sources)` e inicializa su diccionario SRS independiente.
+  - **Regeneración al editar (`updateDeck`):** si se modifican las reglas declarativas (`DeckSource[]`), regenera `cardIds`. **Las tarjetas que continúan en el mazo conservan intacto su estado SRS** (facilidad, intervalo, fecha de vencimiento `due`, repeticiones y lapsus). Las tarjetas retiradas no se purgan de la memoria SRS para no perder su histórico de aprendizaje y las nuevas entran en estado `'new'`.
+  - **Eliminación (`deleteDeck`):** purga el mazo, su diccionario SRS y su registro de uso diario, actualizando la selección activa de forma segura.
+  - **Duplicación (`duplicateDeck`):** clona las reglas y límites bajo un nuevo ID con el sufijo `(copia)` y progreso SRS limpio.
+  - **Mazos predefinidos (`addPresetDeck` / Criterio l):** permite instanciar los mazos `Principiante`, `Intermedio` y `Avanzado` como copias editables e independientes con progreso propio.
+  - **Aislamiento de progreso por mazo (Criterio j):** el progreso se estructura bajo `cardsSRS[deckId][cardId]`. Si una misma tarjeta (ej. `voicing:open-C-maj@0|name>shape` o `interval:4|name>semitones`) existe simultáneamente en dos mazos distintos, valorarla en un mazo no afecta en absoluto a su fecha de vencimiento, intervalo ni facilidad en el otro.
+
+### 3. Límites diarios de tarjetas nuevas y corte a las 04:00 (Criterio k)
+- **Decisión:**
+  - **Seguimiento por mazo:** el store registra el uso diario en `dailyUsage[deckId] = { studyDay, newCount, reviewCount }`.
+  - **Límite diario respetado:** cada vez que se valora por primera vez una tarjeta en estado `'new'`, se incrementa `newCount`. Al alcanzar el límite (por defecto 20 nuevas al día por mazo), `buildStudyQueue` y `getStudyQueueCounts` dejan de presentar tarjetas nuevas para ese mazo durante el resto del día de estudio.
+  - **Corte de día a las 04:00 hora local:** `getStudyDayKey(now)` desplaza 4 horas el reloj de referencia local. Sesiones a las 03:59:59 siguen computando en el día previo; al alcanzar las 04:00:00 se reinicia automáticamente el cupo a 20 nuevas disponibles sin necesidad de recargar la aplicación ni procesos de fondo.
+
+### 4. Ciclo de vida de la sesión de estudio de tarjetas
+- **Decisión:**
+  - **Inicio (`startSession`):** ensambla la cola ordenada de estudio usando `buildStudyQueue` (tarjetas en aprendizaje vencidas primero, seguidas de repasos vencidos y nuevas intercaladas hasta el límite diario) y calcula los contadores pendientes (`counts`).
+  - **Revelación (`revealAnswer`):** conmuta `isAnswerRevealed: true`, habilitando el reverso con diagrama de acordes SVG (`ChordDiagram`), notas y opciones de acción.
+  - **Valoración (`rateCard`):**
+    - Aplica la transición SM-2 mediante `schedule(prevSRS, rating, now, config)`.
+    - Genera una entrada en `history` (`ReviewLogEntry`), acotado a las últimas 5000 entradas.
+    - Actualiza el uso diario en `dailyUsage`.
+    - **Reencolado pedagógico ante fallos:** si el usuario pulsa *Otra vez* (`rating === 'again'`), la tarjeta se vuelve a encolar al final de la sesión activa (`session.queue.push(cardId)`) para que el usuario repita y fije el concepto antes de terminar.
+    - Al completar todas las tarjetas de la cola, la sesión finaliza automáticamente (`session = null`).
+  - **Salida (`endSession`):** permite abandonar la sesión en cualquier momento regresando a la lista de mazos.
+
+### 5. Persistencia (`version: 1`), exportar/importar y tolerancia a datos corruptos (Criterio m)
+- **Decisión:**
+  - **Clave de almacenamiento:** utiliza `guitar-aid:decks` con `version: 1`.
+  - **Aislamiento de sesión en recarga:** la función `partialize` solo persiste las estructuras duraderas (`decks`, `activeDeckId`, `cardsSRS`, `dailyUsage`, `history`), descartando deliberadamente la sesión volátil `session`. De este modo, tras recargar el navegador, el usuario nunca queda atrapado en una tarjeta a medio contestar.
+  - **Ida y vuelta de exportar/importar:** `exportData()` serializa a JSON la copia de seguridad completa; `importData(json)` valida exhaustivamente la integridad del árbol de datos y tipos numéricos antes de aplicarlos (soportando tanto exportaciones directas como paquetes combinados con drills).
+  - **Tolerancia a datos corruptos:** las funciones `migrate` y `merge` del middleware `persist` sanean minuciosamente cada clave. Si el almacenamiento local contiene datos malformados, tipos incorrectos o valores nulos, inicializa con valores por defecto seguros (mazo inicial `Principiante`, SRS limpio e historial vacío) sin arrojar ninguna excepción.
+
+### 6. Selectores analíticos para la sección Progreso (§7.3)
+- **Decisión:**
+  - `selectDeckStats(state, deckId, now)`: calcula el desglose individual de un mazo (total, nuevas, aprendizaje, repasos, pendientes hoy y porcentaje de retención).
+  - `selectGlobalStats(state, now)`: consolida las métricas de todos los mazos para alimentar directamente la tarjeta de Tarjetas en la pantalla de Progreso:
+    - `{pendientesHoy}`: suma de pendientes en todos los mazos para la fecha actual.
+    - `{retención} %`: porcentaje de éxito en repasos acumulados en el historial (`rating !== 'again'`).
+    - `{nuevas}`: total de tarjetas que aún no han sido iniciadas.
+    - `{enAprendizaje}`: total de tarjetas en fases de aprendizaje o reaprendizaje.
+    - `{totalRepasos}`: recuento total de repasos realizados.
+
+---
+
+## 2026-10-30 — Hito A6: UI: shell Aprender + Fórmulas (`src/ui/learn/formulas/`)
+
+### 1. Extensión de instrumentos (`Fretboard` y `Piano`) con roles de evaluación y props de aprendizaje
+- **Decisión:**
+  - **Soporte de roles de evaluación en `Fretboard` y `Piano` (§3.1):**
+    - `question`: círculo sólido opaco (`r = 12` en mástil, `r = 11` en piano) con relleno turquesa (`#14b8a6` / `#0d9488`) y etiqueta en negrita.
+    - `wrong`: cuadrado redondeado SVG (`22×22 px`, `rx = 5`) con borde sólido de `2 px`, relleno atenuado (`rgba(127, 29, 29, 0.55)` / `#fee2e2`), trazo rojo (`#f87171` / `#dc2626`) y aspa central `×` (o etiqueta).
+    - `missed`: círculo con trazo discontinuo (`stroke-dasharray: 3.5 2.5`, `2 px`), relleno ámbar suave (`rgba(245, 158, 11, 0.14)` / `#fef3c7`) y etiqueta correspondiente.
+    - `correct`: círculo con trazo sólido grueso (`2.25 px`), relleno verde translúcido (`rgba(34, 197, 94, 0.22)` / `#dcfce7`) y marca de verificación `✓` (o etiqueta).
+  - **Nuevas props en `Fretboard` (§3.2):**
+    - `fretRange?: { from: number; to: number }`: escala proporcionalmente el diapasón para abarcar el tramo configurado (ej. `0–12` o `0–5`), reescalando las líneas de trastes con la fórmula física de trastes y manteniendo los 1300 px de ancho útil del mástil.
+    - `activeStrings?: ReadonlySet<StringNumber>`: atenúa las cuerdas inactivas al 28 % de opacidad (`opacity: 0.28`), inhabilitando clics (`pointer-events: none`) y retirándolas del orden de tabulación accesible (`tabIndex={-1}`).
+    - `showInlays?: boolean` (por defecto `true`): permite ocultar los puntos de referencia en trastes `3, 5, 7, 9, 12…` en ejercicios donde no se deba facilitar el conteo visual de trastes.
+    - `mutedStrings`: compatibilidad bidireccional admitiendo tanto `ReadonlySet<StringNumber>` como `readonly StringNumber[]`.
+    - `onPositionContextMenu`: soporte para menú contextual / clic derecho junto a `onPositionRightClick`.
+
+### 2. Implementación de la sección Fórmulas (`FormulasView` / §6)
+- **Decisión:** Se creó el componente `src/ui/learn/formulas/FormulasView.tsx` y su hoja de estilos modular `FormulasView.module.css` siguiendo con exactitud las especificaciones de diseño y las maquetas:
+  - **Layout simétrico de 2 columnas (§6.1):** contenedor en grid `repeat(2, minmax(0, 1fr))` con `gap: 16px; height: 100%`, con adaptación a 1 columna para pantallas `< 1100 px`.
+  - **Columna izquierda — `Nombre → fórmula` (§6.2):**
+    - Conmutador segmentado `Acorde` | `Escala` con resaltado activo en `#101b33` y borde `#3b82f6`.
+    - Selector de tónica/raíz (`0..11`) respetando la ortografía armónica `nameMode` de `settingsStore`.
+    - Selector dinámico de calidad de acorde (`CHORD_QUALITIES`) o tipo de escala (`SCALE_TYPES`).
+    - Ecuación principal de la fórmula a `28 px` en negrita con los grados en color turquesa (`#14b8a6`), ej. **`Am7 = 1 ♭3 5 ♭7`** o **`D dórico = 1 2 ♭3 4 5 6 ♭7`** (Criterio b).
+    - Tabla de composición con cabeceras en mayúsculas (`GRADO`, `INTERVALO`, `SEMITONOS`, `NOTA`) y filas de `38 px`.
+    - Regla cromática lineal (`REGLA CROMÁTICA DESDE LA RAÍZ`): cuadrícula horizontal de 13 celdas (`0..12` semitonos), indicando semitono, nombre de la nota y grado destacado si pertenece a la fórmula (incluyendo extensiones módulo 12 como la 9ª en la celda 2).
+    - Botón secundario **`Escuchar`**: reproduce arpegios de acordes o escalas con `audioEngine` (`chordFallbackMidis`, `arpeggioEvents`, `scaleEvents`).
+    - Botón primario azul **`Abrir en Sandbox`**: compone el `MenuContext` correspondiente y lo transfiere al store del Sandbox conmutando la vista activa.
+  - **Columna derecha — `Fórmula → nombre` (§6.3):**
+    - Selector interactivo de 13 píldoras (`1` fija, `♭2`, `2`, `♭3`, `3`, `4`, `♭5`, `5`, `♭6`, `6`, `♭7`, `7`, `9`).
+    - Filtro de raíz opcional (`Sin raíz` o notas `A` a `B`).
+    - Identificación automática e instantánea mediante `identifyByFormula` clasificada en 3 bloques (Criterio c):
+      1. `COINCIDENCIA EXACTA`: tarjetas destacadas con borde turquesa y fondo translúcido mostrando el cifrado y notas concretas separadas por punto medio (ej. `Am7` · `A · C · E · G` o `C9` y `Cmaj7`).
+      2. `MISMAS NOTAS, OTRA RAÍZ`: lista de inversiones o rotaciones modales (ej. `C6` sobre el `♭3`).
+      3. `CERCANAS`: candidatos a 1 nota de distancia indicando el desvío (`quita ♭7`, `añade 9`, etc.).
+    - **Interacción bidireccional:** hacer clic en cualquier tarjeta de resultado de la derecha la selecciona de inmediato en la columna izquierda (`Nombre → fórmula`).
+
+### 3. Navegación e integración en el Shell (`AppShell` y `LearnView` / Criterio a)
+- **Decisión:**
+  - `LearnView`:
+    - Integra `FormulasView` en la pestaña `Fórmulas`, conservando los paneles provisionales de `drills`, `cards` y `progress` para los hitos A7–A9.
+    - Incorpora el cálculo automático de la racha diaria (`Racha: N días`) a partir del historial real de ejercicios (`drillsStore`) y tarjetas (`decksStore`), utilizando el corte horario de las `04:00` (`getStudyDayKey`).
+  - `AppShell`:
+    - Conecta `LearnView` con `sandboxStore`, `settingsStore`, `audioEngine` y la acción de navegación `onNavigateToSandbox`.
+    - Al pulsar **"Abrir en Sandbox"** en `FormulasView`, se ejecuta `setContext(...)` en el store del Sandbox y conmuta limpiamente a `currentMode = 'sandbox'`.
+    - Se verifica mediante tests de integración que la alternancia entre Sandbox y Aprender preserva en su totalidad el estado (`notes`, `context`, `chordFocus`) y que la tecla `C` en Aprender nunca limpia el Sandbox.
+
+
+

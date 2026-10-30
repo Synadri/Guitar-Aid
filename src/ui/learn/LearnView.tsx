@@ -1,4 +1,16 @@
 import { useState } from 'react';
+import { useStore, type StoreApi } from 'zustand';
+import {
+  sandboxStore as defaultSandboxStore,
+  settingsStore as defaultSettingsStore,
+  drillsStore as defaultDrillsStore,
+  decksStore as defaultDecksStore,
+  type SandboxStore,
+  type SettingsStore,
+} from '../../state';
+import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
+import { getStudyDayKey } from '../../learning/srs/queue';
+import { FormulasView } from './formulas/FormulasView';
 import styles from './LearnView.module.css';
 
 export type LearnTab = 'drills' | 'cards' | 'formulas' | 'progress';
@@ -6,10 +18,78 @@ export type LearnTab = 'drills' | 'cards' | 'formulas' | 'progress';
 export interface LearnViewProps {
   initialTab?: LearnTab;
   streakDays?: number;
+  sandboxStore?: StoreApi<SandboxStore>;
+  settingsStore?: StoreApi<SettingsStore>;
+  audioEngine?: AudioEngine;
+  onNavigateToSandbox?: () => void;
 }
 
-export function LearnView({ initialTab = 'drills', streakDays = 0 }: LearnViewProps) {
+/** Calcula la racha activa de días consecutivos con al menos una sesión o repaso (corte a las 04:00). */
+function computeActiveStreak(
+  drillsHistory: readonly { date: string }[],
+  decksHistory: readonly { at: number }[],
+  now: number = Date.now(),
+): number {
+  const activeDays = new Set<string>();
+  for (const d of drillsHistory) {
+    const ts = new Date(d.date).getTime();
+    if (!isNaN(ts)) {
+      activeDays.add(getStudyDayKey(ts));
+    }
+  }
+  for (const h of decksHistory) {
+    if (typeof h.at === 'number') {
+      activeDays.add(getStudyDayKey(h.at));
+    }
+  }
+
+  const todayKey = getStudyDayKey(now);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const yesterdayKey = getStudyDayKey(now - oneDayMs);
+
+  let currentCheckDay = now;
+  let streak = 0;
+
+  if (activeDays.has(todayKey)) {
+    streak = 1;
+    currentCheckDay = now - oneDayMs;
+  } else if (activeDays.has(yesterdayKey)) {
+    streak = 1;
+    currentCheckDay = now - 2 * oneDayMs;
+  } else {
+    return 0;
+  }
+
+  while (true) {
+    const dayKey = getStudyDayKey(currentCheckDay);
+    if (activeDays.has(dayKey)) {
+      streak++;
+      currentCheckDay -= oneDayMs;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export function LearnView({
+  initialTab = 'drills',
+  streakDays,
+  sandboxStore = defaultSandboxStore,
+  settingsStore = defaultSettingsStore,
+  audioEngine = defaultAudioEngine,
+  onNavigateToSandbox,
+}: LearnViewProps) {
   const [activeTab, setActiveTab] = useState<LearnTab>(initialTab);
+
+  const drillsHistory = useStore(defaultDrillsStore, (s) => s.history);
+  const decksHistory = useStore(defaultDecksStore, (s) => s.history);
+
+  const resolvedStreak =
+    streakDays !== undefined
+      ? streakDays
+      : computeActiveStreak(drillsHistory, decksHistory);
 
   return (
     <div
@@ -68,11 +148,11 @@ export function LearnView({ initialTab = 'drills', streakDays = 0 }: LearnViewPr
         </div>
 
         <div className={styles.topBarRight}>
-          <span className={styles.streakBadge} aria-label={`Racha de ${streakDays} días`}>
+          <span className={styles.streakBadge} aria-label={`Racha de ${resolvedStreak} días`}>
             <span className={styles.streakIcon} aria-hidden="true">
               🔥
             </span>
-            Racha: {streakDays} días
+            Racha: {resolvedStreak} días
           </span>
         </div>
       </header>
@@ -116,14 +196,18 @@ export function LearnView({ initialTab = 'drills', streakDays = 0 }: LearnViewPr
             id="learn-tabpanel-formulas"
             role="tabpanel"
             aria-labelledby="learn-tab-formulas"
-            className={styles.placeholderCard}
+            style={{ width: '100%', height: '100%' }}
             data-testid="learn-panel-formulas"
           >
-            <h2 className={styles.placeholderTitle}>Fórmulas</h2>
-            <p className={styles.placeholderDesc}>
-              Traductor bidireccional interactivo entre nombres y fórmulas de intervalos de acordes
-              y escalas con regla cromática lineal.
-            </p>
+            <FormulasView
+              sandboxStore={sandboxStore}
+              settingsStore={settingsStore}
+              audioEngine={audioEngine}
+              onOpenInSandbox={(ctx) => {
+                sandboxStore.getState().setContext(ctx);
+                onNavigateToSandbox?.();
+              }}
+            />
           </div>
         )}
 

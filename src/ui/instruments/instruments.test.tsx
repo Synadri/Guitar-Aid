@@ -265,4 +265,114 @@ describe('Piano (componente puro)', () => {
       expect(css).toContain('@media (prefers-color-scheme: dark)');
     }
   });
+
+  it('Hito A6: Fretboard y Piano soportan los 4 roles de evaluación (question, wrong, missed, correct)', () => {
+    const evalFretMarks: FretMark[] = [
+      { string: 5, fret: 3, role: 'question', label: 'C' },
+      { string: 5, fret: 5, role: 'wrong' },
+      { string: 5, fret: 7, role: 'missed', label: 'M3' },
+      { string: 4, fret: 2, role: 'correct', label: 'E' },
+    ];
+
+    const { container: fbContainer } = render(
+      <Fretboard tuning={STANDARD_TUNING} marks={evalFretMarks} />,
+    );
+
+    // question: círculo r=12 con etiqueta en negrita
+    const qPos = fbContainer.querySelector('[data-string="5"][data-fret="3"]')!;
+    expect(qPos.getAttribute('data-role')).toBe('question');
+    const qCircle = qPos.querySelector('[data-mark-role="question"] circle')!;
+    expect(Number(qCircle.getAttribute('r'))).toBe(12);
+    expect(qPos.textContent).toBe('C');
+
+    // wrong: cuadrado redondeado (rect 22x22, rx=5) con '×'
+    const wPos = fbContainer.querySelector('[data-string="5"][data-fret="5"]')!;
+    expect(wPos.getAttribute('data-role')).toBe('wrong');
+    const wRect = wPos.querySelector('[data-mark-role="wrong"] rect')!;
+    expect(wRect).not.toBeNull();
+    expect(Number(wRect.getAttribute('width'))).toBe(22);
+    expect(Number(wRect.getAttribute('height'))).toBe(22);
+    expect(Number(wRect.getAttribute('rx'))).toBe(5);
+    expect(wPos.textContent).toBe('×');
+
+    // missed: círculo con borde discontinuo '3.5 2.5'
+    const mPos = fbContainer.querySelector('[data-string="5"][data-fret="7"]')!;
+    expect(mPos.getAttribute('data-role')).toBe('missed');
+    const mCircle = mPos.querySelector('[data-mark-role="missed"] circle')!;
+    expect(mCircle.getAttribute('stroke-dasharray')).toBe('3.5 2.5');
+    expect(mPos.textContent).toBe('M3');
+
+    // correct: círculo con etiqueta o '✓'
+    const cPos = fbContainer.querySelector('[data-string="4"][data-fret="2"]')!;
+    expect(cPos.getAttribute('data-role')).toBe('correct');
+    expect(cPos.textContent).toBe('E');
+
+    // En Piano
+    const evalKeyMarks: KeyMark[] = [
+      { midi: 48, role: 'question', label: '1' },
+      { midi: 50, role: 'wrong' },
+      { midi: 52, role: 'correct' },
+      { midi: 55, role: 'missed', label: '5' },
+    ];
+
+    const { container: pianoContainer } = render(<Piano marks={evalKeyMarks} />);
+
+    const pKey48 = pianoContainer.querySelector('[data-midi="48"]')!;
+    expect(pKey48.getAttribute('data-role')).toBe('question');
+    const pCircle = pKey48.querySelector('[data-mark-role="question"] circle')!;
+    expect(Number(pCircle.getAttribute('r'))).toBe(11);
+    expect(pKey48.textContent).toContain('1');
+
+    const pKey50 = pianoContainer.querySelector('[data-midi="50"]')!;
+    expect(pKey50.getAttribute('data-role')).toBe('wrong');
+    const pRect = pKey50.querySelector('[data-mark-role="wrong"] rect')!;
+    expect(pRect).not.toBeNull();
+    expect(pKey50.textContent).toContain('×');
+
+    const pKey52 = pianoContainer.querySelector('[data-midi="52"]')!;
+    expect(pKey52.getAttribute('data-role')).toBe('correct');
+    expect(pKey52.textContent).toContain('✓');
+  });
+
+  it('Hito A6: Fretboard soporta fretRange recortando y escalando los trastes visibles', () => {
+    const { container } = render(
+      <Fretboard tuning={STANDARD_TUNING} fretRange={{ from: 0, to: 12 }} />,
+    );
+    // 6 cuerdas × 13 trastes (0..12) = 78 posiciones
+    const positions = container.querySelectorAll('[data-string]');
+    expect(positions).toHaveLength(6 * 13);
+
+    // No debe contener posiciones del traste 13 en adelante
+    expect(container.querySelector('[data-fret="13"]')).toBeNull();
+    expect(container.querySelector('[data-fret="12"]')).not.toBeNull();
+  });
+
+  it('Hito A6: Fretboard soporta activeStrings atenuando las demás cuerdas y bloqueando clics', () => {
+    const onPositionClick = vi.fn();
+    const { container } = render(
+      <Fretboard
+        tuning={STANDARD_TUNING}
+        activeStrings={new Set([5])}
+        onPositionClick={onPositionClick}
+      />,
+    );
+
+    // Cuerda 5 activa (tabIndex 0)
+    const activePos = container.querySelector('[data-string="5"][data-fret="3"]')!;
+    expect(activePos.getAttribute('tabindex')).toBe('0');
+    fireEvent.click(activePos);
+    expect(onPositionClick).toHaveBeenCalledWith({ string: 5, fret: 3 });
+
+    // Cuerda 4 inactiva (tabIndex -1, opacity 0.28, pointer-events none)
+    const inactivePos = container.querySelector('[data-string="4"][data-fret="2"]')!;
+    expect(inactivePos.getAttribute('tabindex')).toBe('-1');
+    fireEvent.click(inactivePos);
+    expect(onPositionClick).toHaveBeenCalledTimes(1); // No incrementó
+  });
+
+  it('Hito A6: Fretboard soporta showInlays=false ocultando los puntos de referencia', () => {
+    const { container } = render(<Fretboard tuning={STANDARD_TUNING} showInlays={false} />);
+    const inlays = container.querySelectorAll('[data-inlay-fret]');
+    expect(inlays).toHaveLength(0);
+  });
 });
