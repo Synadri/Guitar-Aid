@@ -164,7 +164,7 @@ La Fase 1 está terminada cuando:
 
 0. **Fase 1.1 — Refinamiento del Sandbox ([plan_fase1_1.md](plan_fase1_1.md)):** catálogo ampliado (escalas Bebop de 8 notas, napolitanas, disminuidas, acordes `add9`/`madd9` y cuatríadas diatónicas completas), voicings en las 3 y 4 últimas cuerdas con inversiones, análisis armónico e inspección de progresiones en contexto (`chordFocus`), agrupación de escalas relativas con grado respecto a la escala madre, reproducción de progresiones y rediseño del layout horizontal en formato dashboard sin vista vertical.
 
-1. **Fase 2 — Tests:** dada una nota (en texto, piano o partitura), encontrar sus posiciones en la guitarra; lo mismo con acordes, escalas y progresiones; modo "todas las posiciones" o "la primera que se te ocurra"; estadísticas de aciertos.
+1. **Fase 2 — Tests:** dada una nota (en texto, piano o partitura), encontrar sus posiciones en la guitarra; lo mismo con acordes, escalas y progresiones; modo "todas las posiciones" o "la primera que se te ocurra"; estadísticas de aciertos. Planificada en [plan_fase2.md](plan_fase2.md) como modo **Aprender** (ejercicios de notas e intervalos con visión lineal del mástil, tarjetas con repetición espaciada y traductor de fórmulas; la partitura queda fuera).
 2. **Fase 3 — Canción:** importar tabs (Guitar Pro y TuxGuitar; se recomienda alphaTab), reproducción con loop de secciones, selección de fragmentos con análisis de escala o progresión (devolviendo candidatos ordenados, no una única respuesta), tonalidad por compás, vistas de trastes, letra y partitura.
 3. **Fase 4 — Audio:** afinador y detección de notas desde la interfaz de audio (viable en navegador). Amp sim y baja latencia solo si se valora una versión de escritorio.
 

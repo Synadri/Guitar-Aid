@@ -500,3 +500,17 @@ El plan completo de la Fase 1.1 queda fijado en [plan_fase1_1.md](plan_fase1_1.m
 - **Optimización para 1920×1080 y 2560×1440 y 100% offline:**
   - Se elimina el `@import` externo de Google Fonts en `global.css` para cumplir estrictamente el requisito de funcionamiento 100% offline.
   - Se dimensionan variables adaptativas para **1920×1080** (`--topbar-height: 48px`, `--strip-height: 40px`, `--fretboard-height: 220px`, `--piano-height: 108px`), **2560×1440** (`54px`, `44px`, `270px`, `136px`, con `--content-max-width: 2440px`) y `≤ 950px` de altura (`46px`, `38px`, `196px`, `96px`), además de cuadrículas multicolumna adaptativas en `SuggestionsPanel` y `ScalesPanel` que minimizan el scroll vertical en todo momento.
+
+
+## 2026-10-30 — Planificación de la Fase 2 (modo Aprender)
+
+El plan completo queda en [plan_fase2.md](plan_fase2.md). Resumen de las decisiones propuestas (las de §12 del plan están pendientes de confirmar antes del diseño de interfaz):
+
+- **Modo «Aprender» con 4 secciones:** Ejercicios (corrección automática), Tarjetas (repetición espaciada con autoevaluación), Fórmulas (traductor bidireccional, de consulta) y Progreso (estadísticas y copia de seguridad).
+- **Nueva capa pura `src/learning/`** entre `theory` y `state`, para generadores, correctores, tarjetas y planificador. Lleva regla ESLint propia, RNG con semilla y reloj inyectable para tests deterministas.
+- **`AppShell`:** `SideNav` y la elección de modo salen de `SandboxView` y pasan a `App.tsx`.
+- **Visión lineal e intervalos:** 9 ejercicios (A1–A2 notas, B1–B5 intervalos y etiquetado de formas, C1–C2 construcción lineal). La corrección se muestra siempre también en el piano, con roles de marca nuevos (`question`, `correct`, `wrong`, `missed`).
+- **Tarjetas por ID estable** (`<sujeto>|<faceta>`), sin texto guardado. Los mazos guardan sus reglas (`sources`) y la lista materializada (`cardIds`). El progreso es **por mazo**. Planificador SM-2 (variante de Anki) detrás de una interfaz, sin *fuzz*, con límites diarios y cambio de día a las 04:00.
+- **Mazos predefinidos** Principiante, Intermedio y Avanzado como plantillas en datos que se copian al añadirlas.
+- **Persistencia:** stores separados con `version: 1` y `migrate`, más exportar/importar en JSON (necesario, porque no hay backend).
+- **Fuera de la Fase 2:** respuesta por audio (Fase 4) y tarjetas con respuesta verificada (Fase 2.1). Las dos quedan preparadas mediante `AnswerInput` → `grade()`. También quedan fuera el entrenamiento auditivo, la partitura, FSRS y la ortografía diatónica completa de intervalos.
