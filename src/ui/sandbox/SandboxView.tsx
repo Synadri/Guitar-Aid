@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -34,7 +34,6 @@ import {
   scaleEvents,
   type AudioEngine,
 } from '../../audio';
-import { SideNav, type AppMode } from '../layout/SideNav';
 import { TopBar } from '../toolbar/TopBar';
 import { ContextStrip } from './ContextStrip';
 import { Fretboard } from '../instruments/Fretboard';
@@ -61,8 +60,6 @@ export function SandboxView({
     return bindSettingsToSandbox(settingsStore, sandboxStore);
   }, [settingsStore, sandboxStore]);
 
-  const [currentMode, setCurrentMode] = useState<AppMode>('sandbox');
-
   // Estado del Sandbox
   const notes = useStore(sandboxStore, (s) => s.notes);
   const context = useStore(sandboxStore, (s) => s.context);
@@ -81,7 +78,6 @@ export function SandboxView({
   const labels = useStore(settingsStore, (s) => s.labels);
   const volume = useStore(settingsStore, (s) => s.volume);
   const soundEnabled = useStore(settingsStore, (s) => s.soundEnabled);
-  const sideNavExpanded = useStore(settingsStore, (s) => s.sideNavExpanded);
 
   // Sincronización del motor de audio
   useEffect(() => {
@@ -288,67 +284,55 @@ export function SandboxView({
       role="application"
       aria-label="Guitar Aid Sandbox"
     >
-      {/* 1. Menú lateral (Navegación entre modos) */}
-      <SideNav
-        currentMode={currentMode}
-        onSelectMode={setCurrentMode}
-        expanded={sideNavExpanded}
-        onToggleExpand={() => settingsStore.getState().setSideNavExpanded(!sideNavExpanded)}
+      {/* Barra superior (fila única) */}
+      <TopBar
+        context={context}
+        onSelectContext={(ctx) => {
+          sandboxStore.getState().setPreview(null);
+          sandboxStore.getState().setContext(ctx);
+        }}
+        onPreviewContext={(ctx) => sandboxStore.getState().setPreview(ctx)}
+        nameMode={nameMode}
+        onNameModeChange={(mode) => settingsStore.getState().setNameMode(mode)}
+        labels={labels}
+        onLabelsChange={(lbl) => settingsStore.getState().setLabels(lbl)}
+        tuning={tuning}
+        onTuningChange={(tId) => settingsStore.getState().setTuning(tId)}
+        showAllPositions={showAllPositions}
+        onShowAllPositionsChange={(show) => settingsStore.getState().setShowAllPositions(show)}
+        leftHanded={leftHanded}
+        onLeftHandedChange={(lh) => settingsStore.getState().setLeftHanded(lh)}
+        visibleInstruments={visibleInstruments}
+        onToggleInstrument={(inst) => settingsStore.getState().toggleInstrument(inst)}
+        volume={volume}
+        onVolumeChange={(vol) => {
+          settingsStore.getState().setVolume(vol);
+          audioEngine?.setVolume?.(vol);
+        }}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => {
+          const next = !soundEnabled;
+          settingsStore.getState().setSoundEnabled(next);
+          audioEngine?.setSoundEnabled?.(next);
+        }}
+        onClear={() => sandboxStore.getState().clear()}
+        onPlayChord={handlePlayChord}
+        onPlayArpeggio={handlePlayArpeggio}
+        onPlayScale={handlePlayScale}
+        canPlayChordAndArpeggio={canPlayChordAndArpeggio}
+        canPlayScale={canPlayScale}
+        playbackDisabled={!canPlayChordAndArpeggio && !canPlayScale}
       />
 
-      {/* 2. Área principal */}
-      <div className={styles.mainArea}>
-        {/* Barra superior (fila única) */}
-        <TopBar
-          context={context}
-          onSelectContext={(ctx) => {
-            sandboxStore.getState().setPreview(null);
-            sandboxStore.getState().setContext(ctx);
-          }}
-          onPreviewContext={(ctx) => sandboxStore.getState().setPreview(ctx)}
-          nameMode={nameMode}
-          onNameModeChange={(mode) => settingsStore.getState().setNameMode(mode)}
-          labels={labels}
-          onLabelsChange={(lbl) => settingsStore.getState().setLabels(lbl)}
-          tuning={tuning}
-          onTuningChange={(tId) => settingsStore.getState().setTuning(tId)}
-          showAllPositions={showAllPositions}
-          onShowAllPositionsChange={(show) => settingsStore.getState().setShowAllPositions(show)}
-          leftHanded={leftHanded}
-          onLeftHandedChange={(lh) => settingsStore.getState().setLeftHanded(lh)}
-          visibleInstruments={visibleInstruments}
-          onToggleInstrument={(inst) => settingsStore.getState().toggleInstrument(inst)}
-          volume={volume}
-          onVolumeChange={(vol) => {
-            settingsStore.getState().setVolume(vol);
-            audioEngine?.setVolume?.(vol);
-          }}
-          soundEnabled={soundEnabled}
-          onToggleSound={() => {
-            const next = !soundEnabled;
-            settingsStore.getState().setSoundEnabled(next);
-            audioEngine?.setSoundEnabled?.(next);
-          }}
-          onClear={() => sandboxStore.getState().clear()}
-          onPlayChord={handlePlayChord}
-          onPlayArpeggio={handlePlayArpeggio}
-          onPlayScale={handlePlayScale}
-          canPlayChordAndArpeggio={canPlayChordAndArpeggio}
-          canPlayScale={canPlayScale}
-          playbackDisabled={!canPlayChordAndArpeggio && !canPlayScale}
-        />
+      {/* Aviso accesible si solo queda un instrumento visible */}
+      {isOnlyOneInstrumentVisible && (
+        <span data-testid="single-instrument-notice" className={styles.visuallyHidden}>
+          {SINGLE_INSTRUMENT_NOTICE}
+        </span>
+      )}
 
-        {currentMode === 'sandbox' ? (
-          <>
-            {/* Aviso accesible si solo queda un instrumento visible */}
-            {isOnlyOneInstrumentVisible && (
-              <span data-testid="single-instrument-notice" className={styles.visuallyHidden}>
-                {SINGLE_INSTRUMENT_NOTICE}
-              </span>
-            )}
-
-            {/* 3. Área de instrumentos a ancho completo (Franja + Mástil + Piano) */}
-            <div className={styles.instrumentsArea} data-testid="instruments-area">
+      {/* Área de instrumentos a ancho completo (Franja + Mástil + Piano) */}
+      <div className={styles.instrumentsArea} data-testid="instruments-area">
               {/* Franja de contexto */}
               <ContextStrip
                 context={context}
@@ -484,63 +468,6 @@ export function SandboxView({
                 </div>
               </div>
             </div>
-          </>
-        ) : (
-          /* Pantalla Próximamente para Tests (Fase 2) y Canción (Fase 3) */
-          <div className={styles.comingSoonContainer}>
-            <div className={styles.comingSoonCard}>
-              <div className={styles.comingSoonIcon}>
-                {currentMode === 'tests' ? (
-                  <svg
-                    width="28"
-                    height="28"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="28"
-                    height="28"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 18V5l12-2v13" />
-                    <circle cx="6" cy="18" r="3" />
-                    <circle cx="18" cy="16" r="3" />
-                  </svg>
-                )}
-              </div>
-              <h2 className={styles.comingSoonTitle}>
-                {currentMode === 'tests' ? 'Modo Tests — Fase 2' : 'Modo Canción — Fase 3'}
-              </h2>
-              <p className={styles.comingSoonDesc}>
-                {currentMode === 'tests'
-                  ? 'Entrena el reconocimiento de notas, acordes y escalas en el mástil y el piano con ejercicios interactivos y seguimiento de progreso.'
-                  : 'Importa tablaturas, reproduce bucles, visualiza acordes en tiempo real y analiza progresiones de tus canciones favoritas.'}
-              </p>
-              <button
-                type="button"
-                className={styles.comingSoonBtn}
-                onClick={() => setCurrentMode('sandbox')}
-              >
-                Volver a Sandbox
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

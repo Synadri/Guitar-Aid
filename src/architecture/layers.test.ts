@@ -22,8 +22,17 @@ const forbidden: [string, string, string][] = [
   ['theory', 'src/theory/core/x.ts', "import { s } from '../../state/sandbox/store';"],
   ['theory', 'src/theory/core/x.ts', "import { App } from '../../ui/App';"],
   ['theory', 'src/theory/core/x.ts', "import { e } from '../../audio/engine';"],
+  ['theory', 'src/theory/core/x.ts', "import { r } from '../../learning/rng';"],
   ['theory', 'src/theory/core/x.ts', 'export const w = window.innerWidth;'],
   ['theory', 'src/theory/core/x.ts', "export const el = document.createElement('div');"],
+  // learning (TS puro: no puede importar React, DOM, Zustand, state, ui, audio ni tonal)
+  ['learning', 'src/learning/x.ts', "import { useState } from 'react';"],
+  ['learning', 'src/learning/x.ts', "import { create } from 'zustand';"],
+  ['learning', 'src/learning/x.ts', "import { s } from '../state/sandbox/store';"],
+  ['learning', 'src/learning/x.ts', "import { App } from '../ui/App';"],
+  ['learning', 'src/learning/x.ts', "import { e } from '../audio/engine';"],
+  ['learning', 'src/learning/x.ts', "import { Note } from 'tonal';"],
+  ['learning', 'src/learning/x.ts', 'export const w = window.innerWidth;'],
   // state
   ['state', 'src/state/sandbox/x.ts', "import { e } from '../../audio/engine';"],
   ['state', 'src/state/sandbox/x.ts', "import { App } from '../../ui/App';"],
@@ -32,6 +41,7 @@ const forbidden: [string, string, string][] = [
   // audio
   ['audio', 'src/audio/x.ts', "import { s } from '../state/sandbox/store';"],
   ['audio', 'src/audio/x.ts', "import { App } from '../ui/App';"],
+  ['audio', 'src/audio/x.ts', "import { r } from '../learning/rng';"],
   // ui
   ['ui', 'src/ui/panels/x.ts', "import { Note } from 'tonal';"],
   ['ui', 'src/ui/panels/x.ts', "import { Note } from '@tonaljs/note';"],
@@ -39,13 +49,17 @@ const forbidden: [string, string, string][] = [
 
 const allowed: [string, string, string][] = [
   ['theory', 'src/theory/analysis/x.ts', "import { a } from '../core/pitch';"],
+  ['learning', 'src/learning/x.ts', "import { a } from '../theory';"],
+  ['learning', 'src/learning/x.ts', "import { a } from '../theory/core/pitch';"],
   ['state', 'src/state/sandbox/x.ts', "import { create } from 'zustand';"],
   ['state', 'src/state/sandbox/x.ts', "import { a } from '../../theory';"],
+  ['state', 'src/state/drills/x.ts', "import { r } from '../../learning/rng';"],
   ['audio', 'src/audio/x.ts', "import { a } from '../theory';"],
   ['ui', 'src/ui/panels/x.tsx', "import { useState } from 'react';"],
   ['ui', 'src/ui/panels/x.ts', "import { a } from '../../state/sandbox/store';"],
   ['ui', 'src/ui/panels/x.ts', "import { a } from '../../theory';"],
   ['ui', 'src/ui/panels/x.ts', "import { a } from '../../audio/playback';"],
+  ['ui', 'src/ui/learn/x.ts', "import { r } from '../../learning/rng';"],
 ];
 
 describe('regla de capas', () => {

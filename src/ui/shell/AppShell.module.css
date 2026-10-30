@@ -1,0 +1,89 @@
+.appShell {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pantalla Próximamente (Canción) */
+.comingSoonContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.comingSoonCard {
+  max-width: 440px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.comingSoonIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #3b82f6);
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+.comingSoonTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+}
+
+.comingSoonDesc {
+  font-size: 14px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.comingSoonBtn {
+  height: 38px;
+  padding: 0 20px;
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comingSoonBtn:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent, #3b82f6);
+  color: #ffffff;
+}

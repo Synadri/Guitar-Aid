@@ -1,6 +1,6 @@
 import styles from './SideNav.module.css';
 
-export type AppMode = 'sandbox' | 'tests' | 'cancion';
+export type AppMode = 'sandbox' | 'learn' | 'cancion' | 'tests';
 
 export interface SideNavProps {
   currentMode: AppMode;
@@ -91,13 +91,13 @@ export function SideNav({ currentMode, onSelectMode, expanded, onToggleExpand }:
             )}
           </button>
 
-          {/* 2. Tests */}
+          {/* 2. Aprender */}
           <button
             type="button"
             className={styles.modeItem}
-            aria-current={currentMode === 'tests' ? 'page' : undefined}
-            onClick={() => onSelectMode('tests')}
-            aria-label="Modo Tests: Practica notas, acordes y escalas (Fase 2)"
+            aria-current={currentMode === 'learn' || currentMode === 'tests' ? 'page' : undefined}
+            onClick={() => onSelectMode('learn')}
+            aria-label="Modo Aprender: Ejercicios, tarjetas y fórmulas (Fase 2)"
           >
             <div className={styles.modeIconWrap} aria-hidden="true">
               <svg
@@ -119,13 +119,13 @@ export function SideNav({ currentMode, onSelectMode, expanded, onToggleExpand }:
             {expanded ? (
               <div className={styles.modeTextCol}>
                 <div className={styles.modeTitleRow}>
-                  <span className={styles.modeTitle}>Tests</span>
+                  <span className={styles.modeTitle}>Aprender</span>
                   <span className={styles.expandedBadge}>Fase 2</span>
                 </div>
-                <span className={styles.modeDesc}>Practica notas, acordes y escalas</span>
+                <span className={styles.modeDesc}>Ejercicios, tarjetas y fórmulas</span>
               </div>
             ) : (
-              <span className={styles.modeLabel}>Tests</span>
+              <span className={styles.modeLabel}>Aprender</span>
             )}
           </button>
 

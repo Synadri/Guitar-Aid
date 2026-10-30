@@ -514,3 +514,25 @@ El plan completo queda en [plan_fase2.md](plan_fase2.md). Resumen de las decisio
 - **Mazos predefinidos** Principiante, Intermedio y Avanzado como plantillas en datos que se copian al añadirlas.
 - **Persistencia:** stores separados con `version: 1` y `migrate`, más exportar/importar en JSON (necesario, porque no hay backend).
 - **Fuera de la Fase 2:** respuesta por audio (Fase 4) y tarjetas con respuesta verificada (Fase 2.1). Las dos quedan preparadas mediante `AnswerInput` → `grade()`. También quedan fuera el entrenamiento auditivo, la partitura, FSRS y la ortografía diatónica completa de intervalos.
+
+
+## 2026-10-30 — Cierre de decisiones y Especificación de Interfaz de la Fase 2
+
+Quedan confirmadas las decisiones de [plan_fase2.md](Fase-2/plan_fase2.md) (§12) y cerrada la especificación visual e interactiva en [interfaz_fase2.md](Fase-2/interfaz_fase2.md) a partir de las maquetas de referencia ([Ejercicios.png](Fase-2/Ejercicios.png), [Tarjetas.png](Fase-2/Tarjetas.png), [Fórmulas.png](Fase-2/Fórmulas.png) y [Progreso.png](Fase-2/Progreso.png)):
+
+- **Decisiones confirmadas (§12):**
+  1. **Nombre del modo:** **Aprender** (reemplaza a *Tests* en `SideNav`).
+  2. **Traductor de fórmulas:** sección propia de consulta y exploración en Aprender + facetas evaluables en tarjetas (`name>formula` y `formula>name`).
+  3. **Algoritmo SRS:** **SM-2 (variante de Anki)** detrás de una interfaz `Scheduler`, preparado para incorporar FSRS en el futuro.
+  4. **Tarjetas con respuesta verificada:** pospuestas para la Fase 2.1 (junto con FSRS).
+  5. **Nombres de intervalos:** por semitonos, respetando `♭5`/`♯4` según la fórmula.
+  6. **Mazos predefinidos:** al añadirse se instancian como copias editables independientes.
+  7. **Ámbito del progreso SRS:** independiente por mazo.
+- **Especificación de interfaz ([interfaz_fase2.md](Fase-2/interfaz_fase2.md)):**
+  - **`LearnTopBar`:** barra superior con las 4 pestañas (`Ejercicios`, `Tarjetas`, `Fórmulas`, `Progreso`) a la izquierda e indicador de racha diaria (`Racha: N días`) a la derecha; sin selectores de contexto del Sandbox y con el atajo `C` deshabilitado en este modo.
+  - **Roles visuales de evaluación en `Fretboard` y `Piano`:** `question` (círculo sólido turquesa `#14b8a6`), `wrong` (cuadrado redondeado rojo `#f87171` con `×`), `missed` (círculo discontinuo ámbar `#f59e0b` con etiqueta de grado/intervalo) y `correct` (círculo verde `#22c55e` con `✓`).
+  - **Props de enfoque en `Fretboard`:** `fretRange` (recorta la vista p. ej. a `0–12` o `0–5` para mayor legibilidad), `activeStrings` (atenúa y deshabilita cuerdas fuera del ejercicio) y `showInlays` (permite ocultar los puntos de referencia de los trastes).
+  - **Sección `Ejercicios`:** layout en 3 columnas (`240px · 1fr · 260px`) con selector categorizado (`NOTAS A1–A2`, `INTERVALOS B1–B5`, `CONSTRUIR C1–C2`), área central con mástil + piano lineal sincronizado + leyenda + franja pedagógica de corrección (`Escuchar` y `Siguiente · Enter`), y panel derecho de `Configuración` + métricas de `Esta sesión` (`Precisión` y `Tiempo medio`).
+  - **Sección `Tarjetas`:** layout en 2 columnas (`310px · 1fr`) con lista de mazos y contadores `Nuevas · Aprendiendo · Repaso`, lienzo de tarjeta con anverso/reverso (incluyendo diagrama compacto `ChordDiagram` para digitaciones y botón `Abrir en Sandbox`) y 4 botones de valoración (`Otra vez`, `Difícil`, `Bien`, `Fácil`) con vista previa de intervalos y atajos `Espacio` / `1–4`.
+  - **Sección `Fórmulas`:** layout simétrico en 2 columnas (`Nombre → fórmula` con tabla de desglose y **regla cromática lineal de 0 a 12 semitonos**; `Fórmula → nombre` con selector de grados interactivo y listas de `Coincidencia exacta`, `Mismas notas, otra raíz` y `Cercanas`).
+  - **Sección `Progreso`:** layout en 2 columnas con `Mapa de aciertos del mástil` (dominada `≥ 85 %`, regular `60–84 %`, débil `< 60 %`), gráfico `Precisión por sesión · últimas 10`, resumen `2×2` de `Tarjetas`, barras de `Intervalos débiles` (con botón `Practicar los débiles`) y `Copia de seguridad` (`Exportar JSON` / `Importar`).

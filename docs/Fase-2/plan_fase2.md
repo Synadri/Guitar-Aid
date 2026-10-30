@@ -1,8 +1,8 @@
 # Guitar Aid — Plan de la Fase 2 (Modo Aprender: ejercicios, tarjetas y fórmulas) · v1
 
-Documento de **planificación y alcance** de la Fase 2. Fija qué se construye, con qué arquitectura, en qué hitos y con qué criterios de aceptación. El diseño visual detallado se especificará después en `docs/interfaz_fase2.md` (aún no existe); cuando ese documento exista, prevalecerá sobre este en lo relativo a la interfaz. La teoría, el estado y los criterios de este documento no dependen de él.
+Documento de **planificación y alcance** de la Fase 2. Fija qué se construye, con qué arquitectura, en qué hitos y con qué criterios de aceptación. El diseño visual detallado está especificado en [interfaz_fase2.md](interfaz_fase2.md) (basado en las maquetas [Ejercicios.png](Ejercicios.png), [Tarjetas.png](Tarjetas.png), [Fórmulas.png](Fórmulas.png) y [Progreso.png](Progreso.png)), que prevalece sobre este documento en lo relativo a la interfaz.
 
-Base: [Requisitos.md](Requisitos.md) (§9, hoja de ruta), [plan_fase1.md](plan_fase1.md), [plan_fase1_1.md](plan_fase1_1.md), [decisiones.md](decisiones.md) e [interfaz.md](interfaz.md).
+Base: [Requisitos.md](../Requisitos.md) (§9, hoja de ruta), [plan_fase1.md](../Fase-1/plan_fase1.md), [plan_fase1_1.md](../Fase-1/plan_fase1_1.md), [decisiones.md](../decisiones.md) e [interfaz.md](../interfaz.md).
 
 ---
 
@@ -332,7 +332,7 @@ Se recomienda que sea **una sección propia** dentro de Aprender (es una herrami
 
 ## 10. Hitos
 
-Orden: **teoría y aprendizaje puro → estado → interfaz**. Cada hito incluye sus tests y no se cierra si `pnpm test`, `pnpm lint` y `pnpm build` no pasan. **A1–A5 no dependen del diseño de la interfaz** y se pueden implementar en cuanto se cierre `interfaz_fase2.md` (o en paralelo, si se decide). **A6–A9 se especificarán en detalle en ese documento.**
+Orden: **teoría y aprendizaje puro → estado → interfaz**. Cada hito incluye sus tests y no se cierra si `pnpm test`, `pnpm lint` y `pnpm build` no pasan. **A6–A9 están especificados en detalle en [interfaz_fase2.md](interfaz_fase2.md).**
 
 | Hito | Contenido | Tests / verificación | Criterios |
 |---|---|---|---|
@@ -373,14 +373,14 @@ La Fase 2 está terminada cuando existen y pasan tests para:
 
 ---
 
-## 12. Decisiones que conviene confirmar antes del diseño de interfaz
+## 12. Decisiones cerradas
 
-| # | Decisión | Propuesta | Alternativa |
+| # | Decisión | Propuesta | Estado |
 |---|---|---|---|
-| 1 | Nombre del modo | **Aprender** (Ejercicios · Tarjetas · Fórmulas · Progreso) | Mantener *Tests* |
-| 2 | Dónde va el traductor de fórmulas | **Sección propia + facetas de tarjeta** | Solo dentro de las tarjetas |
-| 3 | Algoritmo de repetición espaciada | **SM-2 (Anki clásico)** detrás de una interfaz | FSRS desde el principio (más preciso, más complejo de ajustar y de testear) |
-| 4 | Ámbito del progreso de una tarjeta | **Por mazo** (como se pidió) | Global por tarjeta, compartido entre mazos |
-| 5 | Respuesta verificada en tarjetas (clic en la solución) | **Fuera de la Fase 2**, preparada | Incluirla como hito A10 opcional |
-| 6 | Nombres de intervalo | **Por semitonos**, con `♭5`/`♯4` según la fórmula | Ortografía diatónica completa |
-| 7 | Mazos predefinidos | **Copia editable** al añadirlos | Mazos de solo lectura que se actualizan con la aplicación |
+| 1 | Nombre del modo | **Aprender** (Ejercicios · Tarjetas · Fórmulas · Progreso) | *Confirmado:* se llamará Aprender (sustituye a "Tests") |
+| 2 | Dónde va el traductor de fórmulas | **Sección propia + facetas de tarjeta** | *Confirmado:* ambas coexistirán (sección de consulta/exploración + facetas evaluables) |
+| 3 | Algoritmo de repetición espaciada | **SM-2 (Anki clásico)** detrás de una interfaz | *Confirmado:* SM-2 inicialmente, con arquitectura desacoplada para FSRS futuro |
+| 4 | Respuesta verificada en tarjetas (clic en la solución) | **Fuera de la Fase 2**, preparada | *Confirmado:* pospuesto para Fase 2.1 (muy sinérgico con FSRS) |
+| 5 | Nombres de intervalo | **Por semitonos**, con `♭5`/`♯4` según la fórmula | *Confirmado:* sin distinción diatónica teórica adicional (4ª aum. ≠ 5ª dism.) |
+| 6 | Mazos predefinidos | **Copia editable** al añadirlos | *Confirmado:* al añadirlos se crea una copia editable con progreso independiente |
+| 7 | Ámbito del progreso de una tarjeta | **Por mazo** (como se pidió) | *Confirmado:* el progreso de una misma tarjeta es independiente en cada mazo |

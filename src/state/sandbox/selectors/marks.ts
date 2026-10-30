@@ -18,44 +18,24 @@ import {
   type Voicing,
 } from '../../../theory';
 import type { ChordFocus, MenuContext, SandboxState, SelectedNote } from '../store';
+import {
+  DEFAULT_PIANO_RANGE,
+  ROLE_PRIORITY,
+  type FretMark,
+  type KeyMark,
+  type LabelMode,
+  type MarksOptions,
+  type MarkRole,
+} from '../../shared/marks';
 
-/** Papel visual de una marca (lo traduce a color/relleno la capa UI). */
-export type MarkRole = 'pinned' | 'root' | 'tone' | 'scale-bg' | 'preview' | 'equivalent';
-export type LabelMode = 'note' | 'interval' | 'degree' | 'none';
-
-export interface FretMark {
-  string: StringNumber;
-  fret: number;
-  role: MarkRole;
-  /** Si la marca (p. ej. una nota 'pinned') coincide además con la tónica/raíz activa. */
-  isRoot?: boolean;
-  label?: string;
-}
-export interface KeyMark {
-  midi: number;
-  role: MarkRole;
-  /** Si la marca (p. ej. una nota 'pinned') coincide además con la tónica/raíz activa. */
-  isRoot?: boolean;
-  label?: string;
-}
-
-export interface MarksOptions {
-  nameMode?: NameMode;
-  labels?: LabelMode;
-  /** Rango visible del piano (por defecto C2–C7: 36..96). */
-  pianoRange?: { from: number; to: number };
-}
-
-export const DEFAULT_PIANO_RANGE = { from: 36, to: 96 } as const;
-
-/** Prioridad al superponer marcas en la misma posición. */
-const ROLE_PRIORITY: Record<MarkRole, number> = {
-  pinned: 6,
-  root: 5,
-  tone: 4,
-  'scale-bg': 3,
-  preview: 2,
-  equivalent: 1,
+export {
+  DEFAULT_PIANO_RANGE,
+  ROLE_PRIORITY,
+  type FretMark,
+  type KeyMark,
+  type LabelMode,
+  type MarksOptions,
+  type MarkRole,
 };
 
 type SandboxView = Pick<

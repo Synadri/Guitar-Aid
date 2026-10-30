@@ -65,9 +65,10 @@ npx serve dist
 ## Documentación
 
 - [Requisitos de la Fase 1](docs/Requisitos.md)
-- [Plan de implementación de la Fase 1](docs/plan_fase1.md)
-- [Plan de la Fase 1.1](docs/plan_fase1_1.md)
+- [Plan de implementación de la Fase 1](docs/Fase-1/plan_fase1.md)
+- [Plan de la Fase 1.1](docs/Fase-1/plan_fase1_1.md)
 - [Especificación de interfaz (Sandbox, Fase 1.1)](docs/interfaz.md)
-- [Plan de la Fase 2 (modo Aprender)](docs/plan_fase2.md)
+- [Plan de la Fase 2 (modo Aprender)](docs/Fase-2/plan_fase2.md)
+- [Especificación de interfaz (modo Aprender, Fase 2)](docs/Fase-2/interfaz_fase2.md)
 - [Registro de decisiones de diseño](docs/decisiones.md)
 - [Catálogo de digitaciones (voicings)](docs/voicings.md)

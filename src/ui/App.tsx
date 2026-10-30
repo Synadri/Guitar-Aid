@@ -1,11 +1,11 @@
 import './styles/global.css';
 import styles from './App.module.css';
-import { SandboxView } from './sandbox';
+import { AppShell } from './shell';
 
 export function App() {
   return (
     <main className={styles.app}>
-      <SandboxView />
+      <AppShell />
     </main>
   );
 }

@@ -24,6 +24,10 @@ const ROLE_CLASS: Record<MarkRole, string | undefined> = {
   root: styles.role_root,
   'scale-bg': styles.role_scale_bg,
   preview: styles.role_preview,
+  question: styles.role_question,
+  wrong: styles.role_wrong,
+  missed: styles.role_missed,
+  correct: styles.role_correct,
 };
 
 const TOTAL_WIDTH = 1316;

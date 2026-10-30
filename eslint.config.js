@@ -2,11 +2,12 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 /**
- * Regla de capas (docs/plan_fase1.md §5):
- *  - theory: TS puro. No importa React, DOM ni state/ui/audio.
- *  - state:  solo importa theory (más librerías de estado como zustand).
- *  - audio:  no importa state ni ui.
- *  - ui:     no importa `tonal` directamente (pasa siempre por theory).
+ * Regla de capas (docs/plan_fase1.md §5, docs/Fase-2/plan_fase2.md §3.1):
+ *  - theory:   TS puro. No importa React, DOM ni learning/state/ui/audio.
+ *  - learning: TS puro. Solo puede importar theory. No importa React, DOM ni state/ui/audio.
+ *  - state:    solo importa theory y learning (más librerías de estado como zustand).
+ *  - audio:    no importa learning, state ni ui.
+ *  - ui:       no importa `tonal` directamente (pasa siempre por theory).
  * `tonal` solo puede usarse dentro de theory.
  */
 const REACT = ['react', 'react/*', 'react-dom', 'react-dom/*', '@testing-library/*'];
@@ -27,7 +28,7 @@ const restrict = ({ names = [], layers = [], message }) => ({
   ],
 });
 
-// Globales de navegador que theory no puede tocar.
+// Globales de navegador que theory y learning no pueden tocar.
 const DOM_GLOBALS = [
   'window',
   'document',
@@ -44,7 +45,7 @@ const DOM_GLOBALS = [
   'AudioContext',
   'requestAnimationFrame',
   'fetch',
-].map((name) => ({ name, message: 'theory es TS puro: no puede usar el DOM.' }));
+].map((name) => ({ name, message: 'Capa TS pura: no puede usar el DOM.' }));
 
 export default defineConfig([
   globalIgnores(['dist', 'coverage', 'node_modules']),
@@ -54,8 +55,19 @@ export default defineConfig([
     rules: {
       ...restrict({
         names: [...REACT, 'zustand', 'zustand/*'],
+        layers: ['learning', 'state', 'ui', 'audio'],
+        message: 'Capa theory: no puede importar React, DOM ni learning/state/ui/audio.',
+      }),
+      'no-restricted-globals': ['error', ...DOM_GLOBALS],
+    },
+  },
+  {
+    files: ['src/learning/**/*.{ts,tsx}'],
+    rules: {
+      ...restrict({
+        names: [...REACT, ...TONAL, 'zustand', 'zustand/*'],
         layers: ['state', 'ui', 'audio'],
-        message: 'Capa theory: no puede importar React, DOM ni state/ui/audio.',
+        message: 'Capa learning: solo puede importar theory (TS puro sin React, DOM ni state/ui/audio).',
       }),
       'no-restricted-globals': ['error', ...DOM_GLOBALS],
     },
@@ -66,15 +78,15 @@ export default defineConfig([
     rules: restrict({
       names: [...REACT, ...TONAL],
       layers: ['ui', 'audio'],
-      message: 'Capa state: solo puede importar theory.',
+      message: 'Capa state: solo puede importar theory y learning.',
     }),
   },
   {
     files: ['src/audio/**/*.{ts,tsx}'],
     rules: restrict({
       names: [...TONAL],
-      layers: ['state', 'ui'],
-      message: 'Capa audio: no puede importar state ni ui (ni tonal directamente).',
+      layers: ['learning', 'state', 'ui'],
+      message: 'Capa audio: no puede importar learning, state ni ui (ni tonal directamente).',
     }),
   },
   {
