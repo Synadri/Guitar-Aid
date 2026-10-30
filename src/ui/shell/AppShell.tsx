@@ -3,8 +3,10 @@ import { useStore, type StoreApi } from 'zustand';
 import {
   sandboxStore as defaultSandboxStore,
   settingsStore as defaultSettingsStore,
+  drillsStore as defaultDrillsStore,
   type SandboxStore,
   type SettingsStore,
+  type DrillsStore,
 } from '../../state';
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { SideNav, type AppMode } from '../layout/SideNav';
@@ -16,6 +18,7 @@ export interface AppShellProps {
   initialMode?: AppMode;
   sandboxStore?: StoreApi<SandboxStore>;
   settingsStore?: StoreApi<SettingsStore>;
+  drillsStore?: StoreApi<DrillsStore>;
   audioEngine?: AudioEngine;
 }
 
@@ -23,6 +26,7 @@ export function AppShell({
   initialMode = 'sandbox',
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
+  drillsStore = defaultDrillsStore,
   audioEngine = defaultAudioEngine,
 }: AppShellProps) {
   const [currentMode, setCurrentMode] = useState<AppMode>(initialMode);
@@ -79,6 +83,7 @@ export function AppShell({
           <LearnView
             sandboxStore={sandboxStore}
             settingsStore={settingsStore}
+            drillsStore={drillsStore}
             audioEngine={audioEngine}
             onNavigateToSandbox={() => setCurrentMode('sandbox')}
           />

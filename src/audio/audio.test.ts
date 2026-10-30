@@ -8,6 +8,7 @@ import {
   chordEvents,
   createAudioEngine,
   cutoffHz,
+  intervalEvents,
   loudnessGain,
   midiToFrequency,
   playEvents,
@@ -219,6 +220,14 @@ describe('audio — síntesis pluck, motor y planificación pura (U6)', () => {
       { midi: 60, start: 0, duration: 1.5 },
       { midi: 64, start: 0, duration: 1.5 },
       { midi: 67, start: 0, duration: 1.5 },
+    ]);
+
+    const interval = intervalEvents(60, 64, 0.45, 0.4, 0.55, 0.8);
+    expect(interval).toEqual([
+      { midi: 60, start: 0, duration: 0.4 },
+      { midi: 64, start: 0.45, duration: 0.4 },
+      { midi: 60, start: 1.0, duration: 0.8 },
+      { midi: 64, start: 1.0, duration: 0.8 },
     ]);
   });
 

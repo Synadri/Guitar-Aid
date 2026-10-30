@@ -1,0 +1,823 @@
+.container {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 260px;
+  gap: 16px;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .container {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .drillConfigPanel {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Columna izquierda — Selector de ejercicios                                 */
+/* -------------------------------------------------------------------------- */
+.drillsSidebar {
+  background: var(--app-card, #131d31);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.sidebarTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0 0 12px 0;
+}
+
+.groupHeader {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+.groupHeader:first-of-type {
+  margin-top: 4px;
+}
+
+.drillList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drillButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  color: #e2e8f0;
+}
+
+.drillButton:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.drillButtonActive {
+  background: #172236;
+  border-color: rgba(59, 130, 246, 0.4);
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.drillCode {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #14b8a6;
+  min-width: 22px;
+}
+
+.drillName {
+  font-size: 14px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Columna central — Escenario de la pregunta                                 */
+/* -------------------------------------------------------------------------- */
+.drillStage {
+  background: var(--app-card, #131d31);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.questionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.eyebrow {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0;
+  font-weight: 600;
+}
+
+.questionTitle {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.highlightTurquoise {
+  color: #14b8a6;
+  font-weight: 700;
+}
+
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.progressText {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+  font-weight: 500;
+}
+
+.progressBarTrack {
+  width: 120px;
+  height: 6px;
+  border-radius: 999px;
+  background: #1e293b;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: #14b8a6;
+  transition: width 0.3s ease;
+}
+
+/* Mástil y piano */
+.instrumentSection {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid #1e293b;
+  padding: 6px 0;
+}
+
+.middleRow {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pianoContainer {
+  flex: 1;
+  min-width: 280px;
+  overflow-x: auto;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 6px 4px;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+  min-width: 190px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legendIconQuestion {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #14b8a6;
+}
+
+.legendIconWrong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: rgba(127, 29, 29, 0.55);
+  border: 1.5px solid #f87171;
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.legendIconMissed {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1.5px dashed #f59e0b;
+}
+
+.legendIconCorrect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.22);
+  border: 1.5px solid #22c55e;
+  color: #22c55e;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Botonera de opciones (A2, B3, B5)                                          */
+/* -------------------------------------------------------------------------- */
+.optionsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.3);
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.optionsTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.notesButtonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.noteOptionButton {
+  min-width: 44px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.noteOptionButton:hover {
+  background: #172236;
+  border-color: #3b82f6;
+}
+
+.noteOptionButtonSelected {
+  border-color: #3b82f6;
+  background: #101b33;
+  color: #60a5fa;
+}
+
+.noteOptionButtonCorrect {
+  border-color: #14532d !important;
+  background: rgba(20, 83, 45, 0.4) !important;
+  color: #4ade80 !important;
+}
+
+.noteOptionButtonWrong {
+  border-color: #7f1d1d !important;
+  background: rgba(127, 29, 29, 0.4) !important;
+  color: #f87171 !important;
+}
+
+.intervalButtonRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.intervalOptionButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.intervalOptionButton:hover {
+  background: #172236;
+  border-color: #3b82f6;
+}
+
+.intervalOptionButtonSelected {
+  border-color: #3b82f6;
+  background: #101b33;
+}
+
+.intervalOptionButtonCorrect {
+  border-color: #14532d !important;
+  background: rgba(20, 83, 45, 0.4) !important;
+}
+
+.intervalOptionButtonWrong {
+  border-color: #7f1d1d !important;
+  background: rgba(127, 29, 29, 0.4) !important;
+}
+
+.intervalShort {
+  font-size: 13px;
+  font-weight: 700;
+  color: #14b8a6;
+}
+
+.intervalLong {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* B5 Voicing chips + pills */
+.voicingPositionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.voicingCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.voicingCardFocused {
+  border-color: #3b82f6;
+  background: #101b33;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.voicingCardRoot {
+  border-color: #14b8a6;
+}
+
+.voicingCardPos {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.voicingDegreeBadge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.voicingDegreeBadgeRoot {
+  background: #14b8a6;
+  color: #042f2e;
+}
+
+.degreePillsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.degreePill {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.degreePill:hover {
+  background: #172236;
+  border-color: #3b82f6;
+}
+
+.degreePillSelected {
+  background: #101b33;
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Franja inferior de corrección y acción                                     */
+/* -------------------------------------------------------------------------- */
+.feedbackBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+.feedbackBannerIdle {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.feedbackBannerCorrect {
+  background: rgba(20, 83, 45, 0.22);
+  border: 1px solid #14532d;
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.feedbackBannerWrong {
+  background: rgba(127, 29, 29, 0.22);
+  border: 1px solid #7f1d1d;
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.feedbackText {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.feedbackTitleCorrect {
+  color: #4ade80;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.feedbackTitleWrong {
+  color: #f87171;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.feedbackActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buttonPrimary {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.buttonPrimary:hover {
+  background: #1d4ed8;
+}
+
+.buttonSecondary {
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.buttonSecondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #64748b;
+  color: #ffffff;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Columna derecha — Configuración y Estadísticas de sesión                   */
+/* -------------------------------------------------------------------------- */
+.drillConfigPanel {
+  background: var(--app-card, #131d31);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.configTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.configSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.configSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #94a3b8);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.stringsRow {
+  display: flex;
+  gap: 6px;
+}
+
+.stringButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #cbd5e1;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stringButtonActive {
+  border-color: #3b82f6;
+  background: #101b33;
+  color: #60a5fa;
+}
+
+.segmentedGroup {
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  background: #0f172a;
+}
+
+.segmentedButton {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.segmentedButtonActive {
+  background: #101b33;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switchLabel {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #334155;
+  position: relative;
+  transition: background 0.2s ease;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.switchActive {
+  background: #2563eb;
+}
+
+.switchThumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.switchThumbActive {
+  transform: translateX(16px);
+}
+
+.sessionStatsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.statCard {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Resumen de sesión                                                          */
+/* -------------------------------------------------------------------------- */
+.summaryContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px 16px;
+  text-align: center;
+  margin: auto;
+  max-width: 560px;
+  width: 100%;
+}
+
+.summaryIconBadge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(20, 184, 166, 0.15);
+  border: 2px solid #14b8a6;
+  color: #14b8a6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.summaryEyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: #14b8a6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.summaryTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.summaryMessage {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.summaryCard {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.summaryCardValue {
+  font-size: 26px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.summaryCardLabel {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.summaryActions {
+  display: flex;
+  gap: 12px;
+}

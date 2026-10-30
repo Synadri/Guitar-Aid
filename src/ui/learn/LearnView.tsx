@@ -7,10 +7,12 @@ import {
   decksStore as defaultDecksStore,
   type SandboxStore,
   type SettingsStore,
+  type DrillsStore,
 } from '../../state';
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { getStudyDayKey } from '../../learning/srs/queue';
 import { FormulasView } from './formulas/FormulasView';
+import { DrillsView } from './drills/DrillsView';
 import styles from './LearnView.module.css';
 
 export type LearnTab = 'drills' | 'cards' | 'formulas' | 'progress';
@@ -20,6 +22,7 @@ export interface LearnViewProps {
   streakDays?: number;
   sandboxStore?: StoreApi<SandboxStore>;
   settingsStore?: StoreApi<SettingsStore>;
+  drillsStore?: StoreApi<DrillsStore>;
   audioEngine?: AudioEngine;
   onNavigateToSandbox?: () => void;
 }
@@ -78,12 +81,13 @@ export function LearnView({
   streakDays,
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
+  drillsStore = defaultDrillsStore,
   audioEngine = defaultAudioEngine,
   onNavigateToSandbox,
 }: LearnViewProps) {
   const [activeTab, setActiveTab] = useState<LearnTab>(initialTab);
 
-  const drillsHistory = useStore(defaultDrillsStore, (s) => s.history);
+  const drillsHistory = useStore(drillsStore, (s) => s.history);
   const decksHistory = useStore(defaultDecksStore, (s) => s.history);
 
   const resolvedStreak =
@@ -164,14 +168,14 @@ export function LearnView({
             id="learn-tabpanel-drills"
             role="tabpanel"
             aria-labelledby="learn-tab-drills"
-            className={styles.placeholderCard}
+            style={{ width: '100%', height: '100%' }}
             data-testid="learn-panel-drills"
           >
-            <h2 className={styles.placeholderTitle}>Ejercicios</h2>
-            <p className={styles.placeholderDesc}>
-              Práctica intensiva de reconocimiento y construcción de notas e intervalos en el
-              mástil y el piano con visión lineal y corrección automática.
-            </p>
+            <DrillsView
+              drillsStore={drillsStore}
+              settingsStore={settingsStore}
+              audioEngine={audioEngine}
+            />
           </div>
         )}
 

@@ -86,6 +86,28 @@ export function scaleEvents(
 }
 
 /**
+ * Planifica un intervalo entre dos notas: primero melódico desde la referencia
+ * y a continuación armónico (ambas notas sonando simultáneamente).
+ */
+export function intervalEvents(
+  fromMidi: number,
+  toMidi: number,
+  melodicSpacing: number = 0.45,
+  noteDuration: number = 0.4,
+  harmonicGap: number = 0.55,
+  harmonicDuration: number = 0.8,
+): NoteEvent[] {
+  const safeMelodic = Math.max(0, melodicSpacing);
+  const harmonicStart = Number((safeMelodic + Math.max(0, harmonicGap)).toFixed(6));
+  return [
+    { midi: fromMidi, start: 0, duration: noteDuration },
+    { midi: toMidi, start: Number(safeMelodic.toFixed(6)), duration: noteDuration },
+    { midi: fromMidi, start: harmonicStart, duration: harmonicDuration },
+    { midi: toMidi, start: harmonicStart, duration: harmonicDuration },
+  ];
+}
+
+/**
  * Alturas MIDI por defecto en la octava 3 para un acorde del menú cuando no hay
  * digitación disponible en la afinación actual (p. ej. afinaciones abiertas).
  */

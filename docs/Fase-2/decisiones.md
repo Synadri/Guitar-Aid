@@ -420,5 +420,74 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
     - Al pulsar **"Abrir en Sandbox"** en `FormulasView`, se ejecuta `setContext(...)` en el store del Sandbox y conmuta limpiamente a `currentMode = 'sandbox'`.
     - Se verifica mediante tests de integración que la alternancia entre Sandbox y Aprender preserva en su totalidad el estado (`notes`, `context`, `chordFocus`) y que la tecla `C` en Aprender nunca limpia el Sandbox.
 
+---
+
+## 2026-10-30 — Hito A7: UI: Ejercicios (`src/ui/learn/drills/`)
+
+### 1. Arquitectura de presentación y layout de 3 columnas (§4.1)
+- **Decisión:** Se creó el componente `src/ui/learn/drills/DrillsView.tsx` y su hoja de estilos modular `DrillsView.module.css` estructurados fielmente a `docs/Fase-2/interfaz_fase2.md` §4 y la maqueta `Ejercicios.png`:
+  - **Layout de 3 columnas:** `grid-template-columns: 240px minmax(0, 1fr) 260px; gap: 16px; height: 100%`, con adaptación a 2 columnas o 1 columna en pantallas reducidas (`@media (max-width: 1100px)`).
+  - **Columna izquierda — Selector de ejercicios (`240 px` / §4.2):**
+    - Contenedor `.drillsSidebar` con encabezado **`Ejercicios`** (`16 px`, semibold).
+    - Agrupación en 3 bloques con encabezados en mayúsculas (`11 px`, `--app-muted`, `letter-spacing: 0.06em`): `NOTAS` (A1, A2), `INTERVALOS` (B1, B2, B3, B4, B5) y `CONSTRUIR` (C1, C2).
+    - Botones accesibles con `role="option"` y `aria-selected` / `aria-current`, mostrando el código en fuente monoespaciada turquesa (`#14b8a6`, `12 px`, bold) y el nombre del ejercicio a la derecha.
+    - El ejercicio seleccionado lleva fondo `#172236`, borde translúcido `#3b82f6` y texto blanco. Cambiar de ejercicio inicia automáticamente una nueva sesión con la configuración compatible (`startSession(drill.id)`).
+  - **Columna derecha — Configuración y Estadísticas de sesión (`260 px` / §4.4):**
+    - Panel `.drillConfigPanel` interactivo que sincroniza bidireccionalmente con `drillsStore.updateConfig(...)`:
+      - **`CUERDAS`:** Fila de 6 botones (`1..6`, `34×34 px`) con fondo `#101b33` y borde `#3b82f6` cuando están activos. Garantiza la restricción de que al menos una cuerda debe permanecer activa.
+      - **`TRASTES`:** Grupo segmentado accesible con opciones `0–5`, `0–12` (por defecto) y `0–24`.
+      - **`DIRECCIÓN`:** Visible solo en ejercicios direccionales (`B1`, `B2`, `B3`, `C2`) con opciones `Asc.`, `Desc.` y `Ambas`.
+      - **`MODO`:** Visible en ejercicios con soporte de modo (`A1`, `B4`) con opciones `Todas` (`all`) y `La primera` (`first`).
+      - **Interruptores (`role="switch"`):** `Adaptativo` (activado por defecto), `Ocultar puntos` (`showInlays: false`) y `Sonido al corregir` (`playAudio`).
+      - **Sección inferior `ESTA SESIÓN`:** Cuadrícula de 2 métricas en vivo: `{precisión} %` y `{tiempoMedio} s` (formato con coma decimal, p. ej. `4,2 s`).
+
+### 2. Escenario central: Instrumentos sincronizados y botoneras contextuales (§4.3)
+- **Decisión:**
+  - **Cabecera de la pregunta:**
+    - Eyebrow en mayúsculas (`12 px`, `--app-muted`): `{ID} · {NOMBRE}` (ej. `B1 · INTERVALO EN UNA CUERDA`).
+    - Enunciado dinámico `<h2>` con resaltado específico en color turquesa (`#14b8a6`) para los objetivos pedagógicos (notas, posiciones, intervalos, acordes y escalas).
+    - Indicador `Pregunta {n} / {total}` y barra de progreso horizontal (`120 × 6 px`) animada según el avance.
+  - **Mástil interactivo (`Fretboard`):**
+    - Conecta con `selectDrillFretboardMarks` para mostrar los roles de evaluación (`question`, `correct`, `wrong`, `missed`) con sus formas diferenciadas (círculo sólido, aspa en cuadrado redondeado, círculo discontinuo y marca de verificación) y etiquetas de intervalo/nota relativas a la referencia.
+    - Soporta la afinación activa (`config.tuning` o `STANDARD_TUNING`), `activeStrings`, `fretRange`, `showInlays` y mano zurda.
+    - En fases `question` o `answering`: clic en el mástil evalúa directamente en modo `first` o añade/quita posiciones fijadas (`pinnedPositions`) en modo `all`.
+    - En fase `corrected`: clic en cualquier posición reproduce su nota sin alterar la corrección.
+  - **Piano lineal contextual (`Piano`) y leyenda:**
+    - Recorte automático del teclado a las 2–3 octavas (`24..36` semitonos) relevantes para la tesitura del ejercicio y las notas en juego, desplazándose dinámicamente según la pregunta (p. ej. `C3–C5`).
+    - Proyección tecla a tecla de las marcas de evaluación (`selectDrillPianoMarks`).
+    - Leyenda visual con iconos SVG para los 4 estados de corrección (`Referencia`, `Tu respuesta, incorrecta`, `Correcta que faltó`, `Acierto`).
+  - **Botoneras de opciones contextuales (ejercicios de selección):**
+    - **A2 (Nombra la nota):** fila de botones de notas cromáticas (o naturales según `naturalOnly`) respetando la ortografía armónica `nameMode` (`sharps` o `flats`). En fase corregida resalta la elección del usuario (verde si acertó, rojo si falló) y la nota correcta esperada.
+    - **B3 (Nombra el intervalo):** cuadrícula de 12 intervalos (`m2` a `P8`) mostrando su nombre corto y descripción en español (ej. `M3` · `3ª mayor`).
+    - **B5 (Etiqueta la forma):** selector interactivo de posiciones del voicing (fichas por cuerda activa con la raíz ya identificada con grado `1`) y fila de 13 píldoras de grado armónico (`1`, `♭2`, `2`, `♭3`, `3`, `4`, `♭5`, `5`, `♯5`, `6`, `♭7`, `7`, `9`) para asignación ágil antes de comprobar.
+
+### 3. Franja de corrección, síntesis sonora y flujo por teclado (§4.3.4, §8, Criterios d, e, f, g, n, o)
+- **Decisión:**
+  - **Franja de corrección (`.feedbackBanner`):**
+    - Región accesible con `role="status"` y `aria-live="polite"`.
+    - **Antes de corregir:** indica el estado actual (`N posiciones marcadas` o instrucción de pulsar) junto al botón primario **`Comprobar · Enter`** en ejercicios de selección múltiple.
+    - **Tras corregir:** contenedor tematizado con borde y fondo translúcido verde (`Correcto.` en `#4ade80`) o rojo (`Incorrecto.` en `#f87171`) junto a la explicación teórica comparativa de semitonos e intervalos.
+    - Botón **`Escuchar`** y botón primario **`Siguiente · Enter`**.
+  - **Función sonora pura `intervalEvents` y motor de audio:**
+    - Se incorporó la función `intervalEvents(fromMidi, toMidi)` en `src/audio/playback.ts` para reproducir primero el intervalo melódico (nota A y nota B con espaciado de 0,45 s) y a continuación armónico (ambas notas a la vez durante 0,8 s).
+    - Soporte sonoro diferenciado para cada ejercicio: notas individuales en A1/A2, intervalos en B1/B2/B3, y arpegios armónicos en B4, B5, C1 y C2.
+    - Reproducción automática al corregir si `config.playAudio !== false` y `soundEnabled` está activo.
+  - **Atajos de teclado:**
+    - <kbd>Enter</kbd>: comprueba la respuesta en `answering` (o selección múltiple), avanza a la siguiente pregunta en `corrected` y reinicia la sesión en `summary`.
+    - Se ignoran estrictamente cuando el foco está sobre `input`, `select`, `textarea` o si se presionan teclas modificadoras (`Ctrl`, `Alt`, `Meta`).
+
+### 4. Pantalla de Resumen de sesión y ciclo de vida (§4.3, Criterio m)
+- **Decisión:**
+  - Al completar el número de preguntas configurado (`totalQuestions`, por defecto 20), el store pasa a `phase: 'summary'`.
+  - La vista renderiza una tarjeta de resumen centrada con icono de trofeo, felicitación pedagógica según la precisión (`>= 80%`), desglose de precisión (`{aciertos} / {total}`), tiempo medio de respuesta por pregunta y total de preguntas.
+  - Acciones: botón primario **`Repetir sesión · Enter`** (`restartSession()`) y botón secundario **`Configurar ejercicio`** (`endSession()`).
+
+### 5. Integración arquitectónica y aislamiento para pruebas
+- **Decisión:**
+  - `LearnView`: sustituyó el marcador de posición provisional de la pestaña `drills` por `DrillsView`. Admite `drillsStore` en sus props (por defecto `defaultDrillsStore`) permitiendo la inyección de stores aislados en pruebas unitarias e integración sin colisiones de estado global.
+  - `AppShell`: acepta `drillsStore` opcional y lo transfiere a `LearnView`.
+  - Verificación exhaustiva con 14 tests en `src/ui/learn/drills/DrillsView.test.tsx` cubriendo el selector de ejercicios, la botonera de configuración, los atajos de teclado, el resumen de sesión y los criterios de aceptación (d, e, f, g, n, o).
+
+
 
 
