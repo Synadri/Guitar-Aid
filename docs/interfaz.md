@@ -24,13 +24,13 @@ Sustituye al layout previo del Sandbox. Mockup de referencia: lienzo Design "Gui
 - `.sandbox { height: 100vh; overflow: hidden }`. Cada columna: cabecera fija de 36 px y cuerpo con `overflow-y: auto` e ítems distribuidos en cuadrícula adaptativa (`repeat(auto-fill, minmax(...))`) para minimizar el scroll en **1920×1080** y **2560×1440**.
 - Por debajo de 1100 px de ancho el dashboard pasa a 1 columna y se permite scroll de página (`@media (max-width: 1100px)`). No hay otra adaptación móvil.
 
-## 3. Barra superior (46 px, una fila)
+## 3. Barra superior (48 px en 1080p / 54 px en 1440p / 46 px en ≤ 950p, una fila)
 
 De izquierda a derecha:
 
 1. *(El logo vive en el menú lateral; la barra empieza por el grupo Escala.)*
-2. **Grupo Escala:** `Tónica` + `Tipo` (selects nativos en marco agrupado `div[role="group"]`). Aplican al cambiar en el evento `change`, sin botón "Aplicar". Nombres de tipo de escala normalizados y directos (ej. `Bebop dórico`, `Disminuida semitono-tono`, `Disminuida tono-semitono`).
-3. **Grupo Acorde:** `Tónica` + `Calidad` + botón `Quitar` (en marco agrupado `div[role="group"]`). Los selects se aplican al cambiar.
+2. **Grupo Escala:** `Tónica` (select nativo compacto) + disparador `Tipo` (`ScalePicker`, en marco agrupado `div[role="group"]`). Al abrir el desplegable de `Tipo` se muestra un popover categorizado en 2 columnas (`MAYOR Y MODOS`, `MENORES ALTERADAS`, `PENTATÓNICAS Y BLUES`, `NAPOLITANAS`, `BEBOP`, `SIMÉTRICAS`) con buscador en tiempo real, contador de escalas, fórmula de grados por escala y barra inferior de previsualización en vivo (`Previsualizando <Escala> <fórmula> · <contexto madre>`) más atajos (`↵ aplicar` · `Esc cerrar`).
+3. **Grupo Acorde:** `Tónica` (select nativo compacto) + disparador `Calidad` + botón `Quitar` (`ChordPicker`, en marco agrupado `div[role="group"]`). Al abrir el desplegable de `Calidad` se muestra un popover categorizado en 2 columnas (`TRÍADAS`, `SEXTAS Y AÑADIDAS`, `SÉPTIMAS`, `NOVENAS`) con buscador, cifrado dinámico según la tónica actual (`C`, `Cm`, `C°`, `C+`, `Cmaj7`, etc.), nombre en español, fórmula de grados y barra inferior de previsualización en vivo (`Previsualizando <Acorde> <notas> · <calidad>`).
 4. **Reproducción** (segmentado): `▶ Acorde · ▶ Arpegio · ▶ Escala`. **Siempre visible**: cuando no hay selección reproducible disponible, los botones se muestran deshabilitados (`disabled` con opacidad atenuada y tooltip descriptivo), evitando saltos o huecos vacíos en la barra.
 5. Espacio flexible (`flex: 1`).
 6. `Sonido [M]` (`aria-pressed`), `Limpiar [C]`, `Ajustes` (`aria-haspopup="dialog"`, `aria-expanded`).

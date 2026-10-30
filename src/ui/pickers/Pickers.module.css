@@ -1,3 +1,9 @@
+.pickerWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .pickerGroup {
   display: inline-flex;
   align-items: center;
@@ -39,7 +45,7 @@
   border-radius: var(--radius-control);
   color: var(--text-primary);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   box-sizing: border-box;
@@ -50,18 +56,65 @@
   border-color: var(--accent);
 }
 
-.scaleTypeSelect {
-  max-width: 140px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
+.dropdownTrigger {
+  height: 26px;
+  padding: 0 8px 0 10px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
-.chordQualitySelect {
-  max-width: 120px;
+.dropdownTrigger:hover {
+  border-color: #475569;
+  background-color: #161b24;
+}
+
+.dropdownTrigger:focus-visible,
+.dropdownTriggerOpen {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+
+.scaleTypeTrigger {
+  min-width: 152px;
+  max-width: 190px;
+}
+
+.chordQualityTrigger {
+  min-width: 116px;
+  max-width: 150px;
+}
+
+.triggerText {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  overflow: hidden;
+}
+
+.triggerChevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.dropdownTriggerOpen .triggerChevron {
+  transform: rotate(180deg);
+  color: #93c5fd;
 }
 
 .clearContextBtn {
@@ -79,14 +132,330 @@
   white-space: nowrap;
 }
 
-.clearContextBtn:hover {
+.clearContextBtn:hover:not(:disabled) {
   background-color: rgba(239, 68, 68, 0.15);
   border-color: #ef4444;
   color: #fca5a5;
 }
 
-.clearContextBtnHidden {
-  display: none;
+.clearContextBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Popover Desplegable de Escala / Acorde */
+.popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 650px;
+  max-width: calc(100vw - 96px);
+  max-height: calc(100vh - var(--topbar-height, 48px) - 18px);
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  color: var(--text-primary);
+}
+
+@media (min-width: 2200px) and (min-height: 1200px) {
+  .popover {
+    width: 690px;
+  }
+}
+
+.caret {
+  position: absolute;
+  top: -6px;
+  left: 116px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* Buscador superior */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+
+.searchInput::placeholder {
+  color: #64748b;
+}
+
+.searchInput:focus {
+  border-color: var(--accent);
+}
+
+.searchCount {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Cuerpo de categorías */
+.categoriesBody {
+  padding: 8px 14px 10px 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.categorySection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.categoryTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.categoryMeta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.itemsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 12px;
+}
+
+/* Celda de opción común */
+.optionBtn {
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 10px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  box-sizing: border-box;
+  outline: none;
+  transition:
+    background-color 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.optionBtnSelected {
+  background-color: #101b33;
+  border-color: var(--accent);
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.optionBtnPreviewed:not(.optionBtnSelected) {
+  background-color: rgba(59, 7, 100, 0.32);
+  border: 1px dashed #a855f7;
+}
+
+.optionBtnSelected.optionBtnPreviewed {
+  box-shadow: 0 0 0 1px #a855f7;
+}
+
+.optionLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.checkIcon {
+  color: #60a5fa;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.optionName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionFormula {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}
+
+.optionBtnSelected .optionFormula {
+  color: #cbd5e1;
+}
+
+/* Celda de calidad de acorde (3 columnas internas: cifrado | nombre | fórmula) */
+.chordOptionBtn {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.chordSymbolText {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #60a5fa;
+  white-space: nowrap;
+}
+
+.chordLabelCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #e2e8f0;
+  font-size: 12.5px;
+}
+
+.optionBtnSelected .chordLabelCell {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.emptySearch {
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Pie de previsualización y atajos */
+.popoverFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  background-color: rgba(10, 12, 16, 0.45);
+  border-bottom-left-radius: var(--radius-card);
+  border-bottom-right-radius: var(--radius-card);
+  flex-shrink: 0;
+}
+
+.previewSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.previewTag {
+  color: #c084fc;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.previewStrong {
+  color: #ffffff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.previewMono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.previewContextNote {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footerShortcuts {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.shortcutItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kbdBadge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background-color: var(--surface-2);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 .visuallyHidden {

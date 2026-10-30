@@ -301,7 +301,11 @@ export function SandboxView({
         {/* Barra superior (fila única) */}
         <TopBar
           context={context}
-          onSelectContext={(ctx) => sandboxStore.getState().setContext(ctx)}
+          onSelectContext={(ctx) => {
+            sandboxStore.getState().setPreview(null);
+            sandboxStore.getState().setContext(ctx);
+          }}
+          onPreviewContext={(ctx) => sandboxStore.getState().setPreview(ctx)}
           nameMode={nameMode}
           onNameModeChange={(mode) => settingsStore.getState().setNameMode(mode)}
           labels={labels}

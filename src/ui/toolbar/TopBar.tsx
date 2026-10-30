@@ -10,6 +10,7 @@ import styles from './TopBar.module.css';
 export interface TopBarProps {
   context: MenuContext | null;
   onSelectContext: (ctx: MenuContext | null) => void;
+  onPreviewContext?: (ctx: MenuContext | null) => void;
   nameMode: NameMode;
   onNameModeChange: (mode: NameMode) => void;
   labels: LabelMode;
@@ -38,6 +39,7 @@ export interface TopBarProps {
 export function TopBar({
   context,
   onSelectContext,
+  onPreviewContext,
   nameMode,
   onNameModeChange,
   labels,
@@ -62,7 +64,8 @@ export function TopBar({
   canPlayChordAndArpeggio = false,
   canPlayScale = false,
 }: TopBarProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePopover, setActivePopover] = useState<'scale' | 'chord' | 'settings' | null>(null);
+  const settingsOpen = activePopover === 'settings';
 
   return (
     <header
@@ -72,10 +75,28 @@ export function TopBar({
       aria-label="Barra de herramientas"
     >
       {/* 1. Selector de Escala */}
-      <ScalePicker context={context} nameMode={nameMode} onSelectContext={onSelectContext} />
+      <ScalePicker
+        context={context}
+        nameMode={nameMode}
+        onSelectContext={onSelectContext}
+        onPreviewContext={onPreviewContext}
+        open={activePopover === 'scale'}
+        onOpenChange={(open) => {
+          setActivePopover((prev) => (open ? 'scale' : prev === 'scale' ? null : prev));
+        }}
+      />
 
       {/* 2. Selector de Acorde */}
-      <ChordPicker context={context} nameMode={nameMode} onSelectContext={onSelectContext} />
+      <ChordPicker
+        context={context}
+        nameMode={nameMode}
+        onSelectContext={onSelectContext}
+        onPreviewContext={onPreviewContext}
+        open={activePopover === 'chord'}
+        onOpenChange={(open) => {
+          setActivePopover((prev) => (open ? 'chord' : prev === 'chord' ? null : prev));
+        }}
+      />
 
       {/* 3. Reproducción (segmentado) */}
       <PlaybackGroup
@@ -131,7 +152,10 @@ export function TopBar({
         <button
           type="button"
           className={`${styles.actionBtn} ${settingsOpen ? styles.actionBtnActive : ''}`}
-          onClick={() => setSettingsOpen((prev) => !prev)}
+          onClick={() => {
+            onPreviewContext?.(null);
+            setActivePopover((prev) => (prev === 'settings' ? null : 'settings'));
+          }}
           data-testid="settings-button"
           aria-haspopup="dialog"
           aria-expanded={settingsOpen}
@@ -149,7 +173,7 @@ export function TopBar({
       {/* Menú Ajustes en popover */}
       <SettingsPopover
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => setActivePopover((prev) => (prev === 'settings' ? null : prev))}
         tuning={tuning}
         onTuningChange={onTuningChange}
         nameMode={nameMode}

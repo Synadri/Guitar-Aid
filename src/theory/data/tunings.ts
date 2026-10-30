@@ -9,7 +9,7 @@ const STANDARD = [40, 45, 50, 55, 59, 64] as const; // E2 A2 D3 G3 B3 E4
 const shift = (base: readonly number[], n: number) => base.map((m) => m + n);
 
 export const TUNINGS: readonly Tuning[] = [
-  { id: 'standard', name: 'Estándar (E A D G B E)', strings: STANDARD },
+  { id: 'standard', name: 'Estándar', strings: STANDARD },
   { id: 'dropD', name: 'Drop D', strings: [38, 45, 50, 55, 59, 64] },
   { id: 'dadgad', name: 'DADGAD', strings: [38, 45, 50, 55, 57, 62] },
   { id: 'openG', name: 'Open G', strings: [38, 43, 50, 55, 59, 62] },

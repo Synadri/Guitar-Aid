@@ -566,4 +566,83 @@ describe('Selectores de acorde y escala y navegador de voicings (U4)', () => {
     );
     expect(sandboxStore.getState().voicingIndex).toBe(secondStrings13Idx);
   });
+
+  it('(m) los desplegables enriquecidos de Escala y Acorde permiten buscar, previsualizar en vivo en mástil/piano, navegar con teclado y aplicar, y el pie del mástil muestra “Estándar · E A D G B E · 24 trastes”', () => {
+    const { sandboxStore, settingsStore } = createIsolatedStores();
+    const { container } = render(
+      <SandboxView sandboxStore={sandboxStore} settingsStore={settingsStore} />,
+    );
+
+    // 1. Verificar pie del mástil sin duplicar "(E A D G B E)"
+    expect(container.textContent).toContain('Estándar · E A D G B E · 24 trastes');
+    expect(container.textContent).not.toContain('Estándar (E A D G B E)');
+
+    // 2. Abrir el desplegable enriquecido de Escala
+    const scaleTrigger = screen.getByTestId('scale-type-trigger');
+    fireEvent.click(scaleTrigger);
+
+    const scalePopover = screen.getByTestId('scale-picker-popover');
+    expect(scalePopover).toBeDefined();
+    expect(within(scalePopover).getByTestId('scale-search-count').textContent).toBe('22 escalas');
+
+    // Pasar el ratón sobre Dórico activa preview en el store y actualiza el pie del popover
+    const dorianOption = within(scalePopover).getByTestId('scale-option-dorian');
+    fireEvent.mouseEnter(dorianOption);
+    expect(sandboxStore.getState().preview).toEqual({
+      kind: 'scale',
+      root: 0,
+      type: 'dorian',
+    });
+    expect(within(scalePopover).getByTestId('scale-picker-preview-info').textContent).toContain(
+      'C Dórico',
+    );
+
+    // Filtrar por búsqueda ("bebop")
+    const scaleSearch = within(scalePopover).getByTestId('scale-search-input');
+    fireEvent.change(scaleSearch, { target: { value: 'bebop' } });
+    expect(within(scalePopover).getByTestId('scale-search-count').textContent).toBe('5 escalas');
+
+    // Pulsar Enter en el popover aplica la primera escala filtrada (bebopDominant) y cierra el popover
+    fireEvent.keyDown(scalePopover, { key: 'Enter' });
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'scale',
+      root: 0,
+      type: 'bebopDominant',
+    });
+    expect(sandboxStore.getState().preview).toBeNull();
+    expect(screen.queryByTestId('scale-picker-popover')).toBeNull();
+
+    // 3. Abrir el desplegable enriquecido de Acorde
+    const chordTrigger = screen.getByTestId('chord-quality-trigger');
+    fireEvent.click(chordTrigger);
+
+    const chordPopover = screen.getByTestId('chord-picker-popover');
+    expect(chordPopover).toBeDefined();
+    expect(within(chordPopover).getByTestId('chord-search-count').textContent).toBe('19 calidades');
+
+    // Pasar el ratón sobre maj7 activa preview en el store y muestra notas C E G B en el pie
+    const maj7Option = within(chordPopover).getByTestId('chord-option-maj7');
+    fireEvent.mouseEnter(maj7Option);
+    expect(sandboxStore.getState().preview).toEqual({
+      kind: 'chord',
+      root: 0,
+      quality: 'maj7',
+    });
+    expect(within(chordPopover).getByTestId('chord-picker-preview-info').textContent).toContain(
+      'Cmaj7',
+    );
+    expect(within(chordPopover).getByTestId('chord-picker-preview-info').textContent).toContain(
+      'C E G B',
+    );
+
+    // Hacer clic en maj7 aplica el acorde y cierra el popover
+    fireEvent.click(maj7Option);
+    expect(sandboxStore.getState().context).toEqual({
+      kind: 'chord',
+      root: 0,
+      quality: 'maj7',
+    });
+    expect(sandboxStore.getState().preview).toBeNull();
+    expect(screen.queryByTestId('chord-picker-popover')).toBeNull();
+  });
 });
