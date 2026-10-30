@@ -1,4 +1,4 @@
-import type { Tuning } from '../data/tunings';
+import { STANDARD_TUNING, type Tuning } from '../data/tunings';
 
 /** Cuerda 1 = la más aguda, 6 = la más grave. */
 export type StringNumber = 1 | 2 | 3 | 4 | 5 | 6;
@@ -8,6 +8,13 @@ export interface FretPosition {
 }
 
 export const DEFAULT_FRETS = 24;
+
+export type FretRange = [min: number, max: number] | { min?: number; max?: number };
+
+export interface PositionsAtIntervalOptions {
+  strings?: readonly StringNumber[] | StringNumber[];
+  fretRange?: FretRange;
+}
 
 function openMidi(tuning: Tuning, string: StringNumber): number {
   // strings va de grave a aguda: la cuerda 6 es el índice 0.
@@ -62,4 +69,80 @@ export function relocatePosition(
   return candidates.reduce((best, p) =>
     Math.abs(p.fret - previous.fret) < Math.abs(best.fret - previous.fret) ? p : best,
   );
+}
+
+/**
+ * Semitonos entre dos posiciones del mástil (posB - posA, positivo si posB es más aguda).
+ * Si no se especifica afinación, se usa STANDARD_TUNING.
+ * Si las posiciones están en la misma cuerda, la diferencia es posB.fret - posA.fret
+ * de forma directa sin depender de la afinación.
+ */
+export function intervalBetween(
+  posA: FretPosition,
+  posB: FretPosition,
+  tuning?: Tuning,
+): number;
+export function intervalBetween(
+  tuning: Tuning,
+  posA: FretPosition,
+  posB: FretPosition,
+): number;
+export function intervalBetween(
+  arg1: FretPosition | Tuning,
+  arg2: FretPosition,
+  arg3?: FretPosition | Tuning,
+): number {
+  let tuning: Tuning;
+  let posA: FretPosition;
+  let posB: FretPosition;
+
+  if ('strings' in arg1 && 'id' in arg1) {
+    tuning = arg1;
+    posA = arg2;
+    posB = arg3 as FretPosition;
+  } else {
+    posA = arg1;
+    posB = arg2;
+    tuning = (arg3 as Tuning | undefined) ?? STANDARD_TUNING;
+  }
+
+  if (posA.string === posB.string) {
+    return posB.fret - posA.fret;
+  }
+  return positionToMidi(tuning, posB) - positionToMidi(tuning, posA);
+}
+
+/**
+ * Encuentra todas las posiciones en el mástil que están a una distancia de `semis`
+ * semitonos respecto a `pos`, opcionalmente filtradas por cuerdas activas y rango de trastes.
+ *
+ * `semis`: distancia con signo (positivo = ascendente, negativo = descendente).
+ */
+export function positionsAtInterval(
+  tuning: Tuning,
+  pos: FretPosition,
+  semis: number,
+  options?: PositionsAtIntervalOptions,
+): FretPosition[] {
+  const targetMidi = positionToMidi(tuning, pos) + semis;
+
+  let minFret = 0;
+  let maxFret = DEFAULT_FRETS;
+
+  if (options?.fretRange) {
+    if (Array.isArray(options.fretRange)) {
+      minFret = options.fretRange[0];
+      maxFret = options.fretRange[1];
+    } else {
+      if (options.fretRange.min !== undefined) minFret = options.fretRange.min;
+      if (options.fretRange.max !== undefined) maxFret = options.fretRange.max;
+    }
+  }
+
+  const all = midiToPositions(tuning, targetMidi, maxFret);
+  return all.filter((p) => {
+    if (p.fret < minFret || p.fret > maxFret) return false;
+    if (options?.strings && !options.strings.includes(p.string)) return false;
+    return true;
+  });
 }

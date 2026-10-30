@@ -19,10 +19,17 @@ const LONG_NAMES = [
 
 const DEGREES = ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'] as const;
 
-export type IntervalShortName = (typeof NAMES)[number];
+export type IntervalShortName = (typeof NAMES)[number] | 'P8' | 'M9';
 export type IntervalLongName =
-  (typeof LONG_NAMES)[number] | '5ª disminuida' | '5ª aumentada' | '9ª mayor' | '7ª disminuida';
-export type Degree = (typeof DEGREES)[number] | '♯4' | '♯5' | '9' | '♭♭7';
+  | (typeof LONG_NAMES)[number]
+  | '5ª disminuida'
+  | '5ª aumentada'
+  | '4ª aumentada'
+  | '9ª mayor'
+  | '7ª disminuida'
+  | 'octava'
+  | 'octava justa';
+export type Degree = (typeof DEGREES)[number] | '♯4' | '♯5' | '9' | '♭♭7' | '8';
 
 function mod12(semitones: number): number {
   return ((semitones % 12) + 12) % 12;
@@ -38,22 +45,26 @@ export function pcInterval(from: PitchClass, to: PitchClass): number {
   return mod12(to - from);
 }
 
-/** Nombre corto del intervalo simple (0–11 semitonos), p. ej. "P1", "m3", "P5", "m7". */
+/** Nombre corto del intervalo (0–11 semitonos; 12 → "P8", 14 → "M9"), p. ej. "P1", "m3", "P5", "m7". */
 export function intervalName(semitones: number): IntervalShortName {
+  if (semitones === 12) return 'P8';
+  if (semitones === 14) return 'M9';
   return NAMES[mod12(semitones)]!;
 }
 
 /**
  * Nombre descriptivo en español del intervalo respecto a la fundamental
- * (p. ej. 0 → "fundamental", 3 → "3ª menor", 7 → "5ª justa", 10 → "7ª menor").
+ * (p. ej. 0 → "fundamental", 3 → "3ª menor", 7 → "5ª justa", 10 → "7ª menor", 12 → "octava", 14 → "9ª mayor").
  */
 export function intervalLongName(semitones: number): IntervalLongName {
+  if (semitones === 12) return 'octava';
   if (semitones === 14) return '9ª mayor';
   return LONG_NAMES[mod12(semitones)]!;
 }
 
-/** Grado cromático respecto a la tónica/fundamental (0–11 semitonos; 14 → "9"). */
+/** Grado cromático respecto a la tónica/fundamental (0–11 semitonos; 12 → "8", 14 → "9"). */
 export function degreeName(semitones: number): Degree {
+  if (semitones === 12) return '8';
   if (semitones === 14) return '9';
   return DEGREES[mod12(semitones)]!;
 }

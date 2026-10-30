@@ -47,10 +47,13 @@ describe('interval / pcset', () => {
     expect(intervalName(3)).toBe('m3');
     expect(intervalName(7)).toBe('P5');
     expect(intervalName(10)).toBe('m7');
+    expect(intervalName(12)).toBe('P8');
+    expect(intervalName(14)).toBe('M9');
     expect(intervalLongName(0)).toBe('fundamental');
     expect(intervalLongName(3)).toBe('3ª menor');
     expect(intervalLongName(7)).toBe('5ª justa');
     expect(intervalLongName(10)).toBe('7ª menor');
+    expect(intervalLongName(12)).toBe('octava');
     expect(intervalLongName(14)).toBe('9ª mayor');
   });
   it('grados respecto a la raíz', () => {
@@ -59,6 +62,7 @@ describe('interval / pcset', () => {
     expect(degreeName(4)).toBe('3');
     expect(degreeName(7)).toBe('5');
     expect(degreeName(10)).toBe('♭7');
+    expect(degreeName(12)).toBe('8');
     expect(degreeName(14)).toBe('9');
     expect(pcDegree(9, 0)).toBe('♭3');
     expect(pcDegree(9, 4)).toBe('5');

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { getTuning, STANDARD_TUNING, TUNINGS } from '../data/tunings';
 import { midiToName, nameToMidi } from '../core/spelling';
-import { equivalentPositions, midiToPositions, positionToMidi, relocatePosition } from '.';
+import {
+  equivalentPositions,
+  intervalBetween,
+  midiToPositions,
+  positionsAtInterval,
+  positionToMidi,
+  relocatePosition,
+} from '.';
 
 const dropD = getTuning('dropD')!;
 
@@ -98,5 +105,62 @@ describe('recolocación (criterio 7, teoría)', () => {
       string: 5,
       fret: 7,
     });
+  });
+});
+
+describe('intervalBetween y positionsAtInterval (Hito A1)', () => {
+  it('intervalBetween en la misma cuerda es la diferencia de trastes', () => {
+    // Cuerda 5, traste 3 (C3) a traste 7 (E3) = 4 semitonos (3ª mayor)
+    expect(intervalBetween({ string: 5, fret: 3 }, { string: 5, fret: 7 })).toBe(4);
+    expect(intervalBetween({ string: 5, fret: 7 }, { string: 5, fret: 3 })).toBe(-4);
+  });
+
+  it('intervalBetween distingue la irregularidad Sol–Si (criterio e)', () => {
+    // (4, 2) = E3 a (3, 2) = A3 es 5 semitonos (P4)
+    expect(intervalBetween({ string: 4, fret: 2 }, { string: 3, fret: 2 })).toBe(5);
+    // pero (3, 2) = A3 a (2, 2) = C♯4 es 4 semitonos (M3)
+    expect(intervalBetween({ string: 3, fret: 2 }, { string: 2, fret: 2 })).toBe(4);
+  });
+
+  it('intervalBetween soporta afinación explícita en cualquier posición de argumento', () => {
+    expect(
+      intervalBetween(STANDARD_TUNING, { string: 4, fret: 2 }, { string: 3, fret: 2 }),
+    ).toBe(5);
+    expect(
+      intervalBetween({ string: 4, fret: 2 }, { string: 3, fret: 2 }, STANDARD_TUNING),
+    ).toBe(5);
+  });
+
+  it('positionsAtInterval en una cuerda (criterio d: B1)', () => {
+    // (5, 3) = C3 + 4 semitonos (M3) en cuerda 5, trastes 0–12 → (5, 7) = E3
+    const positions = positionsAtInterval(
+      STANDARD_TUNING,
+      { string: 5, fret: 3 },
+      4,
+      { strings: [5], fretRange: [0, 12] },
+    );
+    expect(positions).toEqual([{ string: 5, fret: 7 }]);
+  });
+
+  it('positionsAtInterval hacia otra cuerda (criterio e: B2)', () => {
+    // Desde (3, 5) = C4, M3 (4 semitonos) hacia cuerda 2 → (2, 5) = E4
+    const positions = positionsAtInterval(
+      STANDARD_TUNING,
+      { string: 3, fret: 5 },
+      4,
+      { strings: [2] },
+    );
+    expect(positions).toEqual([{ string: 2, fret: 5 }]);
+  });
+
+  it('positionsAtInterval en Drop D respeta la cuerda grave', () => {
+    // En Drop D, desde (6, 0) = D2, octava (+12) en la cuerda 6
+    const octaveOn6 = positionsAtInterval(
+      dropD,
+      { string: 6, fret: 0 },
+      12,
+      { strings: [6], fretRange: [0, 12] },
+    );
+    expect(octaveOn6).toEqual([{ string: 6, fret: 12 }]);
   });
 });

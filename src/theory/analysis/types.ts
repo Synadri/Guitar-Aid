@@ -32,7 +32,11 @@ export type ReasonCode =
   | 'relativeScale'
   | 'closeScaleVariant'
   | 'appearsInKey'
-  | 'progressionCommonness';
+  | 'progressionCommonness'
+  | 'formulaExact'
+  | 'formulaAddsTone'
+  | 'formulaMissingTone'
+  | 'sameNotesOtherRoot';
 
 export interface Reason {
   code: ReasonCode;

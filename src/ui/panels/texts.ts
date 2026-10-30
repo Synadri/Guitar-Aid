@@ -67,6 +67,10 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
     return `grado ${degree}`;
   },
   progressionCommonness: () => 'progresión habitual',
+  formulaExact: () => 'coincidencia exacta',
+  formulaAddsTone: (params) => `añade ${params?.degree ?? params?.tone ?? ''}`,
+  formulaMissingTone: (params) => `quita ${params?.degree ?? params?.tone ?? ''}`,
+  sameNotesOtherRoot: (params) => `sobre el ${params?.rootDegree ?? params?.degree ?? ''}`,
 };
 
 /** Traduce una razón estructurada del módulo de teoría a texto en español. */
