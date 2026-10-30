@@ -106,3 +106,63 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
 
 ### 6. Integración en el sistema de razones y traducción UI
 - **Decisión:** Se agregaron `formulaExact`, `formulaAddsTone`, `formulaMissingTone` y `sameNotesOtherRoot` a `ReasonCode` (`src/theory/analysis/types.ts`) y sus respectivos formateadores en español en `REASON_FORMATTERS` (`src/ui/panels/texts.ts`), garantizando consistencia tipada en todo el proyecto.
+
+---
+
+## 2026-10-30 — Hito A2: Motor de ejercicios (Puro)
+
+### 1. Modelo desacoplado de respuestas y corrección (`src/learning/answers.ts`)
+- **Decisión:**
+  - `AnswerInput`: unión discriminada que contempla `positions` (`FretPosition[]`), `pitchClass` (`PitchClass`), `interval` (`semitones`, `interval`), `labels` (`{ position, label }[]`), `choice` (`string | number`) y `midi` (`number[]`).
+  - `ExpectedAnswer`: unión discriminada con las mismas categorías para representar la solución de una pregunta.
+  - `Grade`: estructura de resultado con `correct` (booleano), `partial` (booleano opcional), `score` (0 a 1), listas detalladas de `hits` (aciertos), `misses` (faltantes) y `extras` (sobrantes o incorrectos), y `explanation` (texto pedagógico con diagnóstico o confirmación teórica).
+- **Justificación:** `AnswerInput` y `grade()` son completamente independientes de React, del DOM y de Zustand. Hoy reciben las entradas generadas por clics en mástil, piano o botones; en la Fase 4 podrán recibir directamente clases de altura o notas MIDI desde el detector de audio sin modificar una sola línea del corrector.
+
+### 2. Modos de evaluación `all` y `first` (Criterio f)
+- **Decisión:**
+  - En modo `'first'`, la pregunta se considera superada con éxito (`correct: true`, `score: 1`) en cuanto el usuario introduce cualquiera de las posiciones válidas esperadas. Si la posición es incorrecta, se reporta como extra y la corrección informa de los fallos.
+  - En modo `'all'`, se exige marcar todas las posiciones esperadas sin sobrantes (`misses.length === 0 && extras.length === 0`). Si el usuario introduce un subconjunto correcto pero incompleto, o incluye sobrantes, `grade()` marca `partial: true` y calcula una puntuación proporcional `score` desglosando con precisión `hits`, `misses` y `extras`.
+
+### 3. Catálogo tipado y modularización de ejercicios (`src/learning/drills/`)
+- **Decisión:** Se dividió la lógica generadora en cuatro módulos especializados con tipado estricto:
+  - `notes.ts`:
+    - **A1 (Encuentra la nota):** genera una clase de altura y resuelve todas las posiciones en las cuerdas activas y rango de trastes configurado.
+    - **A2 (Nombra la nota):** selecciona una posición y exige elegir la clase de altura correspondiente.
+  - `intervals.ts`:
+    - **B1 (Intervalo en una cuerda):** selecciona una posición de referencia y un intervalo a recorrer a lo largo de la misma cuerda (Criterio d).
+    - **B2 (Intervalo entre cuerdas):** selecciona origen y destino entre pares de cuerdas distintos, teniendo en cuenta la afinación real (Criterio e).
+    - **B3 (Nombra el intervalo):** presenta dos posiciones en el mástil y exige determinar la distancia interválica en semitonos o nombre corto (Criterio e).
+    - **B4 (Mapa de intervalos):** proporciona una raíz y un intervalo y pide marcar todas las ocurrencias de ese grado armónico en el mástil.
+  - `shapes.ts`:
+    - **B5 (Etiqueta la forma):** utiliza el diccionario de voicings (`OPEN_VOICING_SHAPES`) para presentar las posiciones de un acorde conocido y exigir la identificación del grado de cada nota respecto a la fundamental (Criterio g).
+  - `build.ts`:
+    - **C1 (Construye el acorde):** práctica de construcción de acordes sobre una cuerda única (arpegio lineal) o zona del mástil.
+    - **C2 (Escala en una cuerda):** práctica de escalas de forma lineal sobre una sola cuerda elegida.
+  - `index.ts`: exporta `generateDrillQuestion(drillId, rng, config, stats)` como despachador maestro determinista.
+
+### 4. Precisión teórica y casos límite verificados
+- **Criterio (d) — B1 en misma cuerda:**
+  - Referencia en (5, 3) [C3] + 3ª mayor (`M3`, 4 semitones) ascendente en la cuerda 5 da como única respuesta correcta (5, 7) [E3]. Marcar (4, 2) (que es E3 pero en la cuerda 4) es evaluado como incorrecto (`correct: false`, `extras: [(4, 2)]`, `misses: [(5, 7)]`).
+- **Criterio (e) — Irregularidad Sol–Si en B2 y B3:**
+  - En afinación estándar, B3 distingue que (4, 2) → (3, 2) son 5 semitonos (`P4`), mientras que (3, 2) → (2, 2) son 4 semitonos (`M3`).
+  - En B2, desde (3, 5) [C4] una 3ª mayor hacia la cuerda 2 resuelve exactamente en (2, 5) [E4].
+- **Criterio (f) — A1 en estándar y modo `all`:**
+  - Para la nota «C» en las 6 cuerdas y trastes 0–12, el conjunto esperado calculado es exactamente `{(6, 8), (5, 3), (4, 10), (3, 5), (2, 1), (1, 8)}`.
+- **Criterio (g) — B5 con Am abierto:**
+  - Para el voicing `x-0-2-2-1-0` (`open-Am`), los grados resueltos para las cuerdas 5 a 1 son exactamente `1, 5, 1, ♭3, 5`.
+- **Criterio (o) — Soporte de afinaciones alternativas (Drop D):**
+  - Con afinación Drop D (`[38, 45, 50, 55, 59, 64]`), la nota «D» en la cuerda 6 dentro del rango de trastes 0–12 genera exactamente las posiciones `(6, 0)` [D2] y `(6, 12)` [D3].
+
+### 5. Algoritmo adaptativo determinista (`src/learning/drills/adaptive.ts`) (Criterio q)
+- **Decisión:**
+  - Se diseñó la función `computeItemWeight(key, statsMap)` que pondera los ítems de acuerdo a su historial estadístico:
+    - Base de peso = $1.0$.
+    - Ponderación por tasa de fallos reciente: hasta $+4.0 \times \text{errorRate}$ sobre los últimos intentos (`recentResults`).
+    - Si el último intento fue fallido, aplica un refuerzo de reintento de $+1.0$.
+    - Si el tiempo de respuesta medio supera los 4 segundos, añade peso por vacilación.
+  - La selección se realiza con `adaptivePick()` mediante el RNG con semilla inyectable (`weightedPick`).
+  - **Verificación determinista:** Con una semilla fija (Mulberry32), un ítem con fallos recientes se selecciona más del 65 % de las veces frente a uno sin fallos en 100 iteraciones (test unitario automatizado).
+
+### 6. Cumplimiento estricto de la regla de capas
+- Toda la lógica desarrollada en `src/learning/` es TypeScript puro. Importa exclusivamente de `src/theory/` y de utilidades internas de `src/learning/`.
+- Queda verificado mediante ESLint y `src/architecture/layers.test.ts`, manteniendo el aislamiento total de UI, DOM, Audio y Zustand.
