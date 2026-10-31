@@ -1,4 +1,4 @@
-import type { PitchClass } from '../../theory';
+import type { NameMode, PitchClass } from '../../theory';
 import { intervalLongName, intervalName } from '../../theory/core/interval';
 import { pcName } from '../../theory/core/spelling';
 import { CHORD_QUALITIES, type ChordQualityId, getChordQuality } from '../../theory/data/chords';
@@ -81,12 +81,13 @@ function resolveFretnote(
   fret: number,
   facet: CardFacet,
   tuning: Tuning,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   if (string < 1 || string > 6 || fret < 0 || fret > 24) return null;
 
   const midi = positionToMidi(tuning, { string, fret });
   const pc = ((midi % 12) + 12) % 12 as PitchClass;
-  const name = pcName(pc);
+  const name = pcName(pc, nameMode);
   const pos: FretPosition = { string, fret };
 
   if (facet === 'pos>name') {
@@ -138,10 +139,11 @@ function resolveNotestring(
   string: StringNumber,
   facet: CardFacet,
   tuning: Tuning,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   if (string < 1 || string > 6 || pitchClass < 0 || pitchClass > 11) return null;
 
-  const name = pcName(pitchClass);
+  const name = pcName(pitchClass, nameMode);
   const matchingFrets: number[] = [];
 
   for (let f = 0; f <= 24; f++) {
@@ -211,6 +213,7 @@ function resolveQuality(qualityId: ChordQualityId, facet: CardFacet): ResolvedCa
   const formulaStr = formulaTones.map((t) => t.degree).join(' ');
   const degrees = formulaTones.map((t) => t.degree);
   const fullName = `${quality.name} (${quality.symbol || quality.id})`;
+  const audioMidis = formulaTones.map((t) => 60 + t.semitones);
 
   if (facet === 'name>formula') {
     return {
@@ -228,6 +231,7 @@ function resolveQuality(qualityId: ChordQualityId, facet: CardFacet): ResolvedCa
         degrees,
         details: formulaTones.map((t) => `${t.degree} (${t.intervalLong})`).join(' · '),
       },
+      audioMidis,
       sandboxContext: { chordQuality: qualityId, mode: 'chord' },
     };
   }
@@ -248,6 +252,7 @@ function resolveQuality(qualityId: ChordQualityId, facet: CardFacet): ResolvedCa
         degrees,
         details: `Símbolo: ${quality.symbol || quality.id}`,
       },
+      audioMidis,
       sandboxContext: { chordQuality: qualityId, mode: 'chord' },
     };
   }
@@ -259,16 +264,18 @@ function resolveChord(
   pitchClass: PitchClass,
   qualityId: ChordQualityId,
   facet: CardFacet,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   const quality = CHORD_QUALITIES.find((q) => q.id === qualityId);
   if (!quality) return null;
 
-  const rootName = pcName(pitchClass);
+  const rootName = pcName(pitchClass, nameMode);
   const chordName = `${rootName}${quality.symbol}`;
   const formulaTones = formulaOfChord({ root: pitchClass, quality: qualityId });
-  const noteNames = formulaTones.map((t) => pcName(t.pc));
+  const noteNames = formulaTones.map((t) => pcName(t.pc, nameMode));
   const notesStr = noteNames.join(' · ');
   const degrees = formulaTones.map((t) => t.degree);
+  const audioMidis = formulaTones.map((t) => 60 + pitchClass + t.semitones);
 
   if (facet === 'name>notes') {
     return {
@@ -287,6 +294,7 @@ function resolveChord(
         degrees,
         details: `${chordName} = ${notesStr}`,
       },
+      audioMidis,
       sandboxContext: { root: pitchClass, chordQuality: qualityId, mode: 'chord' },
     };
   }
@@ -307,6 +315,7 @@ function resolveChord(
         notes: noteNames,
         degrees,
       },
+      audioMidis,
       sandboxContext: { root: pitchClass, chordQuality: qualityId, mode: 'chord' },
     };
   }
@@ -327,6 +336,7 @@ function resolveChord(
         degrees,
         notes: noteNames,
       },
+      audioMidis,
       sandboxContext: { root: pitchClass, chordQuality: qualityId, mode: 'chord' },
     };
   }
@@ -339,6 +349,7 @@ function resolveVoicing(
   root: PitchClass,
   facet: CardFacet,
   tuning: Tuning,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   const openShape = OPEN_VOICING_SHAPES.find((s) => s.id === templateId);
   const movableShape = MOVABLE_VOICING_SHAPES.find((s) => s.id === templateId);
@@ -369,7 +380,7 @@ function resolveVoicing(
   if (hasInvalidFret) return null;
 
   const quality = getChordQuality(voicing.quality);
-  const rootName = pcName(root);
+  const rootName = pcName(root, nameMode);
   const chordName = `${rootName}${quality.symbol}`;
 
   const familyLabels: Record<string, string> = {
@@ -383,7 +394,7 @@ function resolveVoicing(
   const fretsText = voicing.frets.join(' ');
   const noteNames = voicing.positions.map((p) => {
     const m = positionToMidi(tuning, p);
-    return pcName((((m % 12) + 12) % 12) as PitchClass);
+    return pcName((((m % 12) + 12) % 12) as PitchClass, nameMode);
   });
 
   if (facet === 'name>shape') {
@@ -454,6 +465,7 @@ function resolveScaletype(scaleId: ScaleTypeId, facet: CardFacet): ResolvedCard 
   const formulaTones = formulaOfScale({ tonic: 0, type: scaleId });
   const formulaStr = formulaTones.map((t) => t.degree).join(' ');
   const degrees = formulaTones.map((t) => t.degree);
+  const audioMidis = [...formulaTones.map((t) => 60 + t.semitones), 72];
 
   if (facet === 'name>formula') {
     return {
@@ -471,6 +483,7 @@ function resolveScaletype(scaleId: ScaleTypeId, facet: CardFacet): ResolvedCard 
         degrees,
         details: formulaTones.map((t) => `${t.degree} (${t.intervalLong})`).join(' · '),
       },
+      audioMidis,
       sandboxContext: { scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -490,6 +503,7 @@ function resolveScaletype(scaleId: ScaleTypeId, facet: CardFacet): ResolvedCard 
         title: scale.name,
         degrees,
       },
+      audioMidis,
       sandboxContext: { scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -513,6 +527,7 @@ function resolveScaletype(scaleId: ScaleTypeId, facet: CardFacet): ResolvedCard 
         title: parentDesc,
         details: `${scale.name}: ${parentDesc}`,
       },
+      audioMidis,
       sandboxContext: { scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -524,16 +539,18 @@ function resolveScale(
   tonic: PitchClass,
   scaleId: ScaleTypeId,
   facet: CardFacet,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   const scale = SCALE_TYPES.find((s) => s.id === scaleId);
   if (!scale) return null;
 
-  const tonicName = pcName(tonic);
+  const tonicName = pcName(tonic, nameMode);
   const scaleName = `${tonicName} ${scale.name.toLowerCase()}`;
   const formulaTones = formulaOfScale({ tonic, type: scaleId });
-  const noteNames = formulaTones.map((t) => pcName(t.pc));
+  const noteNames = formulaTones.map((t) => pcName(t.pc, nameMode));
   const notesStr = noteNames.join(' · ');
   const degrees = formulaTones.map((t) => t.degree);
+  const audioMidis = [...formulaTones.map((t) => 60 + tonic + t.semitones), 60 + tonic + 12];
 
   if (facet === 'name>notes') {
     return {
@@ -552,6 +569,7 @@ function resolveScale(
         degrees,
         details: `${scaleName} = ${notesStr}`,
       },
+      audioMidis,
       sandboxContext: { root: tonic, scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -572,13 +590,14 @@ function resolveScale(
         notes: noteNames,
         degrees,
       },
+      audioMidis,
       sandboxContext: { root: tonic, scaleType: scaleId, mode: 'scale' },
     };
   }
 
   if (facet === 'name>parent') {
     const parentTonic = ((tonic - (scale.parentOffset ?? 0) + 12) % 12) as PitchClass;
-    const parentName = `${pcName(parentTonic)} mayor`;
+    const parentName = `${pcName(parentTonic, nameMode)} mayor`;
     const parentTitle = `Modo de ${parentName}`;
 
     return {
@@ -595,6 +614,7 @@ function resolveScale(
         title: parentTitle,
         details: `${scaleName} es el ${MAJOR_MODE_ORDINALS[scaleId] ?? 'modo'} de ${parentName}`,
       },
+      audioMidis,
       sandboxContext: { root: tonic, scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -615,6 +635,7 @@ function resolveScale(
         degrees,
         notes: noteNames,
       },
+      audioMidis,
       sandboxContext: { root: tonic, scaleType: scaleId, mode: 'scale' },
     };
   }
@@ -665,6 +686,7 @@ const MINOR_SEVENTH_DEGREES: readonly { roman: string; offset: number; quality: 
 function resolveDegree(
   subject: DegreeSubject,
   facet: CardFacet,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   const { tonic, mode, degree, chordKind } = subject;
   if (degree < 1 || degree > 7) return null;
@@ -683,9 +705,10 @@ function resolveDegree(
 
   const chordRoot = ((tonic + entry.offset) % 12) as PitchClass;
   const quality = getChordQuality(entry.quality);
-  const chordName = `${pcName(chordRoot)}${quality.symbol}`;
-  const tonicName = pcName(tonic);
+  const chordName = `${pcName(chordRoot, nameMode)}${quality.symbol}`;
+  const tonicName = pcName(tonic, nameMode);
   const modeName = mode === 'major' ? 'mayor' : 'menor';
+  const audioMidis = quality.intervals.map((semi) => 60 + chordRoot + semi);
 
   if (facet === 'roman>chord') {
     return {
@@ -700,8 +723,9 @@ function resolveDegree(
       },
       back: {
         title: chordName,
-        details: `Fundamental: ${pcName(chordRoot)} · Grado ${degree} (${modeName})`,
+        details: `Fundamental: ${pcName(chordRoot, nameMode)} · Grado ${degree} (${modeName})`,
       },
+      audioMidis,
       sandboxContext: { root: chordRoot, chordQuality: entry.quality, mode: 'chord' },
     };
   }
@@ -721,6 +745,7 @@ function resolveDegree(
         title: entry.roman,
         details: `${entry.roman} de ${tonicName} ${modeName}`,
       },
+      audioMidis,
       sandboxContext: { root: chordRoot, chordQuality: entry.quality, mode: 'chord' },
     };
   }
@@ -732,21 +757,34 @@ function resolveProgression(
   progressionId: string,
   tonic: PitchClass,
   facet: CardFacet,
+  nameMode: NameMode,
 ): ResolvedCard | null {
   const template = PROGRESSIONS.find((p) => p.id === progressionId);
   if (!template) return null;
 
-  const tonicName = pcName(tonic);
+  const tonicName = pcName(tonic, nameMode);
   const stepNames: string[] = [];
+  const audioMidis: number[] = [];
 
   for (const step of template.steps) {
     const stepRoot = ((tonic + step.offset) % 12) as PitchClass;
     const quality = getChordQuality(step.quality);
-    stepNames.push(`${pcName(stepRoot)}${quality.symbol}`);
+    stepNames.push(`${pcName(stepRoot, nameMode)}${quality.symbol}`);
+    for (const semi of quality.intervals) {
+      audioMidis.push(55 + stepRoot + semi);
+    }
   }
 
   const chordsStr = stepNames.join(' – ');
   const romansStr = template.steps.map((s) => s.roman).join('–');
+  const firstStep = template.steps[0];
+  const sandboxContext = firstStep
+    ? {
+        root: ((tonic + firstStep.offset) % 12) as PitchClass,
+        chordQuality: firstStep.quality,
+        mode: 'chord' as const,
+      }
+    : undefined;
 
   if (facet === 'roman>chords') {
     return {
@@ -764,6 +802,8 @@ function resolveProgression(
         notes: stepNames,
         details: `${romansStr} en ${tonicName} = ${chordsStr}`,
       },
+      audioMidis,
+      sandboxContext,
     };
   }
 
@@ -783,6 +823,8 @@ function resolveProgression(
         notes: stepNames,
         details: `${chordsStr} = ${romansStr}`,
       },
+      audioMidis,
+      sandboxContext,
     };
   }
 
@@ -801,6 +843,7 @@ function resolveProgression(
 export function resolveCard(
   cardId: string,
   tuning: Tuning = STANDARD_TUNING,
+  nameMode: NameMode = 'sharps',
 ): ResolvedCard | null {
   const parsed = parseCardId(cardId);
   if (!parsed) return null;
@@ -811,23 +854,23 @@ export function resolveCard(
     case 'interval':
       return resolveInterval(subject.semitones, facet);
     case 'fretnote':
-      return resolveFretnote(subject.string, subject.fret, facet, tuning);
+      return resolveFretnote(subject.string, subject.fret, facet, tuning, nameMode);
     case 'notestring':
-      return resolveNotestring(subject.pitchClass, subject.string, facet, tuning);
+      return resolveNotestring(subject.pitchClass, subject.string, facet, tuning, nameMode);
     case 'quality':
       return resolveQuality(subject.qualityId, facet);
     case 'chord':
-      return resolveChord(subject.pitchClass, subject.qualityId, facet);
+      return resolveChord(subject.pitchClass, subject.qualityId, facet, nameMode);
     case 'voicing':
-      return resolveVoicing(subject.templateId, subject.root, facet, tuning);
+      return resolveVoicing(subject.templateId, subject.root, facet, tuning, nameMode);
     case 'scaletype':
       return resolveScaletype(subject.scaleId, facet);
     case 'scale':
-      return resolveScale(subject.tonic, subject.scaleId, facet);
+      return resolveScale(subject.tonic, subject.scaleId, facet, nameMode);
     case 'degree':
-      return resolveDegree(subject, facet);
+      return resolveDegree(subject, facet, nameMode);
     case 'progression':
-      return resolveProgression(subject.progressionId, subject.tonic, facet);
+      return resolveProgression(subject.progressionId, subject.tonic, facet, nameMode);
     default:
       return null;
   }

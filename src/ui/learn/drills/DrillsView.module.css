@@ -106,12 +106,15 @@
   background: var(--app-card, #131d31);
   border: 1px solid #1e293b;
   border-radius: 12px;
-  padding: 20px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   overflow-y: auto;
   box-sizing: border-box;
+  min-height: 0;
+  --fretboard-height: clamp(145px, 18vh, 210px);
+  --piano-height: clamp(78px, 9.5vh, 110px);
 }
 
 .questionHeader {
@@ -610,28 +613,33 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 10px;
-  min-height: 52px;
+  min-height: 48px;
   box-sizing: border-box;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  backdrop-filter: blur(8px);
 }
 
 .feedbackBannerIdle {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(15, 23, 42, 0.88);
   border: 1px solid #1e293b;
   color: #94a3b8;
   font-size: 14px;
 }
 
 .feedbackBannerCorrect {
-  background: rgba(20, 83, 45, 0.22);
+  background: rgba(15, 45, 28, 0.92);
   border: 1px solid #14532d;
   color: #e2e8f0;
   font-size: 14px;
 }
 
 .feedbackBannerWrong {
-  background: rgba(127, 29, 29, 0.22);
+  background: rgba(65, 18, 18, 0.92);
   border: 1px solid #7f1d1d;
   color: #e2e8f0;
   font-size: 14px;

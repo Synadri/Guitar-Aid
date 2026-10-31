@@ -183,11 +183,11 @@ grade(question, input: AnswerInput): Grade  // { correct, partial?, hits, misses
 | **B3** | Nombra el intervalo | Dos posiciones marcadas (la raíz distinguida) → elegir el intervalo | O3 | Misma cuerda, cuerdas contiguas o cualquiera; sonido opcional |
 | **B4** | Mapa de intervalos | Raíz + intervalo → marcar **todas** las posiciones de ese intervalo dentro de una ventana (p. ej. ±4 trastes) o en todo el mástil | O1, O3 | Ventana o mástil completo; intervalo por grado (`♭3`, `5`, `♭7`…) |
 | **B5** | Etiqueta la forma | Forma conocida (voicing del diccionario o fragmento de escala) con marcas sin etiqueta y la raíz distinguida → asignar el grado a cada marca | O1 | Familias de voicing (abiertos, cejilla, 1–4, 1–3); tríadas o cuatríadas |
-| **C1** | Construye el acorde | Raíz (posición) + calidad → marcar sus notas dentro de una zona o **en una sola cuerda** (arpegio lineal) | O1, O3 | Zona o cuerda única; calidades elegidas |
-| **C2** | Escala en una cuerda | Tónica + tipo de escala + cuerda → marcar sus notas en orden a lo largo de la cuerda | O1 | Ascendente o descendente; tipos elegidos |
+| **C1** | Construye el acorde | Raíz (posición en el mástil) + calidad → marcar una posición por grado restante para completar el acorde en el mástil | O1, O3 | Calidades elegidas; pista opcional con la fórmula del acorde |
+| **C2** | Escala en una cuerda | Tónica + tipo de escala + cuerda → marcar sus notas en orden a lo largo de la cuerda | O1 | Ascendente o descendente; tipos elegidos; pista opcional con la fórmula de la escala |
 
 > [!TIP]
-> B1, C1 (en cuerda única) y C2 son los ejercicios «lineales»: obligan a pensar en distancias de semitonos sobre una cuerda, como en el piano. B2 y B4 enseñan después cómo se trasladan esas distancias entre cuerdas. B5 hace el camino inverso: parte de una forma ya conocida y la descompone en intervalos.
+> B1 y C2 son los ejercicios «lineales»: obligan a pensar en distancias de semitonos sobre una cuerda, como en el piano. B2, B4 y C1 enseñan cómo se trasladan esas distancias entre cuerdas para construir acordes y mapas en el mástil. B5 hace el camino inverso: parte de una forma ya conocida y la descompone en intervalos.
 
 ### 5.3. Estadísticas de ejercicios
 
@@ -222,13 +222,15 @@ Una tarjeta **no guarda texto**: guarda un **ID estable** y su contenido se calc
 ### 6.2. Mazos
 
 - **Mazo** = `{ id, name, sources: DeckSource[], cardIds: string[], limits: { newPerDay, reviewsPerDay }, createdAt }`.
-- **`sources`** son las reglas declarativas con las que se creó el mazo, para poder volver a editarlo. Ejemplos de reglas del constructor:
-  - *Acordes:* calidades × raíces × facetas.
-  - *Digitaciones:* calidades × familias (`open`, `barre-E`, `barre-A`, `strings-1-4`, `strings-1-3`) × raíces × facetas.
-  - *Escalas:* tipos × tónicas × facetas, con el atajo **«modos de una escala madre en una tonalidad»** (p. ej. los 7 modos de C mayor).
-  - *Progresiones:* plantillas × tonalidades. *Armonía diatónica:* tonalidades × tríadas/cuatríadas.
-  - *Intervalos* y *notas del mástil:* cuerdas × rango de trastes × naturales o todas.
-- **`cardIds`** es la lista materializada que sale de aplicar las reglas. Al editar las reglas se regenera la lista: las tarjetas que siguen **conservan su progreso**, las nuevas entran como nuevas y las retiradas se archivan (no se borra su historial).
+- **`sources`** son las **11 reglas declarativas** (`DeckSource`) con las que se creó el mazo, todas soportadas tanto en datos como en el constructor visual (`DeckBuilderModal`) con catálogos completos y ayuda contextual (`?`):
+  - *Notas del mástil (`fretNotes`) y notas por cuerda (`noteStrings`):* cuerdas (1..6) × rango de trastes (`0–5`, `0–12`, `0–24` o personalizado) × naturales o las 12 notas.
+  - *Intervalos (`intervals`):* selección individual o atajos («Diada básica» / «Todos `m2–P8`») × facetas (`name>semitones`, `semitones>name`).
+  - *Calidades de acordes (`chordQualities`, 19 calidades) y Acordes concretos (`chords`):* calidades × raíces cromáticas × facetas.
+  - *Digitaciones (`voicings`):* calidades × familias (`open`, `barre-E`, `barre-A`, `strings-1-4`, `strings-1-3`) × raíces × facetas (`name>shape`, `shape>name`).
+  - *Tipos de escala (`scaleTypes`, 22 escalas), Escalas concretas (`scales`) y Modos de una escala madre (`scaleModes`):* con vista previa en vivo de los 7 modos generados en la tonalidad elegida y distinción explícita entre las 3 reglas de escalas.
+  - *Armonía diatónica (`degrees`):* tonalidades × modos × tríadas/cuatríadas. *Progresiones (`progressions`, 10 plantillas):* plantillas × tonalidades × facetas (`roman>chords`, `chords>roman`).
+- **`cardIds`** es la lista materializada que sale de aplicar las reglas. Al editar las reglas se regenera la lista: las tarjetas que siguen **conservan su progreso**, las nuevas entran como nuevas y las retiradas se archivan (no se borra su historial). Los mazos pueden **eliminarse** con confirmación en línea tanto desde la vista del mazo como desde el modal de edición.
+- **Inspector de tarjetas del mazo:** la vista general del mazo incluye un listado filtrable y buscable (`selectDeckCardsDetail`) que muestra primero las tarjetas en aprendizaje y repaso ordenadas por próxima aparición (`due` ascendente) y después las tarjetas nuevas pendientes de presentar.
 - El ejemplo del usuario, *«tríadas en abierto y cejilla + modos principales de Do mayor»*, se crea con dos reglas: *Digitaciones* {`maj`, `m`} × {`open`, `barre-E`, `barre-A`} × raíces disponibles × {`name>shape`, `shape>name`} y *Escalas* «modos de C mayor» × {`name>notes`, `name>formula`, `name>parent`}.
 - **El progreso es por mazo:** si la misma tarjeta está en dos mazos, cada mazo la planifica por separado (tal como se pidió).
 
@@ -265,13 +267,13 @@ stateDiagram-v2
 | Intervalo máximo | 36 500 d |
 
 - **Simplificaciones asumidas en la Fase 2:** sin aleatorización de intervalos (*fuzz*), sin bonificación por repasar tarde y sin reparto de carga entre días. Se pueden añadir sin cambiar el modelo de datos.
-- **Cola de estudio** (`queue.ts`): primero las tarjetas en aprendizaje que ya tocan, luego los repasos pendientes y luego las nuevas (hasta el límite diario), intercaladas.
+- **Cola de estudio** (`queue.ts`): primero las tarjetas en aprendizaje que ya tocan, luego los repasos pendientes y luego las nuevas (hasta el límite diario), intercaladas. Si ya se han alcanzado los límites diarios pero el usuario pulsa **«Estudiar de todos modos»**, `buildStudyQueue(..., { forceExtraRound: true })` habilita una ronda extra con un lote adicional de tarjetas nuevas (`limits.newPerDay`), adelantando pasos de aprendizaje intradía o repasos próximos si ya no quedan tarjetas nuevas en el mazo. `getQueueRemainingCounts` actualiza los contadores en vivo durante la sesión.
 - **Vista previa de intervalos:** `previewIntervals(state, now)` devuelve lo que daría cada botón (p. ej. *Otra vez 1 min · Difícil 5,5 min · Bien 10 min · Fácil 4 d*). Así el usuario ve las consecuencias antes de elegir, como en Anki.
 - **Historial de repasos:** `{ cardId, deckId, rating, at, prevInterval, newInterval, ease }`, limitado a las últimas 5000 entradas más agregados diarios.
 
 ### 6.4. Mazos predefinidos
 
-Son **plantillas en datos** (`learning/cards/presets.ts`) escritas con las mismas reglas del constructor. Al añadir uno, se crea **una copia editable** del usuario con su propio progreso. Un test comprueba que todos los IDs de los tres mazos se resuelven en afinación estándar. Los recuentos exactos se anotarán en [decisiones.md](decisiones.md) al implementarlos.
+Son **plantillas en datos** (`learning/cards/presets.ts`) escritas con las mismas reglas del constructor. Al añadir uno, se crea **una copia editable** del usuario con su propio progreso. Un test comprueba que todos los IDs de los tres mazos se resuelven en afinación estándar. Los recuentos exactos (**Principiante**: 112 tarjetas, **Intermedio**: 362 tarjetas, **Avanzado**: 1022 tarjetas) están documentados en [decisiones.md](decisiones.md).
 
 | Mazo | Contenido |
 |---|---|
@@ -344,7 +346,7 @@ Orden: **teoría y aprendizaje puro → estado → interfaz**. Cada hito incluye
 | **A5 · Estado de mazos y progreso** | `state/decks`: CRUD de mazos, regenerar al editar conservando el progreso, estado SRS por mazo, historial, exportar/importar JSON, `migrate`, datos corruptos → valores por defecto | `decks.test.ts` (ida y vuelta de exportar/importar, recarga simulada) | j, k, m |
 | **A6 · UI: shell Aprender + Fórmulas** | Navegación del modo, sección Fórmulas en los dos sentidos con mástil, piano, sonido y «Abrir en Sandbox», roles de marca nuevos y props `activeStrings`/`fretRange`/`showInlays` en los instrumentos | Tests de componentes e integración | b, c, a |
 | **A7 · UI: Ejercicios** | Selector de ejercicio y configuración, pantalla de pregunta (mástil, piano u opciones), corrección visible y sonora, resumen de sesión, atajos | Integración con store aislado | d, e, f, g, n, o |
-| **A8 · UI: Tarjetas** | Lista de mazos (pendientes hoy), estudio (anverso → mostrar → 4 botones con vista previa de intervalos, atajos `Espacio`/`1`–`4`), constructor y editor de mazos, añadir predefinidos | Integración | h, i, j, k, l |
+| **A8 · UI: Tarjetas** | Lista de mazos (pendientes hoy, borrado con confirmación, inspector de tarjetas del mazo con próxima aparición), estudio (anverso → mostrar → 4 botones con vista previa de intervalos, atajos `Espacio`/`1`–`4`, ronda extra «Estudiar de todos modos», botón «← Volver al mazo», actualización *in-place* del mástil sin desbordamiento vertical), constructor y editor de mazos con los 11 bloques `DeckSource` completos y ayuda `?`, añadir predefinidos | Integración | h, i, j, k, l |
 | **A9 · UI: Progreso, copia de seguridad y cierre** | Mapa de aciertos del mástil, intervalos débiles, estadísticas de mazos, exportar/importar en la UI, README y [decisiones.md](decisiones.md) | Integración + recarga simulada | m, q |
 
 ---

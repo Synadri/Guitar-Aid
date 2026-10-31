@@ -1,5 +1,6 @@
 import type { Tuning } from '../../theory/data/tunings';
 import { STANDARD_TUNING } from '../../theory/data/tunings';
+import type { NameMode } from '../../theory';
 import { resolveCard } from '../../learning/cards/facets';
 import type { Deck, ResolvedCard } from '../../learning/cards/types';
 import { getStudyQueueCounts } from '../../learning/srs/queue';
@@ -15,7 +16,13 @@ import type {
   Rating,
   SchedulerConfig,
 } from '../../learning/srs/types';
-import type { DecksState, DeckStats, GlobalDeckStats } from './types';
+import type {
+  DeckCardItem,
+  DeckCardsDetail,
+  DecksState,
+  DeckStats,
+  GlobalDeckStats,
+} from './types';
 
 /** Devuelve el mazo actualmente activo en el estado. */
 export function selectActiveDeck(state: DecksState): Deck | undefined {
@@ -85,12 +92,103 @@ export function selectIntervalPreviewsForCurrentCard(
 export function selectCurrentCardResolved(
   state: DecksState,
   tuning: Tuning = STANDARD_TUNING,
+  nameMode: NameMode = 'sharps',
 ): ResolvedCard | null {
   const currentCardId = state.session?.currentCardId;
   if (!currentCardId) {
     return null;
   }
-  return resolveCard(currentCardId, tuning);
+  return resolveCard(currentCardId, tuning, nameMode);
+}
+
+/** Formatea la fecha de próximo vencimiento de una tarjeta para la UI. */
+function formatNextDueText(due: number, now: number): string {
+  if (due <= now) {
+    return 'Ahora (pendiente hoy)';
+  }
+  const diffMs = due - now;
+  const diffMin = Math.max(1, Math.round(diffMs / 60_000));
+  if (diffMin < 60) {
+    return `En ${diffMin} min`;
+  }
+  const diffHours = Math.round(diffMs / 3_600_000);
+  if (diffHours < 24) {
+    return `En ${diffHours} h`;
+  }
+  const diffDays = Math.round(diffMs / 86_400_000);
+  if (diffDays <= 1) {
+    return 'Mañana (1 d)';
+  }
+  return `En ${diffDays} días`;
+}
+
+/**
+ * Devuelve el desglose detallado de tarjetas de un mazo:
+ * 1) Tarjetas en aprendizaje / reaprendizaje / repaso ordenadas por próximo vencimiento (`due` ascendente).
+ * 2) Tarjetas nuevas pendientes de aprender en su orden de aparición.
+ */
+export function selectDeckCardsDetail(
+  state: DecksState,
+  deckId: string,
+  now: number,
+  tuning: Tuning = STANDARD_TUNING,
+  nameMode: NameMode = 'sharps',
+): DeckCardsDetail {
+  const deck = selectDeckById(state, deckId);
+  if (!deck) {
+    return { inProgressCards: [], newCards: [], unresolvableCount: 0 };
+  }
+
+  const deckSRS = selectDeckSRS(state, deckId);
+  const inProgressCards: DeckCardItem[] = [];
+  const newCards: DeckCardItem[] = [];
+  let unresolvableCount = 0;
+
+  for (const cardId of deck.cardIds) {
+    const resolved = resolveCard(cardId, tuning, nameMode);
+    if (!resolved) {
+      unresolvableCount++;
+      continue;
+    }
+
+    const srs = deckSRS[cardId];
+    if (!srs || srs.state === 'new') {
+      newCards.push({
+        cardId,
+        resolved,
+        srs,
+        state: 'new',
+        due: null,
+        interval: 0,
+        reps: 0,
+        lapses: 0,
+        isDueNow: false,
+        nextDueText: 'Nueva (por aprender)',
+      });
+    } else {
+      const isDueNow = srs.due <= now;
+      inProgressCards.push({
+        cardId,
+        resolved,
+        srs,
+        state: srs.state,
+        due: srs.due,
+        interval: srs.interval,
+        reps: srs.reps,
+        lapses: srs.lapses,
+        isDueNow,
+        nextDueText: formatNextDueText(srs.due, now),
+      });
+    }
+  }
+
+  inProgressCards.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
+
+  return {
+    inProgressCards,
+    newCards,
+    unresolvableCount,
+  };
 }
 
 /**

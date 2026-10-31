@@ -130,8 +130,8 @@ Tarjeta principal (`.drillStage`) organizada verticalmente en 4 zonas:
        - **A2:** `¿Qué nota es la posición marcada en la ` **`cuerda 4, traste 7`** `?`
        - **B4:** `Marca todas las ` **`♭3`** ` alrededor de la raíz ` **`A`**
        - **B5:** `Asigna el grado de cada nota del voicing de ` **`Am`**
-       - **C1:** `Construye el acorde ` **`Dm7`** ` en la cuerda 4`
-       - **C2:** `Toca la escala ` **`G mixolidia`** ` en la cuerda 3`
+       - **C1:** `Construye el acorde ` **`C`** ` desde la ` **`cuerda 5, traste 3`** (con pista opcional de grados de la fórmula, `-50 %` de puntuación)
+       - **C2:** `Toca la escala ` **`G mixolidia`** ` en la cuerda 3` (con pista opcional de grados de la escala, `-50 %` de puntuación)
    - **Derecha:**
      - Texto `Pregunta {n} / {total}` (`12 px`, `--app-muted`, por defecto `20` preguntas por sesión).
      - Barra de progreso horizontal (`120 × 6 px`, `border-radius: 999px`, pista `#1e293b`, relleno turquesa `#14b8a6`).
@@ -213,60 +213,82 @@ Tarjeta (`.decksSidebar`) con:
   - **`Nuevo mazo`**: abre el modal del constructor de mazos (`DeckBuilderModal`).
   - **`Añadir predefinido`**: abre un menú/modal con los 3 mazos predefinidos (**Principiante**, **Intermedio**, **Avanzado**) describiendo su contenido; al elegir uno se añade como copia editable independiente.
 
-### 5.3. Columna derecha — Lienzo de Estudio de Tarjeta (`1fr`)
+### 5.3. Columna derecha — Vista de Mazo, Inspector de Tarjetas y Lienzo de Estudio (`1fr`)
 
-Tarjeta (`.flashcardStage`) dividida en cabecera, anverso, separador, reverso y barra de valoración:
+Tarjeta (`.flashcardStage`) que conmuta entre la **vista resumen e inspector del mazo** (cuando no hay sesión activa) y el **lienzo de estudio** (durante una sesión):
+
+#### A. Vista Resumen e Inspector de Tarjetas (sin sesión activa)
+
+1. **Cabecera y acciones del mazo (`.overviewHero`):**
+   - **Con tarjetas pendientes hoy:** muestra el nombre y descripción del mazo, los 3 contadores destacados (`Nuevas hoy`, `En aprendizaje`, `Para repasar`) y las acciones **`Comenzar estudio`**, **`Editar reglas del mazo`** y **`Eliminar mazo`** (con confirmación en línea `¿Eliminar mazo?` → `Sí, eliminar` / `Cancelar`).
+   - **Al día (`0` pendientes hoy):** muestra el mensaje de felicitación `¡Estás al día!` y el botón primario **`Estudiar de todos modos`**, que inicia una ronda extra (`forceExtraRound: true`) concediendo una nueva tanda de tarjetas nuevas (o adelantando las próximas tarjetas en aprendizaje/repaso si no quedan tarjetas nuevas en el mazo).
+   - **Sin ningún mazo creado (`decks.length === 0`):** muestra un estado vacío guiado (`No tienes ningún mazo activo`) con acceso directo a crear un mazo personalizado o añadir un mazo predefinido.
+
+2. **Inspector y listado de tarjetas del mazo (`.cardsListSection`):**
+   - Cabecera `Tarjetas del mazo ({total})` acompañada de 3 pestañas de filtro (`Todas`, `En aprendizaje / repaso`, `Nuevas por aprender`) y un campo de búsqueda instantánea (`Buscar tarjeta...`).
+   - **Lista scrollable ordenada en dos bloques:**
+     1. **En aprendizaje y repaso:** tarjetas ya iniciadas (`learning`, `relearning`, `review`) ordenadas de forma ascendente por fecha de próximo vencimiento (`due`), mostrando una insignia de estado (`Aprendiendo`, `Reaprendiendo`, `En repaso`) y cuándo volverán a mostrarse (`Próxima: Ahora (pendiente hoy)`, `En X min`, `En X h`, `Mañana (1 d)`, `En X días`).
+     2. **Nuevas por aprender:** tarjetas aún no iniciadas (`new`) en su orden de aparición en la cola (`Nueva (por aprender)`).
+   - Cada fila muestra la insignia de categoría (`Intervalo`, `Mástil`, `Digitación`, `Escala`, etc.) y el par `Anverso → Reverso`.
+
+#### B. Lienzo de Estudio de Tarjeta (sesión activa)
+
+Dividido en cabecera inencogible, cuerpo central con scroll interno elástico (`.studyScrollBody` que agrupa anverso, divisor y reverso) y barra de valoración SRS fija en la parte inferior:
 
 1. **Cabecera del lienzo:**
    - **Izquierda:** nombre del mazo activo en mayúsculas (`PRINCIPIANTE`, `12 px`, `--app-muted`), píldora con la categoría del sujeto (`Digitación`, `Acorde`, `Escala`, `Intervalo`, `Grado`, `Progresión`) y píldora con la dirección de la faceta (`nombre → forma`, `forma → nombre`, `nombre → fórmula`, `fórmula → nombre`, `nombre → notas`, `romanos → acordes`…).
-   - **Derecha:** contadores restantes de la sesión en monoespaciada (`19` azul · `3` naranja · `12` verde) y botón opcional `Editar` para modificar las reglas del mazo activo.
+   - **Derecha:** contadores restantes de la cola activa en monoespaciada (`getQueueRemainingCounts`: `19` azul · `3` naranja · `12` verde), botón **`← Volver al mazo`** (`endSession`) y botón **`Editar`** para modificar las reglas del mazo activo.
 
 2. **Anverso (Pregunta, mitad superior):**
-   - Centrado horizontalmente (`text-align: center`, `padding: 28px 24px`):
-   - **Título de la pregunta (`30–32 px`, `font-weight: 700`):** p. ej. `C mayor`, `1 ♭3 ♭5 ♭7`, `D dórico`, `ii–V–I en C`.
-   - **Subtítulo de la pregunta (`15 px`, `--app-muted`):** p. ej. `¿Qué forma abierta se toca?`, `¿Qué calidad de acorde corresponde a esta fórmula?`, `¿Qué notas forman esta escala y cuál es su escala madre?`.
-   - En facetas cuyo anverso es visual (`shape>name` o `pos>name`), el diagrama de acorde o el mástil mudo se muestra en el anverso ocultando el nombre de las notas.
+   - Centrado horizontalmente (`text-align: center`):
+   - **Título de la pregunta (`20–28 px`, `font-weight: 700`):** p. ej. `C mayor`, `1 ♭3 ♭5 ♭7`, `D dórico`, `ii–V–I en C`.
+   - **Subtítulo de la pregunta (`14 px`, `--app-muted`):** p. ej. `¿Qué forma abierta se toca?`, `¿Qué calidad de acorde corresponde a esta fórmula?`, `¿Qué notas forman esta escala y cuál es su escala madre?`.
+   - En facetas cuyo anverso es visual (`shape>name` o `pos>name`), el diagrama de acorde (`ChordDiagram` en modo `silent`) o el mástil (`Fretboard` con marca `role: 'question', label: '?'` y rango dinámico `0..12` o `0..24`) se muestra en el anverso. Al revelar la respuesta en una tarjeta `pos>name`, esa misma marca del mástil del anverso se actualiza in situ a `role: 'correct'` con el nombre de la nota, evitando duplicar un segundo mástil en el reverso.
 
 3. **Línea divisoria horizontal** (`1px solid var(--border)`).
 
 4. **Reverso (Respuesta, mitad central):**
    - **Estado 1 — Respuesta oculta:**
-     - Muestra en el centro el botón primario **`Mostrar respuesta · Espacio`** (`height: 42px`, `padding: 0 24px`).
+     - Muestra en el centro el botón primario **`Mostrar respuesta · Espacio`** (`height: 44px`, `padding: 0 28px`).
    - **Estado 2 — Respuesta revelada** (como en [Tarjetas.png](Tarjetas.png)):
-     - Contenedor central de dos columnas (`display: flex; align-items: center; justify-content: center; gap: 48px; flex: 1`):
-       - **Izquierda (Representación visual):**
-         - Para tarjetas de digitación (`voicing`): **Diagrama de acorde (`ChordDiagram`, SVG de `180×190 px`)** con las 6 cuerdas verticales, cejuela superior gruesa (o número de traste inicial a la izquierda si es cejilla en traste `> 1`), símbolos superiores de cuerda muteada (`×`) y cuerda al aire (`○`), y círculos de `26 px` con el número de dedo o grado; las notas que son fundamental (`root`) se rellenan en turquesa (`#14b8a6`, texto oscuro) y el resto en gris claro (`#e2e8f0`, texto oscuro).
-         - Para tarjetas de escala o posición en el mástil: vista compacta del mástil/piano con la tónica en `root` y las notas en `tone`.
-       - **Derecha (Datos de la respuesta y acciones):**
-         - Etiqueta `RESPUESTA` (`11 px`, mayúsculas, `--app-muted`).
-         - Valor principal en monoespaciada grande (`20 px`, `font-weight: 700`, p. ej. `x 3 2 0 1 0`, `A · C · E · G` o `Dm – G – C`).
-         - Líneas de desglose:
-           - `Notas: C · E · G · C · E` (`14 px`)
-           - `Grados: 1 · 3 · 5 · 1 · 3` (`13 px`, `--app-muted`)
-         - Fila de botones (`margin-top: 14px`, `gap: 10px`):
-           - **`Escuchar`**: reproduce el voicing, acorde, escala, intervalo o progresión.
-           - **`Abrir en Sandbox`**: carga el elemento en `sandboxStore` y lleva al modo `Sandbox`.
+     - **Representación visual (solo cuando el reverso aporta un elemento gráfico nuevo):**
+       - Para tarjetas de digitación (`voicing`, `name>shape`): **Diagrama de acorde (`ChordDiagram`, SVG de `180×190 px`)** con las 6 cuerdas verticales, cejuela superior gruesa (o número de traste inicial a la izquierda si es cejilla en traste `> 1`), símbolos superiores de cuerda muteada (`×`) y cuerda al aire (`○`), y círculos de `26 px`; las notas que son fundamental (`root`) se rellenan en turquesa (`#14b8a6`, texto oscuro) y el resto en gris claro (`#e2e8f0`, texto oscuro).
+       - Para tarjetas de localización de notas en cuerda (`name>pos`): mástil a ancho completo con altura compacta (`--fretboard-height: clamp(130px, 16.5vh, 180px)`), rango dinámico (`0..12` o `0..24`) y marcas etiquetadas con el nombre de la nota.
+     - **Datos de la respuesta y acciones:**
+       - Etiqueta `RESPUESTA` (`11 px`, mayúsculas, `--app-muted`).
+       - Valor principal en monoespaciada grande (`20 px`, `font-weight: 700`, p. ej. `x 3 2 0 1 0`, `A · C · E · G` o `Dm – G – C`).
+       - Líneas de desglose (`Notas:` y `Grados:` o detalles adicionales).
+       - Fila de botones (`gap: 10px`):
+         - **`Escuchar`**: disponible en los 10 sujetos de tarjeta (reproduce intervalos con `intervalEvents`, escalas de forma melódica ascendente y acordes/digitaciones/grados/progresiones con `arpeggioEvents`).
+         - **`Abrir en Sandbox`**: carga el elemento en `sandboxStore` y lleva al modo `Sandbox`.
 
-5. **Barra de autoevaluación SRS (parte inferior):**
-   - Cuadrícula de 4 botones del mismo ancho (`grid-template-columns: repeat(4, 1fr); gap: 14px; height: 82px`):
+5. **Barra de autoevaluación SRS (parte inferior, `flex-shrink: 0`):**
+   - Cuadrícula de 4 botones del mismo ancho (`grid-template-columns: repeat(4, 1fr); gap: 12px; height: 70px`):
      1. **`Otra vez`** — borde rojo (`#ef4444`), intervalo previsto por `previewIntervals` (`1 min`), tecla `1`.
      2. **`Difícil`** — borde ámbar (`#eab308`), intervalo previsto (`5,5 min`), tecla `2`.
      3. **`Bien`** — borde azul (`#3b82f6`), intervalo previsto (`10 min` / `1 d`), tecla `3`.
      4. **`Fácil`** — borde verde (`#22c55e`), intervalo previsto (`4 d`), tecla `4`.
-   - Cada botón muestra en columna centrada: etiqueta en negrita (`15 px`), tiempo hasta el próximo repaso (`13 px`, `--app-muted`) y número del atajo (`12 px`, `--app-muted`).
-   - Pie informativo bajo los botones (`12 px`, `--app-muted`): `Espacio: mostrar respuesta · 1–4: valorar`.
+   - Pie informativo bajo los botones (`11 px`, `--app-muted`): `Espacio: mostrar respuesta · 1–4: valorar`.
 
 ### 5.4. Modal Constructor / Editor de Mazos (`DeckBuilderModal`)
 
 Diálogo modal accesible (`role="dialog"`, `aria-modal="true"`, cerrable con `Esc`):
-- Campo `Nombre del mazo` y selectores numéricos `Nuevas por día` (defecto `20`) y `Repasos por día` (defecto `200`).
-- Constructor de reglas (`DeckSource[]`): permite añadir uno o varios bloques de contenido:
-  - **Digitaciones de acordes:** selección de calidades (`maj`, `m`, `7`, etc.), familias (`Abiertos`, `Cejilla 6ª`, `Cejilla 5ª`, `Cuerdas 1–4`, `Cuerdas 1–3`), raíces y facetas (`nombre → forma`, `forma → nombre`).
-  - **Fórmulas y notas de acordes:** calidades × raíces × facetas (`nombre → fórmula`, `fórmula → nombre`, `nombre → notas`).
-  - **Escalas y modos:** tipos de escala × tónicas (con botón rápido **"Añadir los 7 modos de una escala madre"**, p. ej. modos de Do mayor) × facetas (`nombre → notas`, `nombre → fórmula`, `modo → escala madre`).
-  - **Armonía diatónica y progresiones:** tonalidades × tríadas/cuatríadas o plantillas de progresión.
-  - **Notas e intervalos del mástil:** cuerdas × rango de trastes (`0–12` o `0–24`) × naturales/todas.
-- Resumen inferior en vivo: `Total: {N} tarjetas` y botones `Cancelar` / `Guardar mazo`.
+- Pestañas superiores: **`Reglas personalizadas`** y **`Mazos predefinidos`**.
+- Campo `Nombre del mazo` y selectores numéricos `Nuevas / día` (defecto `20`) y `Repasos / día` (defecto `200`).
+- **Constructor completo de los 11 bloques de contenido (`DeckSource[]`):**
+  - Cada bloque muestra título con icono, contador individual de tarjetas (`{N} tarjetas`), subtítulo descriptivo visible y un botón **`?`** que despliega un tooltip accesible (`role="tooltip"`) con ejemplos de `Anverso ↔ Reverso` y notas comparativas:
+    1. **📍 Notas en el mástil (`fretNotes`):** cuerdas (`1ª` a `6ª`), rango de trastes (`0–5`, `0–12`, `0–24` o personalizado `Desde`/`Hasta`), filtro `Solo notas naturales (sin ♯/♭)` y dirección (`pos>name`, `name>pos`).
+    2. **🧵 Notas por cuerda (`stringNotes`):** cuerdas (`1ª` a `6ª`), las 12 notas cromáticas y dirección (`name>pos`, `pos>name`).
+    3. **📏 Intervalos (`intervals`):** los 12 intervalos (`1..12` semitonos) y dirección (`name>semitones`, `semitones>name`).
+    4. **🎵 Calidades de acordes (`qualities`):** catálogo completo de 19 calidades (`CHORD_QUALITIES`) y dirección (`name>formula`, `formula>name`).
+    5. **🎼 Acordes concretos (`chords`):** 19 calidades × 12 tónicas × facetas (`name>notes`, `notes>name`, `name>formula`).
+    6. **🎸 Digitaciones de acordes (`voicings`):** 5 familias (`Abiertos`, `Cejilla 6ª`, `Cejilla 5ª`, `Cuerdas 1–4`, `Cuerdas 1–3`) × 19 calidades × 12 tónicas × dirección (`name>shape`, `shape>name`).
+    7. **📐 Fórmulas de escalas (`scaleTypes`):** catálogo completo de 22 escalas (`SCALE_TYPES`) y facetas (`name>formula`, `formula>name`, `mode>parent`).
+    8. **🎹 Escalas y modos por tónica (`scales`):** 22 escalas × 12 tónicas × 4 facetas (`name>notes`, `notes>name`, `name>parent`, `name>formula`).
+    9. **✨ Los 7 modos relativos de una escala madre (`scaleModes`):** selector de tonalidad mayor madre (`C mayor`..`B mayor`), **vista previa en vivo** con las 7 píldoras de los modos relativos generados (`I · C Jónico`, `II · D Dórico`, ..., `VII · B Locrio`) y selector de facetas, diferenciándolo claramente de los bloques de escalas en paralelo y de fórmulas abstractas.
+    10. **🏛️ Grados armónicos diatónicos (`degrees`):** 12 tonalidades × modos (`Mayor`, `Menor natural`) × grados (`I`..`VII`) × tipo (`Tríadas`, `Cuatríadas de 7ª`) × dirección (`roman>chord`, `chord>roman`).
+    11. **🔄 Progresiones armónicas (`progressions`):** las 10 plantillas del catálogo (`PROGRESSIONS`) × 12 tónicas × dirección (`roman>chords`, `chords>roman`).
+- Pie del modal: resumen en vivo `Total: {N} tarjetas`, botón `Eliminar mazo` con confirmación (cuando se edita un mazo existente) y botones `Cancelar` / `Guardar mazo`.
 
 ---
 

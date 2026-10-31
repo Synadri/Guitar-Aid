@@ -185,6 +185,33 @@ describe('Tarjetas — resolutor de facetas (facets.ts)', () => {
     expect(resolveCard('voicing:plantilla-inexistente@0|name>shape')).toBeNull();
     expect(resolveCard('voicing:open-C-maj@2|name>shape')).toBeNull(); // open C tiene raíz 0, no 2
   });
+
+  it('proporciona audioMidis en los 10 sujetos de tarjeta y respeta nameMode', () => {
+    const sampleIds = [
+      'interval:3|name>semitones',
+      'fretnote:s5f7|pos>name',
+      'notestring:7:s6|name>pos',
+      'quality:m7b5|name>formula',
+      'chord:9:m7|name>notes',
+      'voicing:open-C-maj@0|name>shape',
+      'scaletype:dorian|name>formula',
+      'scale:2:dorian|name>notes',
+      'degree:7:major:6:triads|roman>chord',
+      'progression:ii-V-I:0|roman>chords',
+    ];
+
+    for (const id of sampleIds) {
+      const card = resolveCard(id, STANDARD_TUNING, 'sharps');
+      expect(card).not.toBeNull();
+      expect(card?.audioMidis).toBeDefined();
+      expect(card?.audioMidis?.length).toBeGreaterThan(0);
+    }
+
+    const sharpChord = resolveCard('chord:1:maj|name>notes', STANDARD_TUNING, 'sharps');
+    const flatChord = resolveCard('chord:1:maj|name>notes', STANDARD_TUNING, 'flats');
+    expect(sharpChord?.front.title).toBe('C♯');
+    expect(flatChord?.front.title).toBe('D♭');
+  });
 });
 
 describe('Tarjetas — constructor de mazos por reglas (builder.ts)', () => {

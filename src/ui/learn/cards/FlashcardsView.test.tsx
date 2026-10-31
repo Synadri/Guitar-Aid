@@ -38,7 +38,7 @@ describe('Hito A8 — UI: Tarjetas (src/ui/learn/cards/FlashcardsView.tsx)', () 
   function setupCardsTest() {
     const decksStorage = createMemoryStorage();
     const settingsStorage = createMemoryStorage();
-    let fakeTime = 1700000000000;
+    let fakeTime = Date.now();
 
     const decksStore = createDecksStore({
       storage: decksStorage,
@@ -357,5 +357,149 @@ describe('Hito A8 — UI: Tarjetas (src/ui/learn/cards/FlashcardsView.tsx)', () 
 
     expect(screen.getByTestId('flashcards-view')).toBeDefined();
     expect(screen.getByTestId('deck-item-deck-beginner')).toBeDefined();
+  });
+
+  it('permite eliminar un mazo con confirmación y muestra estado vacío si no quedan mazos', () => {
+    const { decksStore, sandboxStore, settingsStore, audioEngine } = setupCardsTest();
+
+    render(
+      <FlashcardsView
+        decksStore={decksStore}
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        audioEngine={audioEngine}
+      />,
+    );
+
+    expect(decksStore.getState().decks).toHaveLength(1);
+
+    // Pulsar Eliminar mazo y confirmar
+    fireEvent.click(screen.getByTestId('btn-delete-deck'));
+    expect(screen.getByTestId('btn-confirm-delete-deck')).toBeDefined();
+    fireEvent.click(screen.getByTestId('btn-confirm-delete-deck'));
+
+    expect(decksStore.getState().decks).toHaveLength(0);
+    expect(screen.getByText('No tienes ningún mazo activo')).toBeDefined();
+  });
+
+  it('muestra la lista de tarjetas del mazo con las tarjetas en aprendizaje primero (con su próximo repaso) y luego las nuevas', () => {
+    const { decksStore, sandboxStore, settingsStore, audioEngine } = setupCardsTest();
+
+    const customDeck = decksStore.getState().createDeck({
+      name: 'Mazo Lista',
+      sources: [
+        {
+          type: 'intervals',
+          semitones: [3, 4, 7],
+          facets: ['name>semitones'],
+        },
+      ],
+    });
+
+    // Estudiar la primera tarjeta y valorarla como Bien (pasa a learning a 10 min)
+    decksStore.getState().startSession(customDeck.id);
+    const firstCardId = decksStore.getState().session?.currentCardId ?? '';
+    decksStore.getState().revealAnswer();
+    decksStore.getState().rateCard('good');
+    decksStore.getState().endSession();
+
+    render(
+      <FlashcardsView
+        decksStore={decksStore}
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        audioEngine={audioEngine}
+      />,
+    );
+
+    const cardsList = screen.getByTestId('deck-cards-list');
+    expect(cardsList).toBeDefined();
+
+    // La tarjeta estudiada aparece con estado Aprendiendo y su próximo repaso
+    const learnedRow = screen.getByTestId(`deck-card-row-${firstCardId}`);
+    expect(learnedRow.textContent).toContain('Aprendiendo');
+    expect(learnedRow.textContent).toContain('Próxima:');
+
+    // Filtrar solo en aprendizaje y solo nuevas
+    fireEvent.click(screen.getByTestId('cards-filter-learning'));
+    expect(screen.getByTestId(`deck-card-row-${firstCardId}`)).toBeDefined();
+
+    fireEvent.click(screen.getByTestId('cards-filter-new'));
+    expect(screen.queryByTestId(`deck-card-row-${firstCardId}`)).toBeNull();
+  });
+
+  it('permite seguir estudiando con "Estudiar de todos modos" tras agotar las tarjetas de hoy', () => {
+    const { decksStore, sandboxStore, settingsStore, audioEngine } = setupCardsTest();
+
+    // Crear un mazo con límite de 1 tarjeta nueva por día y 3 tarjetas totales
+    const customDeck = decksStore.getState().createDeck({
+      name: 'Mazo Cuota 1',
+      limits: { newPerDay: 1, reviewsPerDay: 50 },
+      sources: [
+        {
+          type: 'intervals',
+          semitones: [3, 4, 7],
+          facets: ['name>semitones'],
+        },
+      ],
+    });
+
+    // Estudiar la única tarjeta nueva del cupo diario con Fácil (graduada a 4 días)
+    decksStore.getState().startSession(customDeck.id);
+    decksStore.getState().revealAnswer();
+    decksStore.getState().rateCard('easy');
+
+    // La sesión habrá terminado y hoy quedan 0 pendientes
+    expect(decksStore.getState().session).toBeNull();
+
+    render(
+      <FlashcardsView
+        decksStore={decksStore}
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        audioEngine={audioEngine}
+      />,
+    );
+
+    // Debe mostrarse "¡Estás al día!" y el botón "Estudiar de todos modos"
+    const studyAnywayBtn = screen.getByTestId('btn-start-study-anyway');
+    expect(studyAnywayBtn).toBeDefined();
+
+    // Al pulsarlo, debe iniciar una nueva ronda de tarjetas nuevas
+    fireEvent.click(studyAnywayBtn);
+    expect(decksStore.getState().session).not.toBeNull();
+    expect(decksStore.getState().session?.currentCardId).not.toBeNull();
+    expect(screen.getByTestId('card-front')).toBeDefined();
+  });
+
+  it('muestra todos los bloques completos con título, controles y ayuda (?) al editar el mazo Avanzado', () => {
+    const { decksStore, sandboxStore, settingsStore, audioEngine } = setupCardsTest();
+
+    const advanced = decksStore.getState().addPresetDeck('advanced');
+    decksStore.getState().selectDeck(advanced.id);
+
+    render(
+      <FlashcardsView
+        decksStore={decksStore}
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        audioEngine={audioEngine}
+      />,
+    );
+
+    // Abrir editor de reglas del mazo Avanzado
+    fireEvent.click(screen.getByTestId('btn-overview-edit'));
+
+    // El mazo Avanzado tiene 8 bloques; ninguno debe tener el título vacío
+    for (let i = 0; i < 8; i++) {
+      const block = screen.getByTestId(`rule-block-${i}`);
+      expect(block).toBeDefined();
+      const helpBtn = screen.getByTestId(`rule-help-btn-${i}`);
+      expect(helpBtn).toBeDefined();
+    }
+
+    // Mostrar el tooltip de ayuda del primer bloque al hacer clic en '?'
+    fireEvent.click(screen.getByTestId('rule-help-btn-0'));
+    expect(screen.getByTestId('rule-help-tooltip-0')).toBeDefined();
   });
 });

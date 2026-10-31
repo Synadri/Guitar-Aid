@@ -1,0 +1,4 @@
+hay un problema en el sandbox: cuando clickas una nota en el piano no se registra en el mastil pero si al reves
+investiga por qué pasa esto, comprueba los tests existentes para que el piano y el mastil nunca puedan quedar desincronizados
+
+Añadir un boton de boton de reproducir progresión (Tanto en notas seleccionadas como con acorde seleccionado)

@@ -118,4 +118,39 @@ describe('Hito A8 — DeckBuilderModal (src/ui/learn/cards/DeckBuilderModal.tsx)
     expect(handleAddPreset).toHaveBeenCalledWith('beginner');
     expect(handleClose).toHaveBeenCalled();
   });
+
+  it('permite añadir cualquiera de los 11 bloques de contenido y configurar cuerdas, trastes y modos relativos', () => {
+    const handleClose = vi.fn();
+    const handleSave = vi.fn();
+
+    render(<DeckBuilderModal isOpen={true} onClose={handleClose} onSaveDeck={handleSave} />);
+
+    // Añadir bloque de notas en el mástil y ajustar rango de trastes
+    fireEvent.click(screen.getByTestId('add-block-fretnotes'));
+    const maxFretInput = screen.getByTestId('fretnotes-max-1') as HTMLInputElement;
+    expect(maxFretInput.value).toBe('12');
+    fireEvent.change(maxFretInput, { target: { value: '24' } });
+    expect(maxFretInput.value).toBe('24');
+
+    // Añadir bloque de los 7 modos relativos y comprobar la vista previa de modos
+    fireEvent.click(screen.getByTestId('add-block-major-modes'));
+    expect(screen.getByText(/I · C Jónico/)).toBeDefined();
+    expect(screen.getByText(/II · D Dórico/)).toBeDefined();
+    expect(screen.getByText(/VII · B Locrio/)).toBeDefined();
+
+    // Añadir el resto de tipos de bloques
+    fireEvent.click(screen.getByTestId('add-block-stringnotes'));
+    fireEvent.click(screen.getByTestId('add-block-qualities'));
+    fireEvent.click(screen.getByTestId('add-block-chords'));
+    fireEvent.click(screen.getByTestId('add-block-scaletypes'));
+    fireEvent.click(screen.getByTestId('add-block-scales'));
+    fireEvent.click(screen.getByTestId('add-block-degrees'));
+    fireEvent.click(screen.getByTestId('add-block-progressions'));
+
+    // Todos los bloques añadidos tienen título y botón de ayuda '?'
+    for (let i = 0; i <= 9; i++) {
+      expect(screen.getByTestId(`rule-block-${i}`)).toBeDefined();
+      expect(screen.getByTestId(`rule-help-btn-${i}`)).toBeDefined();
+    }
+  });
 });

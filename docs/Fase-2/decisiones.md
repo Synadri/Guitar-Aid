@@ -577,8 +577,75 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
   - **Sandbox:** el botón `Abrir en Sandbox` lee el `sandboxContext` de la tarjeta resuelta, construye el objeto `MenuContext` (`kind: 'chord'` o `kind: 'scale'`), lo fija mediante `sandboxStore.getState().setContext(...)` y conmuta la aplicación al modo Sandbox a través de `onNavigateToSandbox()`.
   - **Inyección de dependencias:** `LearnView` y `AppShell` aceptan la prop `decksStore` opcional (por defecto `defaultDecksStore`), permitiendo instanciar stores completamente aislados en pruebas unitarias e integración sin colisiones de `localStorage`.
 
+---
 
+## 2026-10-31 — Refinamientos en Tarjetas, Constructor de Mazos y Ergonomía Visual (Post-Hito A8)
 
+### 1. Gestión completa del ciclo de vida de mazos: eliminación con confirmación y estado vacío
+- **Problema previo:** Aunque `decksStore.deleteDeck(id)` estaba implementado en la capa de estado, la interfaz no exponía ningún control para eliminar mazos ni contemplaba el estado visual cuando el usuario borraba todos sus mazos (`decks.length === 0`).
+- **Decisión:**
+  - Se incorporó el botón **`Eliminar mazo`** con confirmación en línea (`¿Eliminar mazo?` → `Sí, eliminar` / `Cancelar`) tanto en la vista resumen de [`FlashcardsView.tsx`](file:///home/adri/Desktop/Guitar-Aid/src/ui/learn/cards/FlashcardsView.tsx) como en el pie de [`DeckBuilderModal.tsx`](file:///home/adri/Desktop/Guitar-Aid/src/ui/learn/cards/DeckBuilderModal.tsx) al editar un mazo existente.
+  - Cuando `decks.length === 0`, la barra lateral y el lienzo principal presentan un estado vacío guiado (`No tienes ningún mazo activo`) con acciones directas para crear un mazo personalizado o añadir uno de los mazos predefinidos.
+  - Si se editan las reglas (`sources`) de un mazo mientras tenía una sesión abierta, `updateDeck` cierra la sesión activa para evitar colas de estudio obsoletas.
 
+### 2. Soporte íntegro de los 11 bloques de reglas (`DeckSource`) y catálogos completos en `DeckBuilderModal`
+- **Problema previo:** `DeckBuilderModal` solo renderizaba controles para un subconjunto de bloques; al editar mazos predefinidos como `Intermedio` o `Avanzado`, bloques como `stringNotes`, `scaleTypes` o `degrees` aparecían sin título ni controles, y `qualities` o `progressions` solo mostraban el encabezado vacío. Además, los selectores estaban truncados a 9 calidades, 10 escalas y 7 notas naturales, y en `fretNotes` no se podían ajustar ni las cuerdas ni los trastes.
+- **Decisión:**
+  - Se implementó el renderizado, edición y botón de adición (`+ Añadir bloque de tarjetas`) para los **11 tipos de `DeckSource`**:
+    1. `fretNotes` (**📍 Notas en el mástil**): selector de cuerdas (`1ª` a `6ª` con atajos `6ª y 5ª` y `Todas (1–6)`), rango de trastes con botones rápidos (`0–5`, `0–12`, `0–24`) e inputs numéricos (`Desde traste` / `Hasta traste`), casilla `Solo notas naturales (sin ♯/♭)` y facetas (`pos>name`, `name>pos`).
+    2. `stringNotes` (**🧵 Notas por cuerda**): selector de cuerdas (`1ª` a `6ª`), selector de las 12 notas cromáticas y facetas (`name>pos`, `pos>name`).
+    3. `intervals` (**📏 Intervalos**): selector de los 12 intervalos (`1..12` semitonos) y facetas (`name>semitones`, `semitones>name`).
+    4. `qualities` (**🎵 Calidades de acordes (fórmulas)**): las 19 calidades del catálogo y facetas (`name>formula`, `formula>name`).
+    5. `chords` (**🎼 Acordes concretos (notas y fórmulas)**): las 19 calidades × 12 raíces × facetas (`name>notes`, `notes>name`, `name>formula`).
+    6. `voicings` (**🎸 Digitaciones de acordes**): las 5 familias (`open`, `barre-E`, `barre-A`, `strings-1-4`, `strings-1-3`) × 19 calidades × 12 raíces × facetas (`name>shape`, `shape>name`).
+    7. `scaleTypes` (**📐 Fórmulas de escalas (sin tónica)**): las 22 escalas del catálogo y facetas (`name>formula`, `formula>name`, `mode>parent`).
+    8. `scales` (**🎹 Escalas y modos por tónica**): las 22 escalas × 12 tónicas × 4 facetas (`name>notes`, `notes>name`, `name>parent`, `name>formula`). Se corrigió además `buildDeckCardIds` en [`builder.ts`](file:///home/adri/Desktop/Guitar-Aid/src/learning/cards/builder.ts) para que `name>formula` genere las tarjetas de cada escala seleccionada.
+    9. `scaleModes` (**✨ Los 7 modos relativos de una escala madre**): selector de tonalidad mayor madre (`parentTonic`), vista previa en vivo de los 7 modos relativos generados y selector de facetas.
+    10. `degrees` (**🏛️ Grados armónicos diatónicos**): 12 tónicas × modos (`major`, `minor`) × grados (`I`..`VII`) × tipo (`triads`, `sevenths`) × facetas (`roman>chord`, `chord>roman`).
+    11. `progressions` (**🔄 Progresiones armónicas**): las 10 plantillas (`PROGRESSIONS`) × 12 tónicas × facetas (`roman>chords`, `chords>roman`).
+  - Cada bloque muestra en su cabecera una insignia en vivo con el número exacto de tarjetas que aporta (`{N} tarjetas`).
 
+### 3. Descripciones pedagógicas, botón `?` con tooltip y distinción entre bloques de escalas
+- **Problema previo:** Los bloques del constructor carecían de descripción sobre qué tarjetas generaban exactamente, y no quedaba clara la diferencia entre añadir escalas en el bloque general y el atajo de «los 7 modos de C mayor».
+- **Decisión:**
+  - Cada uno de los 11 bloques incluye un subtítulo explicativo visible directamente bajo el título y un botón interactivo **`?`** que despliega un tooltip accesible (`role="tooltip"`) al pasar el ratón, enfocar con teclado o hacer clic.
+  - El tooltip detalla qué genera el bloque, muestra un ejemplo real de `Anverso ↔ Reverso` y añade una nota comparativa (`💡 Diferencia con...`).
+  - En particular, para `scaleModes` (**✨ Los 7 modos relativos de una escala madre**), el bloque permite elegir cualquiera de las 12 tonalidades mayores como madre y renderiza en vivo las 7 píldoras de sus modos relativos (`I · C Jónico`, `II · D Dórico`, `III · E Frigio`, `IV · F Lidio`, `V · G Mixolidio`, `VI · A Eólico`, `VII · B Locrio`), explicando que todos comparten las mismas 7 notas de la tonalidad madre (a diferencia de **🎹 Escalas por tónica**, que combina escalas y tónicas independientes en paralelo, y de **📐 Fórmulas de escalas**, que pregunta estructuras interválicas sin nota tónica).
+
+### 4. Prevención de desbordamiento vertical en preguntas con mástil (`FlashcardsView` y `DrillsView`)
+- **Problema previo:** En tarjetas con faceta `pos>name` se renderizaba un `<Fretboard />` de 236 px en el anverso y, al mostrar la respuesta, un segundo `<Fretboard />` de 236 px en el reverso dentro de un contenedor con `overflow: hidden`, empujando los 4 botones SRS fuera de la pantalla. En `DrillsView`, los ejercicios que combinaban mástil, piano y botonera de opciones (`A2`, `B3`, `B5`) podían desplazar el banner de acción por debajo del borde visible.
+- **Decisión:**
+  - **En `FlashcardsView`:**
+    - En tarjetas cuyo anverso ya muestra el mástil (`pos>name`), al revelar la respuesta se actualiza ese mismo mástil en su sitio (cambiando la marca de `role: 'question', label: '?'` a `role: 'correct', label: nota`) sin duplicar un segundo mástil en el reverso.
+    - Cuando el mástil aparece únicamente en el reverso (`name>pos`), se dispone en formato apilado a ancho completo (`.revealedContentStacked`) con altura compacta (`--fretboard-height: clamp(130px, 16.5vh, 180px)`) y marcas etiquetadas con el nombre de la nota o traste en lugar de un punto genérico.
+    - Si el reverso de una tarjeta no contiene ningún diagrama ni mástil, no se renderiza el contenedor `.revealedVisual` vacío.
+    - El área central de pregunta y respuesta se envuelve en `.studyScrollBody` (`flex: 1; min-height: 0; overflow-y: auto`), manteniendo `.stageHeader` y `.srsBar` con `flex-shrink: 0` para garantizar que los botones de respuesta estén siempre visibles.
+    - El rango de trastes del mástil (`dynamicFretRange`) se ajusta automáticamente a `{ from: 0, to: 24 }` cuando la tarjeta involucra posiciones más allá del traste 12 (como en el mazo Avanzado).
+  - **En `DrillsView`:**
+    - Se ajustaron las alturas de los instrumentos en `.drillStage` (`--fretboard-height: clamp(145px, 18vh, 210px)` y `--piano-height: clamp(78px, 9.5vh, 110px)`) y se fijó `.feedbackBanner` con `position: sticky; bottom: 0; flex-shrink: 0` y fondo translúcido con desenfoque.
+
+### 5. Inspector y listado de tarjetas dentro de cada mazo (`selectDeckCardsDetail`)
+- **Problema previo:** Al seleccionar un mazo no era posible consultar qué tarjetas contenía, cuáles estaban ya en aprendizaje o repaso, cuándo volverían a aparecer ni qué tarjetas nuevas quedaban por aprender.
+- **Decisión:**
+  - Se creó el selector puro [`selectDeckCardsDetail`](file:///home/adri/Desktop/Guitar-Aid/src/state/decks/selectors.ts) que clasifica las tarjetas resolubles del mazo en dos listas:
+    1. **`inProgressCards`:** tarjetas en estado `learning`, `relearning` o `review`, ordenadas de forma ascendente por su fecha de próximo repaso (`due`), incluyendo el texto relativo formateado (`Ahora (pendiente hoy)`, `En X min`, `En X h`, `Mañana (1 d)`, `En X días`).
+    2. **`newCards`:** tarjetas en estado `new` en su orden de aparición en la cola (`Nueva (por aprender)`).
+  - En la vista resumen del mazo ([`FlashcardsView.tsx`](file:///home/adri/Desktop/Guitar-Aid/src/ui/learn/cards/FlashcardsView.tsx)) se añadió la sección **«Tarjetas del mazo»** con pestañas de filtro (`Todas`, `En aprendizaje / repaso`, `Nuevas por aprender`) y buscador instantáneo por texto o categoría, mostrando para cada tarjeta su categoría, `Anverso → Reverso`, insignia de estado y fecha de próxima aparición.
+
+### 6. Rondas extra de estudio («Estudiar de todos modos») y contadores de sesión en vivo
+- **Problema previo:** Cuando el usuario completaba las tarjetas programadas para hoy (`activeDeckCounts.total === 0`), pulsar el botón **«Estudiar de todos modos»** invocaba `startSession(deckId)` sin opciones adicionales; como el cupo diario de nuevas estaba agotado, `buildStudyQueue` devolvía `[]` y no se iniciaba ninguna sesión.
+- **Decisión:**
+  - Se añadió la opción `forceExtraRound?: boolean` a [`buildStudyQueue`](file:///home/adri/Desktop/Guitar-Aid/src/learning/srs/queue.ts) y [`startSession`](file:///home/adri/Desktop/Guitar-Aid/src/state/decks/store.ts).
+  - Cuando `forceExtraRound: true`:
+    1. Concede el cupo de una ronda adicional de tarjetas nuevas (`limits.newPerDay`, p. ej. 20 tarjetas nuevas más) aunque ya se haya alcanzado el límite diario.
+    2. Si ya no quedan tarjetas nuevas ni vencidas en el mazo, adelanta las tarjetas en aprendizaje pendientes para más tarde hoy (`learningFuture`).
+    3. Si tampoco hay tarjetas en aprendizaje, adelanta las próximas tarjetas de repaso ordenadas por fecha de vencimiento más cercana (`reviewFuture`), hasta `limits.reviewsPerDay`.
+  - Se añadió además la función [`getQueueRemainingCounts`](file:///home/adri/Desktop/Guitar-Aid/src/learning/srs/queue.ts) para que `session.counts` refleje en todo momento las tarjetas que restan efectivamente en la cola activa (incluyendo tarjetas reencoladas al pulsar *Otra vez* o rondas extra), y un botón **`← Volver al mazo`** en la cabecera para pausar o salir de la sesión en cualquier momento.
+
+### 7. Síntesis sonora en los 10 sujetos de tarjeta y propagación de `nameMode`
+- **Problema previo:** `resolveCard` en [`facets.ts`](file:///home/adri/Desktop/Guitar-Aid/src/learning/cards/facets.ts) solo poblaba `audioMidis` en 4 sujetos (`interval`, `fretnote`, `notestring`, `voicing`), dejando mudo el botón «Escuchar» en `quality`, `chord`, `scaletype`, `scale`, `degree` y `progression`. Además, no recibía el modo de notación (`sharps` / `flats`) de `settingsStore`.
+- **Decisión:**
+  - Se completó `audioMidis` en los 10 sujetos de tarjeta dentro de [`facets.ts`](file:///home/adri/Desktop/Guitar-Aid/src/learning/cards/facets.ts) (y `sandboxContext` también en progresiones armónicas).
+  - En [`FlashcardsView.tsx`](file:///home/adri/Desktop/Guitar-Aid/src/ui/learn/cards/FlashcardsView.tsx), `handlePlayAudio` reproduce intervalos con `intervalEvents`, escalas y tipos de escala con `arpeggioEvents` melódico ascendente, y acordes/digitaciones/grados/progresiones con `arpeggioEvents` armónico.
+  - `resolveCard` y los selectores `selectCurrentCardResolved` y `selectDeckCardsDetail` reciben ahora `nameMode` (`'sharps' | 'flats'`) desde `settingsStore`.
 

@@ -118,16 +118,12 @@ export function buildDeckCardIds(sources: readonly DeckSource[]): string[] {
         for (const tonic of tonics) {
           for (const scaleType of scaleTypes) {
             for (const facet of facets) {
-              if (facet === 'name>formula') {
-                pushCard(formatCardId({ type: 'scaletype', scaleId: scaleType }, facet));
-              } else {
-                pushCard(
-                  formatCardId(
-                    { type: 'scale', tonic, scaleId: scaleType },
-                    facet,
-                  ),
-                );
-              }
+              pushCard(
+                formatCardId(
+                  { type: 'scale', tonic, scaleId: scaleType },
+                  facet,
+                ),
+              );
             }
           }
         }

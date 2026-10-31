@@ -32,6 +32,13 @@ export interface BuildStudyQueueOptions {
   cardsSRS: Readonly<Record<string, CardSRS>>;
   now: number;
   dailyUsage?: DailyUsage;
+  /**
+   * Si es true, inicia una nueva ronda de tarjetas aunque se haya agotado el cupo diario:
+   * - Otorga un lote adicional de `limits.newPerDay` tarjetas nuevas disponibles.
+   * - Incluye tarjetas en `learning`/`relearning` pendientes del día aunque su minuto de espera aún no haya vencido.
+   * - Si ya no quedan tarjetas nuevas ni en aprendizaje, adelanta las próximas tarjetas en `review`.
+   */
+  forceExtraRound?: boolean;
 }
 
 /**
@@ -86,12 +93,42 @@ export function getStudyQueueCounts(
 }
 
 /**
+ * Calcula los contadores desglosados de las tarjetas restantes dentro de una cola de sesión activa.
+ */
+export function getQueueRemainingCounts(
+  remainingCardIds: readonly string[],
+  cardsSRS: Readonly<Record<string, CardSRS>>,
+): QueueCounts {
+  let newCount = 0;
+  let learningCount = 0;
+  let reviewCount = 0;
+
+  for (const cardId of remainingCardIds) {
+    const srs = cardsSRS[cardId];
+    if (!srs || srs.state === 'new') {
+      newCount++;
+    } else if (srs.state === 'learning' || srs.state === 'relearning') {
+      learningCount++;
+    } else if (srs.state === 'review') {
+      reviewCount++;
+    }
+  }
+
+  return {
+    newCount,
+    learningCount,
+    reviewCount,
+    total: newCount + learningCount + reviewCount,
+  };
+}
+
+/**
  * Construye la cola ordenada de IDs para la sesión de estudio (§6.3):
  * 1. Tarjetas en aprendizaje/reaprendizaje que ya vencieron (ordenadas por vencimiento).
  * 2. Repasos pendientes y tarjetas nuevas (hasta los límites diarios), intercaladas.
  */
 export function buildStudyQueue(options: BuildStudyQueueOptions): string[] {
-  const { deck, cardsSRS, now, dailyUsage } = options;
+  const { deck, cardsSRS, now, dailyUsage, forceExtraRound = false } = options;
   const limits = deck.limits ?? DEFAULT_DECK_LIMITS;
   const currentDayKey = getStudyDayKey(now);
 
@@ -100,11 +137,17 @@ export function buildStudyQueue(options: BuildStudyQueueOptions): string[] {
       ? dailyUsage
       : { studyDay: currentDayKey, newCount: 0, reviewCount: 0 };
 
-  const remainingNewAllowance = Math.max(0, limits.newPerDay - usedToday.newCount);
-  const remainingReviewAllowance = Math.max(0, limits.reviewsPerDay - usedToday.reviewCount);
+  const remainingNewAllowance = forceExtraRound
+    ? Math.max(1, limits.newPerDay)
+    : Math.max(0, limits.newPerDay - usedToday.newCount);
+  const remainingReviewAllowance = forceExtraRound
+    ? Math.max(1, limits.reviewsPerDay)
+    : Math.max(0, limits.reviewsPerDay - usedToday.reviewCount);
 
   const learningDue: { id: string; due: number }[] = [];
+  const learningFuture: { id: string; due: number }[] = [];
   const reviewDue: { id: string; due: number }[] = [];
+  const reviewFuture: { id: string; due: number }[] = [];
   const availableNew: string[] = [];
 
   for (const cardId of deck.cardIds) {
@@ -116,17 +159,23 @@ export function buildStudyQueue(options: BuildStudyQueueOptions): string[] {
     } else if (srs.state === 'learning' || srs.state === 'relearning') {
       if (srs.due <= now) {
         learningDue.push({ id: cardId, due: srs.due });
+      } else {
+        learningFuture.push({ id: cardId, due: srs.due });
       }
     } else if (srs.state === 'review') {
       if (srs.due <= now) {
         reviewDue.push({ id: cardId, due: srs.due });
+      } else {
+        reviewFuture.push({ id: cardId, due: srs.due });
       }
     }
   }
 
   // Ordenar por due ascendente
   learningDue.sort((a, b) => a.due - b.due);
+  learningFuture.sort((a, b) => a.due - b.due);
   reviewDue.sort((a, b) => a.due - b.due);
+  reviewFuture.sort((a, b) => a.due - b.due);
 
   // Acotar repasos al límite diario
   const cappedReviews = reviewDue
@@ -147,5 +196,23 @@ export function buildStudyQueue(options: BuildStudyQueueOptions): string[] {
     }
   }
 
-  return [...learningDue.map((l) => l.id), ...interleavedReviewAndNew];
+  const baseQueue = [...learningDue.map((l) => l.id), ...interleavedReviewAndNew];
+
+  if (!forceExtraRound) {
+    return baseQueue;
+  }
+
+  // En una ronda extra ("Estudiar de todos modos"):
+  // 1. Si hay tarjetas nuevas o vencidas en baseQueue, devolvemos baseQueue (más las de aprendizaje pendientes hoy si baseQueue estaba vacía).
+  if (baseQueue.length > 0) {
+    return baseQueue;
+  }
+
+  // 2. Si no quedan tarjetas nuevas, pero hay tarjetas en aprendizaje esperando su paso de minutos, adelantarlas:
+  if (learningFuture.length > 0) {
+    return learningFuture.map((l) => l.id);
+  }
+
+  // 3. Si todas las tarjetas del mazo ya están en estado 'review' para días futuros, adelantar un lote de las más próximas:
+  return reviewFuture.slice(0, Math.max(1, limits.newPerDay)).map((r) => r.id);
 }

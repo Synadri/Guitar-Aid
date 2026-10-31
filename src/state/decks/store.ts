@@ -1,11 +1,13 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import { buildDeckCardIds } from '../../learning/cards/builder';
+import { resolveCard } from '../../learning/cards/facets';
 import { BEGINNER_PRESET, createDeckFromPreset, getPresetDeck } from '../../learning/cards/presets';
 import type { Deck, DeckLimits } from '../../learning/cards/types';
 import {
   DEFAULT_DECK_LIMITS,
   buildStudyQueue,
+  getQueueRemainingCounts,
   getStudyDayKey,
   getStudyQueueCounts,
 } from '../../learning/srs/queue';
@@ -28,6 +30,7 @@ import type {
   FlashcardSession,
   PersistedDecksState,
   ReviewLogEntry,
+  StartSessionOptions,
   UpdateDeckInput,
 } from './types';
 
@@ -168,6 +171,8 @@ export function createDecksStore(
 
           set((s) => ({
             decks: s.decks.map((d) => (d.id === id ? updatedDeck : d)),
+            session:
+              updates.sources !== undefined && s.session?.deckId === id ? null : s.session,
           }));
 
           return updatedDeck;
@@ -257,7 +262,7 @@ export function createDecksStore(
           }
         },
 
-        startSession: (deckId?: string): void => {
+        startSession: (deckId?: string, options?: StartSessionOptions): void => {
           const state = get();
           const targetDeckId = deckId ?? state.activeDeckId ?? state.decks[0]?.id;
           if (!targetDeckId) return;
@@ -269,13 +274,22 @@ export function createDecksStore(
           const deckSRS = state.cardsSRS[deck.id] ?? {};
           const usage = state.dailyUsage[deck.id];
 
-          const counts = getStudyQueueCounts(deck, deckSRS, currentTime, usage);
-          const queue = buildStudyQueue({
+          const rawQueue = buildStudyQueue({
             deck,
             cardsSRS: deckSRS,
             now: currentTime,
             dailyUsage: usage,
+            forceExtraRound: options?.forceExtraRound,
           });
+
+          const queue = options?.tuning
+            ? rawQueue.filter((cardId) => resolveCard(cardId, options.tuning) !== null)
+            : rawQueue;
+
+          const counts =
+            queue.length > 0
+              ? getQueueRemainingCounts(queue, deckSRS)
+              : getStudyQueueCounts(deck, deckSRS, currentTime, usage);
 
           const session: FlashcardSession = {
             deckId: deck.id,
@@ -372,7 +386,10 @@ export function createDecksStore(
 
           if (nextIndex < nextQueue.length) {
             const nextCardId = nextQueue[nextIndex] ?? null;
-            const updatedCounts = getStudyQueueCounts(deck, deckSRS, currentTime, nextUsage);
+            const updatedCounts = getQueueRemainingCounts(
+              nextQueue.slice(nextIndex),
+              deckSRS,
+            );
 
             set({
               cardsSRS: {

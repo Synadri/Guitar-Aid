@@ -1,3 +1,4 @@
+import type { Tuning } from '../../theory/data/tunings';
 import type {
   CardSRS,
   CardState,
@@ -70,6 +71,19 @@ export interface FlashcardSession {
   counts: QueueCounts;
 }
 
+export interface StartSessionOptions {
+  /**
+   * Si es `true`, inicia una ronda extra de estudio aunque se haya alcanzado
+   * el cupo diario de tarjetas nuevas o no haya tarjetas vencidas ahora mismo.
+   */
+  forceExtraRound?: boolean;
+  /**
+   * Afinación activa para filtrar tarjetas cuya resolución dependa de la afinación
+   * (p. ej. digitaciones exclusivas de afinación estándar).
+   */
+  tuning?: Tuning;
+}
+
 // ============================================================================
 // 3. Entradas para CRUD de Mazos (§6.2)
 // ============================================================================
@@ -113,6 +127,28 @@ export interface GlobalDeckStats {
   enAprendizaje: number;
   /** Total de repasos históricos registrados. */
   totalRepasos: number;
+}
+
+export interface DeckCardItem {
+  cardId: string;
+  resolved: ResolvedCard;
+  srs: CardSRS | undefined;
+  state: CardState;
+  due: number | null;
+  interval: number;
+  reps: number;
+  lapses: number;
+  isDueNow: boolean;
+  nextDueText: string;
+}
+
+export interface DeckCardsDetail {
+  /** Tarjetas en aprendizaje, reaprendizaje o repaso ordenadas por próximo vencimiento (`due` ascendente). */
+  inProgressCards: DeckCardItem[];
+  /** Tarjetas nuevas aún no iniciadas en orden de cola. */
+  newCards: DeckCardItem[];
+  /** Número de tarjetas omitidas por incompatibilidad con la afinación actual. */
+  unresolvableCount: number;
 }
 
 // ============================================================================
@@ -161,7 +197,7 @@ export interface DecksActions {
   selectDeck: (deckId: string | null) => void;
 
   /** Inicia una sesión de estudio para el mazo especificado (o el activo). */
-  startSession: (deckId?: string) => void;
+  startSession: (deckId?: string, options?: StartSessionOptions) => void;
   /** Muestra el reverso de la tarjeta actual (Espacio). */
   revealAnswer: () => void;
   /**
