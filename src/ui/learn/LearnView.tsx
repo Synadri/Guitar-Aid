@@ -8,11 +8,13 @@ import {
   type SandboxStore,
   type SettingsStore,
   type DrillsStore,
+  type DecksStore,
 } from '../../state';
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { getStudyDayKey } from '../../learning/srs/queue';
 import { FormulasView } from './formulas/FormulasView';
 import { DrillsView } from './drills/DrillsView';
+import { FlashcardsView } from './cards/FlashcardsView';
 import styles from './LearnView.module.css';
 
 export type LearnTab = 'drills' | 'cards' | 'formulas' | 'progress';
@@ -23,6 +25,7 @@ export interface LearnViewProps {
   sandboxStore?: StoreApi<SandboxStore>;
   settingsStore?: StoreApi<SettingsStore>;
   drillsStore?: StoreApi<DrillsStore>;
+  decksStore?: StoreApi<DecksStore>;
   audioEngine?: AudioEngine;
   onNavigateToSandbox?: () => void;
 }
@@ -82,13 +85,14 @@ export function LearnView({
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
   drillsStore = defaultDrillsStore,
+  decksStore = defaultDecksStore,
   audioEngine = defaultAudioEngine,
   onNavigateToSandbox,
 }: LearnViewProps) {
   const [activeTab, setActiveTab] = useState<LearnTab>(initialTab);
 
   const drillsHistory = useStore(drillsStore, (s) => s.history);
-  const decksHistory = useStore(defaultDecksStore, (s) => s.history);
+  const decksHistory = useStore(decksStore, (s) => s.history);
 
   const resolvedStreak =
     streakDays !== undefined
@@ -184,14 +188,20 @@ export function LearnView({
             id="learn-tabpanel-cards"
             role="tabpanel"
             aria-labelledby="learn-tab-cards"
-            className={styles.placeholderCard}
+            style={{ width: '100%', height: '100%' }}
             data-testid="learn-panel-cards"
           >
-            <h2 className={styles.placeholderTitle}>Tarjetas</h2>
-            <p className={styles.placeholderDesc}>
-              Memorización a largo plazo con repetición espaciada (SM-2): mazos personalizados de
-              acordes, escalas, digitaciones y progresiones.
-            </p>
+            <FlashcardsView
+              decksStore={decksStore}
+              sandboxStore={sandboxStore}
+              settingsStore={settingsStore}
+              audioEngine={audioEngine}
+              onNavigateToSandbox={onNavigateToSandbox}
+              onOpenInSandbox={(ctx) => {
+                sandboxStore.getState().setContext(ctx);
+                onNavigateToSandbox?.();
+              }}
+            />
           </div>
         )}
 

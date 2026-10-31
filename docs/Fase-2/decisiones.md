@@ -526,6 +526,57 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
   - **Síntesis sonora (`src/ui/learn/drills/DrillsView.tsx`):** Al corregir o pulsar «Escuchar», el arpegio se sintetiza uniendo la fundamental con las demás notas del acorde de grave a agudo (`allPositions.sort((a, b) => a - b)`).
   - **Pista de fórmula armónica en C1:** Al igual que en C2, hacer clic en el nombre del acorde o en `💡 Ver grados del acorde (-50% puntos)` despliega los grados armónicos de la fórmula (`formulaOfChord`, ej. `1  3  5` o `1  ♭3  5`) sin notas reales y aplica la penalización del 50 % en la puntuación.
 
+---
+
+## 2026-10-31 — Hito A8: Interfaz de Tarjetas (Tarjetas, Repetición Espaciada y Constructor de Mazos)
+
+### 1. Estructura del lienzo de estudio (`FlashcardsView`) y layout de 2 columnas (§5.1, §5.2, §5.3)
+- **Decisión:**
+  - Se estructuró la sección **Tarjetas** con una rejilla de dos columnas:
+    - **Columna izquierda (`.decksSidebar`, 310 px):** cabecera `Mazos` con leyenda `Nuevas · Aprendiendo · Repaso`, lista de mazos accesible (`role="listbox"`, `aria-label="Mazos de tarjetas"`), selección con fondo destacado `#172236`, contadores diarios codificados en color (Nuevas `#3b82f6`, Aprendiendo `#f97316`, Repaso `#22c55e` o texto `Al día · 0 pendientes`), y botones de acción inferior para `+ Nuevo mazo` y `Añadir predefinido`.
+    - **Columna derecha (`.flashcardStage`, 1fr):** lienzo de estudio interactivo. Cuando no hay sesión activa, muestra una tarjeta de resumen del mazo seleccionado con métricas destacadas y el botón primario **`Comenzar estudio`** (o estado de felicitación si el usuario ya está al día). Durante el estudio, se organiza en cabecera de sesión, anverso, divisor, reverso y barra de evaluación SRS.
+  - **Adaptabilidad responsiva:** En pantallas menores a 1100 px, la rejilla conmuta a una sola columna vertical sin scroll horizontal global, preservando la ergonomía de pantalla completa.
+
+### 2. Componente SVG de digitaciones (`ChordDiagram`, §5.3)
+- **Decisión:**
+  - Se implementó `src/ui/learn/cards/ChordDiagram.tsx` como componente vectorial puro SVG (180×190 px, `viewBox="0 0 180 190"`):
+    - **6 cuerdas verticales** con calibres decrecientes (2,5 px en la 6ª hasta 1,0 px en la 1ª).
+    - **Trastes y cejuela:** si el traste base es 1, dibuja una cejuela superior engrosada (`data-testid="chord-nut"`); si el acorde inicia en un traste superior a 1, dibuja el traste normal e inserta la indicación `{baseFret}fr` a la izquierda del mástil.
+    - **Símbolos superiores:** aspas `×` para cuerdas muteadas y círculos `○` para cuerdas al aire.
+    - **Círculos de posición (26 px de diámetro):** notas que actúan como fundamental (`root`) coloreadas en turquesa (`#14b8a6`, borde `#0d9488`, texto oscuro) y notas complementarias en gris claro (`#e2e8f0`, borde `#cbd5e1`, texto oscuro).
+    - **Modo ciego (`silent`):** cuando la tarjeta pregunta por la forma (`shape>name`), el diagrama se muestra en el anverso suprimiendo etiquetas de grado o nota para no revelar la respuesta antes de tiempo.
+
+### 3. Flujo de autoevaluación SRS con vista previa de intervalos (§5.3, §8, Criterios h, j, k)
+- **Decisión:**
+  - **Anverso y revelación:** el reverso permanece oculto mostrando el botón primario **`Mostrar respuesta · Espacio`**. Al activarse, se anuncia la revelación mediante una región accesible con `aria-live="polite"`.
+  - **Reverso revelado:** despliega el contenedor a dos columnas con el diagrama SVG o mástil compacto a la izquierda, y a la derecha la etiqueta `RESPUESTA`, el valor principal en monoespaciada grande (`20 px`), desglose de `Notas:` y `Grados:`, y los botones de acción `Escuchar` y `Abrir en Sandbox`.
+  - **Barra de 4 botones SRS:** cuadrícula con botones proporcionales con bordes temáticos:
+    1. **`Otra vez`** (rojo `#ef4444`, intervalo previsto vía `previewIntervals`, tecla `1`).
+    2. **`Difícil`** (ámbar `#eab308`, intervalo previsto, tecla `2`).
+    3. **`Bien`** (azul `#3b82f6`, intervalo previsto, tecla `3`).
+    4. **`Fácil`** (verde `#22c55e`, intervalo previsto, tecla `4`).
+  - **Protección de estado:** los botones SRS permanecen estrictamente deshabilitados hasta que el usuario revela la respuesta, impidiendo calificaciones accidentales.
+
+### 4. Atajos de teclado y ergonomía de estudio (§8)
+- **Decisión:**
+  - En anverso: <kbd>Espacio</kbd> revela la respuesta.
+  - En reverso: <kbd>1</kbd>, <kbd>2</kbd>, <kbd>3</kbd>, <kbd>4</kbd> evalúan la tarjeta y avanzan al siguiente ítem.
+  - Los atajos se ignoran si el foco del usuario se encuentra en campos editables (`input`, `select`, `textarea`, `contentEditable`) o si se pulsaron teclas modificadoras (`Ctrl`, `Alt`, `Meta`).
+  - En modales: la tecla <kbd>Esc</kbd> cierra el diálogo sin disparar acciones de las tarjetas.
+
+### 5. Constructor y editor de mazos (`DeckBuilderModal`, §5.4, Criterios i, l)
+- **Decisión:**
+  - Se implementó `src/ui/learn/cards/DeckBuilderModal.tsx` como diálogo modal accesible (`role="dialog"`, `aria-modal="true"`, cerrable con <kbd>Esc</kbd> o clic en el fondo):
+    - **Pestaña «Reglas personalizadas»:** edición de nombre del mazo, límites diarios (`Nuevas / día`, `Repasos / día`) y constructor modular de fuentes (`DeckSource[]`): digitaciones (`voicings`), fórmulas y notas de acordes (`chords`), tipos de escala (`scales`), los 7 modos de una escala madre (`scaleModes`), progresiones armónicas (`progressions`), notas en el mástil (`fretNotes`) e intervalos (`intervals`).
+    - **Cálculo en vivo de tarjetas:** indicador inferior `Total: {N} tarjetas` calculado en tiempo real con `buildDeckCardIds(sources).length`.
+    - **Pestaña «Mazos predefinidos»:** lista los 3 mazos canónicos (**Principiante**, **Intermedio**, **Avanzado**) con su descripción, cuotas diarias y total de tarjetas. Al pulsar «Añadir a mis mazos», invoca `addPresetDeck(presetId)` creando una copia editable e independiente con progreso propio (Criterio l).
+
+### 6. Integración de audio y «Abrir en Sandbox» (§2, §5.3)
+- **Decisión:**
+  - **Sonido:** el botón `Escuchar` utiliza `audioEngine.playEvents(...)` con `arpeggioEvents` para digitaciones y acordes o `chordEvents` para notas simultáneas si `soundEnabled` está activo.
+  - **Sandbox:** el botón `Abrir en Sandbox` lee el `sandboxContext` de la tarjeta resuelta, construye el objeto `MenuContext` (`kind: 'chord'` o `kind: 'scale'`), lo fija mediante `sandboxStore.getState().setContext(...)` y conmuta la aplicación al modo Sandbox a través de `onNavigateToSandbox()`.
+  - **Inyección de dependencias:** `LearnView` y `AppShell` aceptan la prop `decksStore` opcional (por defecto `defaultDecksStore`), permitiendo instanciar stores completamente aislados en pruebas unitarias e integración sin colisiones de `localStorage`.
+
 
 
 

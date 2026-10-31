@@ -4,9 +4,11 @@ import {
   sandboxStore as defaultSandboxStore,
   settingsStore as defaultSettingsStore,
   drillsStore as defaultDrillsStore,
+  decksStore as defaultDecksStore,
   type SandboxStore,
   type SettingsStore,
   type DrillsStore,
+  type DecksStore,
 } from '../../state';
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { SideNav, type AppMode } from '../layout/SideNav';
@@ -19,6 +21,7 @@ export interface AppShellProps {
   sandboxStore?: StoreApi<SandboxStore>;
   settingsStore?: StoreApi<SettingsStore>;
   drillsStore?: StoreApi<DrillsStore>;
+  decksStore?: StoreApi<DecksStore>;
   audioEngine?: AudioEngine;
 }
 
@@ -27,6 +30,7 @@ export function AppShell({
   sandboxStore = defaultSandboxStore,
   settingsStore = defaultSettingsStore,
   drillsStore = defaultDrillsStore,
+  decksStore = defaultDecksStore,
   audioEngine = defaultAudioEngine,
 }: AppShellProps) {
   const [currentMode, setCurrentMode] = useState<AppMode>(initialMode);
@@ -84,6 +88,7 @@ export function AppShell({
             sandboxStore={sandboxStore}
             settingsStore={settingsStore}
             drillsStore={drillsStore}
+            decksStore={decksStore}
             audioEngine={audioEngine}
             onNavigateToSandbox={() => setCurrentMode('sandbox')}
           />
