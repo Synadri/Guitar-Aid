@@ -255,7 +255,10 @@ export function createDrillsStore(
             phase: 'answering',
           }),
 
-        submitAnswer: (answerOverride?: AnswerInput) => {
+        submitAnswer: (
+          answerOverride?: AnswerInput,
+          options?: { scoreMultiplier?: number; hintExplanation?: string },
+        ) => {
           const state = get();
           if (state.phase === 'corrected' || !state.currentQuestion) return;
 
@@ -281,14 +284,39 @@ export function createDrillsStore(
             }
           }
 
-          const gradeResult = grade(q, input);
+          // En C1 (Construye el acorde), la raíz ya está indicada como referencia en el mástil.
+          // Si el usuario también la pulsó en su respuesta, la limpiamos para que no compute como extra.
+          const prompt = q.prompt as Record<string, unknown> | null;
+          if (q.drill === 'C1' && prompt?.rootPosition && input.kind === 'positions') {
+            const rootPos = prompt.rootPosition as FretPosition;
+            const filtered = input.positions.filter((p) => !samePosition(p, rootPos));
+            input = { kind: 'positions', positions: filtered };
+          }
+
+          let gradeResult = grade(q, input);
+          if (options?.scoreMultiplier !== undefined) {
+            const adjustedScore = Math.max(0, Math.min(1, gradeResult.score * options.scoreMultiplier));
+            gradeResult = {
+              ...gradeResult,
+              score: adjustedScore,
+              explanation: options.hintExplanation
+                ? `${gradeResult.explanation ? gradeResult.explanation + ' ' : ''}${options.hintExplanation}`
+                : gradeResult.explanation,
+            };
+          }
           const currentTime = now();
           const elapsedMs = Math.max(0, currentTime - (state.questionStartTime ?? currentTime));
 
           // Actualización de métricas acumuladas de la sesión
           const nextQuestionsAnswered = state.sessionStats.questionsAnswered + 1;
-          const nextCorrectCount =
-            state.sessionStats.correctCount + (gradeResult.correct ? 1 : 0);
+          const isFullyCorrect =
+            gradeResult.correct && (options?.scoreMultiplier === undefined || options.scoreMultiplier >= 1);
+          const correctIncrement = isFullyCorrect
+            ? 1
+            : gradeResult.correct && options?.scoreMultiplier !== undefined
+              ? options.scoreMultiplier
+              : 0;
+          const nextCorrectCount = state.sessionStats.correctCount + correctIncrement;
           const nextTotalTimeMs = state.sessionStats.totalTimeMs + elapsedMs;
 
           // Actualización de estadísticas históricas persistidas por itemKey
@@ -298,8 +326,8 @@ export function createDrillsStore(
           const prevResults = prevStats?.recentResults ?? [];
 
           const newAttempts = prevAttempts + 1;
-          const newHits = prevHits + (gradeResult.correct ? 1 : 0);
-          const newResults = [...prevResults, gradeResult.correct].slice(-20);
+          const newHits = prevHits + (isFullyCorrect ? 1 : 0);
+          const newResults = [...prevResults, isFullyCorrect].slice(-20);
 
           const prevAvgTime = prevStats?.averageTimeMs ?? elapsedMs;
           const newAvgTime = Math.round(

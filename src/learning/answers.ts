@@ -317,6 +317,21 @@ export function grade(question: GradableQuestion, input: AnswerInput): Grade {
         ? 1
         : Math.max(0, Math.round(((hits.length - extras.length * 0.5) / expected.labels.length) * 100) / 100);
 
+      const expectedStr = expected.labels.map((l) => l.degree ?? l.label).join(', ');
+      let explanation: string;
+      if (isCorrect) {
+        explanation = `¡Correcto! Todos los grados (${expectedStr}) son correctos.`;
+      } else {
+        const errorDetails = misses.map((m) => {
+          const expDeg = m.degree;
+          const userDeg = input.labels.find((l) => samePosition(l.position, m.position))?.label;
+          return userDeg
+            ? `cuerda ${m.position.string}: era ${expDeg} (pusiste ${userDeg})`
+            : `cuerda ${m.position.string}: faltó ${expDeg}`;
+        }).join('; ');
+        explanation = `Incorrecto (${hits.length}/${expected.labels.length} aciertos). ${errorDetails}. Grados esperados: ${expectedStr}.`;
+      }
+
       return {
         correct: isCorrect,
         partial: isPartial,
@@ -324,9 +339,7 @@ export function grade(question: GradableQuestion, input: AnswerInput): Grade {
         hits,
         misses,
         extras,
-        explanation: isCorrect
-          ? `¡Correcto! Todos los grados (${hits.map((h) => h.degree).join(', ')}) son correctos.`
-          : `Parcial: ${hits.length} aciertos de ${expected.labels.length}.`,
+        explanation,
       };
     }
 

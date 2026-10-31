@@ -134,7 +134,7 @@ export const DRILL_CATALOG: readonly DrillInfo[] = [
     id: 'C1',
     group: 'build',
     name: 'Construye el acorde',
-    description: 'Marca las notas que componen un acorde sobre una cuerda o zona del mástil.',
+    description: 'Construye la digitación de un acorde en el mástil a partir de la fundamental marcada.',
     defaultMode: 'all',
     answerKind: 'positions',
   },

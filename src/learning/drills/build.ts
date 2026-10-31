@@ -5,15 +5,16 @@ import {
   type PitchClass,
   type ScaleTypeId,
   type StringNumber,
-  chordTones,
   formatChordName,
   pcName,
   pitchClassOf,
   positionToMidi,
   SCALE_TYPES,
   STANDARD_TUNING,
+  voicingsForChord,
 } from '../../theory';
 import type { Rng } from '../rng';
+import { samePosition } from '../answers';
 import { adaptivePick, type DrillStatsMap } from './adaptive';
 import type { DrillConfig, DrillQuestion } from './types';
 
@@ -41,8 +42,13 @@ export interface C1Prompt {
   root: PitchClass;
   quality: ChordQualityId;
   chordName: string;
+  voicingId: string;
+  family: string;
+  rootPosition: FretPosition;
+  rootNoteName: string;
   string?: StringNumber;
   targetStrings: readonly StringNumber[];
+  allVoicingPositions: readonly FretPosition[];
   title: string;
   eyebrow: string;
 }
@@ -59,7 +65,7 @@ export function generateC1(
   const nameMode: NameMode = config?.nameMode ?? 'sharps';
   const mode = config?.mode ?? 'all';
 
-  // Elige una clase de altura de raíz
+  // 1. Elige una raíz y calidad de forma adaptativa
   const roots: PitchClass[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   const chosenRoot = adaptivePick(
     rng,
@@ -69,7 +75,6 @@ export function generateC1(
     config?.adaptive ?? true,
   );
 
-  // Elige calidad
   const chosenQuality = adaptivePick(
     rng,
     qualities,
@@ -78,32 +83,70 @@ export function generateC1(
     config?.adaptive ?? true,
   );
 
-  // Determina si se practica sobre una sola cuerda (modo lineal) o en todas las activas
-  // Por defecto, si hay más de 1 cuerda activa, alterna o permite cuerda única
-  const singleString = adaptivePick(
-    rng,
-    activeStrings,
-    (s) => `string:${s}`,
-    stats,
-    config?.adaptive ?? true,
+  // 2. Consulta los voicings disponibles para ese acorde en la afinación activa
+  const allVoicings = voicingsForChord(chosenRoot, chosenQuality, tuning);
+
+  // Filtra por rango de trastes y cuerdas activas (priorizando los que están completamente contenidos)
+  let candidates = allVoicings.filter(
+    (v) =>
+      v.positions.length >= 3 &&
+      v.positions.every((p) => p.fret >= minFret && p.fret <= maxFret) &&
+      v.positions.every((p) => activeStrings.includes(p.string)),
   );
 
-  const tones = chordTones(chosenRoot, chosenQuality);
-  const chordPcs = tones.map((t) => t.pc);
-  const chordName = formatChordName(chosenRoot, chosenQuality, nameMode);
+  if (candidates.length === 0) {
+    candidates = allVoicings.filter(
+      (v) =>
+        v.positions.length >= 3 &&
+        v.positions.every((p) => p.fret >= minFret && p.fret <= maxFret),
+    );
+  }
 
-  // Calcula todas las posiciones del acorde en la cuerda elegida dentro del rango
-  const matchingPositions: FretPosition[] = [];
-  for (let f = minFret; f <= maxFret; f++) {
-    const pos: FretPosition = { string: singleString, fret: f };
-    const midi = positionToMidi(tuning, pos);
-    if (chordPcs.includes(pitchClassOf(midi))) {
-      matchingPositions.push(pos);
+  if (candidates.length === 0) {
+    candidates = allVoicings.filter((v) => v.positions.length >= 3);
+  }
+
+  // 3. Selecciona adaptativamente el voicing objetivo
+  const chosenVoicing =
+    candidates.length > 0
+      ? adaptivePick(
+          rng,
+          candidates,
+          (v) => `voicing:${v.id}`,
+          stats,
+          config?.adaptive ?? true,
+        )
+      : null;
+
+  // 4. Determina la posición de la fundamental (anclaje de referencia)
+  let rootPos: FretPosition;
+  if (chosenVoicing) {
+    const rootPosCandidate = chosenVoicing.positions.find(
+      (p) =>
+        p.string === chosenVoicing.rootString &&
+        pitchClassOf(positionToMidi(tuning, p)) === chosenRoot,
+    );
+    rootPos = rootPosCandidate ?? chosenVoicing.positions[0]!;
+  } else {
+    // Fallback de reserva si no hubiera voicings disponibles
+    rootPos = { string: 6, fret: 0 };
+    for (let f = minFret; f <= maxFret; f++) {
+      for (const s of activeStrings) {
+        if (pitchClassOf(positionToMidi(tuning, { string: s, fret: f })) === chosenRoot) {
+          rootPos = { string: s, fret: f };
+          break;
+        }
+      }
     }
   }
 
-  const title = `Construye el acorde ${chordName} en la cuerda ${singleString}`;
-  const qId = `c1-${chosenRoot}-${chosenQuality}-s${singleString}-${Math.floor(rng() * 1000000)}`;
+  const allVoicingPositions = chosenVoicing ? chosenVoicing.positions : [rootPos];
+  // Las posiciones que el usuario debe marcar son las demás notas de la digitación
+  const expectedPositions = allVoicingPositions.filter((p) => !samePosition(p, rootPos));
+  const chordName = formatChordName(chosenRoot, chosenQuality, nameMode);
+  const rootNoteName = pcName(chosenRoot, nameMode);
+  const title = `Construye el acorde ${chordName} desde la cuerda ${rootPos.string}, traste ${rootPos.fret}`;
+  const qId = `c1-${chosenRoot}-${chosenQuality}-${chosenVoicing?.id ?? 'custom'}-${Math.floor(rng() * 1000000)}`;
 
   return {
     id: qId,
@@ -113,15 +156,20 @@ export function generateC1(
       root: chosenRoot,
       quality: chosenQuality,
       chordName,
-      string: singleString,
-      targetStrings: [singleString],
+      voicingId: chosenVoicing?.id ?? 'custom',
+      family: chosenVoicing?.family ?? 'open',
+      rootPosition: rootPos,
+      rootNoteName,
+      string: rootPos.string,
+      targetStrings: allVoicingPositions.map((p) => p.string),
+      allVoicingPositions,
       title,
       eyebrow: 'C1 · CONSTRUYE EL ACORDE',
     },
     answerKind: 'positions',
     expected: {
       kind: 'positions',
-      positions: matchingPositions,
+      positions: expectedPositions,
     },
     mode,
   };

@@ -100,8 +100,11 @@ export interface DrillsActions {
   assignLabel: (pos: FretPosition, label: Degree | string) => void;
   /** Establece explícitamente el objeto de respuesta actual. */
   setAnswer: (answer: AnswerInput) => void;
-  /** Envía la respuesta para corrección inmediata mediante grade(). */
-  submitAnswer: (answer?: AnswerInput) => void;
+  /** Envía la respuesta para corrección inmediata mediante grade(). Admite opciones de penalización por pistas. */
+  submitAnswer: (
+    answer?: AnswerInput,
+    options?: { scoreMultiplier?: number; hintExplanation?: string },
+  ) => void;
   /** Alias de submitAnswer(). */
   checkAnswer: () => void;
   /** Pasa a la siguiente pregunta de la sesión o al resumen si se alcanzó el total. */

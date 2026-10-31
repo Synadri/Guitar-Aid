@@ -422,6 +422,16 @@
   border-color: #14b8a6;
 }
 
+.voicingCardCorrect {
+  border-color: #14532d !important;
+  background: rgba(20, 83, 45, 0.18) !important;
+}
+
+.voicingCardWrong {
+  border-color: #7f1d1d !important;
+  background: rgba(127, 29, 29, 0.18) !important;
+}
+
 .voicingCardPos {
   font-size: 12px;
   color: #94a3b8;
@@ -439,6 +449,123 @@
 .voicingDegreeBadgeRoot {
   background: #14b8a6;
   color: #042f2e;
+}
+
+.voicingDegreeWrongGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voicingDegreeBadgeWrong {
+  background: rgba(127, 29, 29, 0.6);
+  color: #f87171;
+  text-decoration: line-through;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.voicingDegreeArrow {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.voicingDegreeBadgeExpected {
+  background: rgba(20, 83, 45, 0.7);
+  color: #4ade80;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.voicingDegreeBadgeCorrect {
+  background: rgba(20, 83, 45, 0.7);
+  color: #4ade80;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.scaleTitleClickable {
+  cursor: pointer;
+  text-decoration: underline dotted #14b8a6;
+  text-underline-offset: 4px;
+  transition: color 0.15s ease;
+}
+
+.scaleTitleClickable:hover {
+  color: #5eead4;
+}
+
+/* C2 Pista interactiva de fórmula de escala */
+.scaleFormulaHintButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(16, 27, 51, 0.6);
+  color: #60a5fa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.scaleFormulaHintButton:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+.scaleFormulaBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px dashed rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.scaleFormulaContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scaleFormulaTitle {
+  font-size: 13px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.scaleFormulaDegrees {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14b8a6;
+  letter-spacing: 0.08em;
+  font-family: monospace;
+}
+
+.scaleFormulaBadge {
+  font-size: 11px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .degreePillsRow {

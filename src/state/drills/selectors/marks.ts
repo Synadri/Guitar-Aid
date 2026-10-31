@@ -148,6 +148,12 @@ export function selectDrillFretboardMarks(
     }
 
     // 2. Posiciones seleccionadas / fijadas por el usuario
+    const hideNoteLabel =
+      (currentQuestion.drill === 'A1' && currentQuestion.mode === 'all') ||
+      currentQuestion.drill === 'B4' ||
+      currentQuestion.drill === 'C1' ||
+      currentQuestion.drill === 'C2';
+
     for (const pinned of pinnedPositions) {
       const midi = positionToMidi(tuning, pinned);
       const noteName = pcName(pitchClassOf(midi), nameMode);
@@ -155,7 +161,7 @@ export function selectDrillFretboardMarks(
         string: pinned.string,
         fret: pinned.fret,
         role: 'pinned',
-        label: noteName,
+        label: hideNoteLabel ? '?' : noteName,
       });
     }
 

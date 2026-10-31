@@ -431,16 +431,27 @@ describe('Hito A2 — Motor de ejercicios puro (learning/drills)', () => {
       expect(q.expected.kind).toBe('labels');
     });
 
-    it('C1 genera construcción de acorde en una cuerda', () => {
+    it('C1 genera construcción de acorde en el mástil a partir de la fundamental', () => {
       const rng = createRng(101);
       const q = generateC1(rng, {
-        activeStrings: [4],
+        activeStrings: [1, 2, 3, 4, 5, 6],
         fretRange: [0, 12],
         qualities: ['m7'],
       });
       expect(q.drill).toBe('C1');
-      expect(q.prompt.string).toBe(4);
+      expect(q.prompt.rootPosition).toBeDefined();
+      expect(q.prompt.rootNoteName).toBeDefined();
+      expect(q.prompt.allVoicingPositions.length).toBeGreaterThanOrEqual(3);
       expect(q.expected.kind).toBe('positions');
+      if (q.expected.kind === 'positions') {
+        expect(q.expected.positions.length).toBeGreaterThan(0);
+        expect(
+          q.expected.positions.every(
+            (p) =>
+              p.string !== q.prompt.rootPosition.string || p.fret !== q.prompt.rootPosition.fret,
+          ),
+        ).toBe(true);
+      }
     });
 
     it('C2 genera escala en una cuerda', () => {

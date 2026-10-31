@@ -488,6 +488,46 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
   - `AppShell`: acepta `drillsStore` opcional y lo transfiere a `LearnView`.
   - Verificación exhaustiva con 14 tests en `src/ui/learn/drills/DrillsView.test.tsx` cubriendo el selector de ejercicios, la botonera de configuración, los atajos de teclado, el resumen de sesión y los criterios de aceptación (d, e, f, g, n, o).
 
+---
+
+## 2026-10-31 — Refinamientos pedagógicos en Ejercicios (A1, B4, B5, C2) y propuesta de rediseño de C1
+
+### 1. Ocultamiento de etiquetas en marcas de usuario en A1 (modo all), B4, C1 y C2
+- **Problema previo:** En A1 (modo marcar todas las notas) y B4 (mapa de intervalos), al hacer clic sobre el mástil o piano, la marca colocada mostraba de inmediato el nombre de la nota (`C`, `G`, etc.), permitiendo al usuario saber si había acertado antes de pulsar «Comprobar».
+- **Decisión:** En `src/state/drills/selectors/marks.ts`, las marcas con rol `pinned` para A1 (modo `all`), B4, C1 y C2 se generan con `label: '?'`. El nombre de la nota o el grado armónico solo se revela tras pulsar «Comprobar · Enter» en la fase `corrected`.
+- **Justificación:** Preserva la integridad pedagógica de los ejercicios de búsqueda exhaustiva y memoria interválica en el mástil.
+
+### 2. Retroalimentación explícita de fallos y correcciones en B5 (Etiqueta la forma)
+- **Problema previo:** Al corregir B5, únicamente se destacaba el conteo de aciertos (`hits`), pero las fichas de las cuerdas no indicaban visualmente cuáles habían sido erróneas ni cuál era el grado correcto esperado para cada cuerda.
+- **Decisión:**
+  - En `src/learning/answers.ts`: la explicación de `grade()` para `labels` desglosa detalladamente cada error (ej. `cuerda 2: era ♭3 (pusiste 3)`) e indica la secuencia completa de grados esperados.
+  - En `DrillsView.tsx` y `DrillsView.module.css`: en la fase `corrected`, las fichas de voicing (`.voicingCard`) diferencian el estado de cada cuerda:
+    - Cuerdas acertadas: fondo y borde verde (`.voicingCardCorrect`) con insignia `✓ {grado}`.
+    - Cuerdas erróneas: fondo y borde rojo (`.voicingCardWrong`) con grupo visual que muestra la respuesta del usuario tachada en rojo (`× {respuesta}`) seguida de una flecha y el grado correcto en verde (`→ ✓ {esperado}`).
+- **Justificación:** Permite al usuario comprender de un vistazo en qué cuerda se equivocó y reforzar la asociación interválica en cada nota del acorde.
+
+### 3. Pista interactiva de fórmula y penalización en C2 (Escala en una cuerda)
+- **Problema previo:** Si el usuario no recordaba la fórmula interválica de una escala (p. ej. mixolidia o dórica), no disponía de ninguna ayuda conceptual y debía recurrir a probar posiciones a ciegas.
+- **Decisión:**
+  - En la cabecera de la pregunta de C2 se implementó un disparador doble: el nombre de la escala en el título es interactivo (`.scaleTitleClickable`) y se acompaña de un botón dedicado `💡 Ver grados de la escala (-50% puntos)` (`.scaleFormulaHintButton`).
+  - Al activarse, se despliega una caja con la fórmula de la escala resuelta por `formulaOfScale` (ej. `1  2  ♭3  4  5  6  ♭7`), mostrando **únicamente los grados relativos sin los nombres de las notas** para no desvelar directamente las soluciones del mástil.
+  - El store admite penalizaciones en `submitAnswer(input, { scoreMultiplier: 0.5, hintExplanation: '...' })`. Si se usó la pista, la pregunta califica con una puntuación máxima de `0.5` (50 %), no cuenta como acierto sin ayuda en el sistema adaptativo, y el banner de feedback lo notifica explícitamente.
+
+### 4. Reimplementación de C1 (Construye el acorde en el mástil)
+- **Diagnóstico del diseño anterior:**
+  - El diseño inicial generaba una tónica y pedía marcar todas las notas del acorde linealmente sobre una misma cuerda.
+  - Musicológicamente, la guitarra se organiza en formas armónicas polifónicas (voicings a través de múltiples cuerdas). La visualización unilineal ya está cubierta con precisión por B1 (intervalo en una cuerda) y C2 (escala en una cuerda). Construir acordes unilinealmente resultaba antinatural y no entrenaba la habilidad real que necesita el guitarrista: visualizar digitaciones y formas de acordes a lo largo de las cuerdas a partir de un bajo o fundamental.
+- **Implementación final:**
+  - **Enunciado:** *«Construye el acorde {NombreAcorde} desde la cuerda {S}, traste {F}»* (p. ej. *«Construye el acorde C desde la cuerda 5, traste 3»* o *«Construye el acorde G desde la cuerda 6, traste 3»*).
+  - **Punto de anclaje:** La posición de la fundamental se presenta prefijada en el mástil como referencia con `role: 'question'` e `isRoot: true` (círculo azul turquesa con `1`).
+  - **Generación basada en el diccionario de voicings (`src/learning/drills/build.ts`):** Utiliza `voicingsForChord(root, quality, tuning)` filtrando por el rango de trastes activo (`[minFret, maxFret]`) y cuerdas activas. Selecciona adaptativamente digitaciones canónicas (formas abiertas, cejillas con bajo en 6ª y 5ª cuerda, etc.).
+  - **Respuesta esperada:** El usuario marca las notas en las demás cuerdas que completan la digitación del acorde (`expectedPositions = allVoicingPositions.filter(p => !samePosition(p, rootPos))`).
+  - **Tolerancia en evaluación (`src/state/drills/store.ts`):** Si el usuario marca únicamente las notas complementarias, acierta al 100 %. Si por hábito también marca la nota de la fundamental dada como referencia, el store la filtra automáticamente antes de evaluar para no penalizarla como elemento sobrante (`extra`).
+  - **Síntesis sonora (`src/ui/learn/drills/DrillsView.tsx`):** Al corregir o pulsar «Escuchar», el arpegio se sintetiza uniendo la fundamental con las demás notas del acorde de grave a agudo (`allPositions.sort((a, b) => a - b)`).
+  - **Pista de fórmula armónica en C1:** Al igual que en C2, hacer clic en el nombre del acorde o en `💡 Ver grados del acorde (-50% puntos)` despliega los grados armónicos de la fórmula (`formulaOfChord`, ej. `1  3  5` o `1  ♭3  5`) sin notas reales y aplica la penalización del 50 % en la puntuación.
+
+
+
 
 
 

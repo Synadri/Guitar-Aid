@@ -20,11 +20,15 @@ import {
   pitchClassOf,
   pcName,
   toMidi,
+  formulaOfScale,
+  formulaOfChord,
   STANDARD_TUNING,
   type FretPosition,
   type PitchClass,
   type StringNumber,
   type NameMode,
+  type ScaleTypeId,
+  type ChordQualityId,
 } from '../../../theory';
 import {
   DRILL_CATALOG,
@@ -79,7 +83,10 @@ const NATURAL_PCS: readonly PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
 const ALL_PCS: readonly PitchClass[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 /** Formatea el título del ejercicio resaltando el objetivo principal en turquesa. */
-function renderQuestionTitle(q: DrillQuestion | null) {
+function renderQuestionTitle(
+  q: DrillQuestion | null,
+  onScaleClick?: () => void,
+) {
   if (!q) return null;
   const prompt = q.prompt as Record<string, unknown> | null;
   const title = typeof prompt?.title === 'string' ? prompt.title : '';
@@ -121,6 +128,36 @@ function renderQuestionTitle(q: DrillQuestion | null) {
 
   return parts.map((part, index) => {
     if (targets.includes(part)) {
+      if (
+        (q.drill === 'C1' || q.drill === 'C2') &&
+        onScaleClick &&
+        ((q.drill === 'C2' && typeof prompt?.scaleName === 'string' && part === prompt.scaleName) ||
+          (q.drill === 'C1' && typeof prompt?.chordName === 'string' && part === prompt.chordName))
+      ) {
+        return (
+          <span
+            key={index}
+            className={`${styles.highlightTurquoise ?? ''} ${styles.scaleTitleClickable ?? ''}`}
+            onClick={onScaleClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onScaleClick();
+              }
+            }}
+            title={
+              q.drill === 'C1'
+                ? 'Haz clic para ver los grados del acorde (-50% puntos)'
+                : 'Haz clic para ver los grados de la escala (-50% puntos)'
+            }
+            data-testid={q.drill === 'C1' ? 'c1-chord-title-clickable' : 'c2-scale-title-clickable'}
+          >
+            {part}
+          </span>
+        );
+      }
       return (
         <span key={index} className={styles.highlightTurquoise}>
           {part}
@@ -159,6 +196,65 @@ export function DrillsView({
 
   // Foco en posición de voicing para B5
   const [focusedVoicingPos, setFocusedVoicingPos] = useState<FretPosition | null>(null);
+
+  // Estado para la pista de fórmula en C2 (Escala en una cuerda)
+  const [showScaleFormulaHint, setShowScaleFormulaHint] = useState(false);
+  const [usedScaleFormulaHint, setUsedScaleFormulaHint] = useState(false);
+
+  useEffect(() => {
+    setShowScaleFormulaHint(false);
+    setUsedScaleFormulaHint(false);
+  }, [currentQuestion?.id]);
+
+  const handleToggleScaleFormulaHint = useCallback(() => {
+    setShowScaleFormulaHint((prev) => !prev);
+    setUsedScaleFormulaHint(true);
+  }, []);
+
+  const scaleFormulaDegrees = useMemo(() => {
+    if (!currentQuestion) return [];
+    const prompt = currentQuestion.prompt as Record<string, unknown>;
+    if (currentQuestion.drill === 'C2') {
+      const root = prompt?.root as PitchClass | undefined;
+      const scaleType = prompt?.scaleType as ScaleTypeId | undefined;
+      if (root === undefined || !scaleType) return [];
+      try {
+        const tones = formulaOfScale({ tonic: root, type: scaleType });
+        return tones.map((t) => t.degree);
+      } catch {
+        return [];
+      }
+    } else if (currentQuestion.drill === 'C1') {
+      const root = prompt?.root as PitchClass | undefined;
+      const quality = prompt?.quality as ChordQualityId | undefined;
+      if (root === undefined || !quality) return [];
+      try {
+        const tones = formulaOfChord({ root, quality });
+        return tones.map((t) => t.degree);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [currentQuestion]);
+
+  const handleCheckAnswer = useCallback(() => {
+    const s = store.getState();
+    if (
+      usedScaleFormulaHint &&
+      (s.currentQuestion?.drill === 'C1' || s.currentQuestion?.drill === 'C2')
+    ) {
+      s.submitAnswer(undefined, {
+        scoreMultiplier: 0.5,
+        hintExplanation:
+          s.currentQuestion?.drill === 'C1'
+            ? '(Puntuación: 50% por consultar los grados del acorde)'
+            : '(Puntuación: 50% por consultar los grados de la escala)',
+      });
+    } else {
+      s.submitAnswer();
+    }
+  }, [store, usedScaleFormulaHint]);
 
   // Asegurar que hay una sesión iniciada al montar si estamos en 'configuring'
   useEffect(() => {
@@ -298,8 +394,12 @@ export function DrillsView({
         break;
       }
       case 'C1': {
+        const rootPos = prompt.rootPosition as FretPosition | undefined;
         const expectedPositions = (currentQuestion.expected as { positions?: readonly FretPosition[] }).positions ?? [];
-        const midis = expectedPositions.map((p) => positionToMidi(tuning, p));
+        const allPositions = rootPos ? [rootPos, ...expectedPositions] : expectedPositions;
+        const midis = allPositions
+          .map((p) => positionToMidi(tuning, p))
+          .sort((a, b) => a - b);
         playEvents(arpeggioEvents(midis), audioEngine);
         break;
       }
@@ -351,14 +451,14 @@ export function DrillsView({
           s.phase === 'answering' ||
           (s.phase === 'question' && s.currentQuestion?.mode === 'all')
         ) {
-          s.submitAnswer();
+          handleCheckAnswer();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [store]);
+  }, [store, handleCheckAnswer]);
 
   // Manejador de clics en el mástil
   const handleFretboardClick = useCallback(
@@ -555,8 +655,51 @@ export function DrillsView({
                   {drillId} · {activeDrillInfo.name.toUpperCase()}
                 </p>
                 <h2 className={styles.questionTitle} data-testid="drill-question-title">
-                  {renderQuestionTitle(currentQuestion)}
+                  {renderQuestionTitle(currentQuestion, handleToggleScaleFormulaHint)}
                 </h2>
+                {(currentQuestion?.drill === 'C1' || currentQuestion?.drill === 'C2') && (
+                  <div
+                    className={styles.scaleFormulaBox ?? ''}
+                    data-testid={currentQuestion.drill === 'C1' ? 'c1-scale-formula-box' : 'c2-scale-formula-box'}
+                  >
+                    <div className={styles.scaleFormulaContent ?? ''}>
+                      <span className={styles.scaleFormulaTitle ?? ''}>Fórmula:</span>
+                      {showScaleFormulaHint ? (
+                        <span
+                          className={styles.scaleFormulaDegrees ?? ''}
+                          data-testid={currentQuestion.drill === 'C1' ? 'c1-scale-formula-degrees' : 'c2-scale-formula-degrees'}
+                        >
+                          {scaleFormulaDegrees.join('  ')}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.scaleFormulaHintButton ?? ''}
+                          onClick={handleToggleScaleFormulaHint}
+                          data-testid={currentQuestion.drill === 'C1' ? 'c1-show-formula-button' : 'c2-show-formula-button'}
+                          aria-label={
+                            currentQuestion.drill === 'C1'
+                              ? 'Ver grados del acorde'
+                              : 'Ver grados de la escala'
+                          }
+                        >
+                          <span aria-hidden="true">💡</span>
+                          {currentQuestion.drill === 'C1'
+                            ? 'Ver grados del acorde (-50% puntos)'
+                            : 'Ver grados de la escala (-50% puntos)'}
+                        </button>
+                      )}
+                    </div>
+                    {showScaleFormulaHint && (
+                      <span
+                        className={styles.scaleFormulaBadge ?? ''}
+                        data-testid={currentQuestion.drill === 'C1' ? 'c1-formula-penalty-badge' : 'c2-formula-penalty-badge'}
+                      >
+                        Pista activa: 50% puntos
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className={styles.progressContainer}>
@@ -739,6 +882,64 @@ export function DrillsView({
                       const assigned = assignedLabels.find((l) => samePosition(l.position, pos));
                       const labelText = isRoot ? '1' : assigned?.label ?? '?';
 
+                      if (phase === 'corrected') {
+                        const expLabels =
+                          'labels' in currentQuestion.expected && Array.isArray(currentQuestion.expected.labels)
+                            ? (currentQuestion.expected.labels as readonly { position: FretPosition; degree?: string; label?: string }[])
+                            : undefined;
+                        const expItem = expLabels?.find((l) => samePosition(l.position, pos));
+                        const expectedDegree = expItem?.degree ?? expItem?.label;
+                        const isCorrect = isRoot || assigned?.label === expectedDegree;
+
+                        return (
+                          <div
+                            key={`s${pos.string}f${pos.fret}`}
+                            className={`${styles.voicingCard ?? ''} ${
+                              isCorrect ? styles.voicingCardCorrect ?? '' : styles.voicingCardWrong ?? ''
+                            }`}
+                            aria-label={`Cuerda ${pos.string}, traste ${pos.fret}, ${
+                              isCorrect
+                                ? `correcto ${labelText}`
+                                : `incorrecto pusiste ${assigned?.label ?? '?'} esperado ${expectedDegree}`
+                            }`}
+                            data-testid={`voicing-card-s${pos.string}-f${pos.fret}`}
+                          >
+                            <span className={styles.voicingCardPos ?? ''}>
+                              Cuerda {pos.string} (tr. {pos.fret})
+                            </span>
+                            {isCorrect ? (
+                              <span
+                                className={styles.voicingDegreeBadgeCorrect ?? ''}
+                                data-testid={`voicing-badge-correct-s${pos.string}`}
+                              >
+                                ✓ {labelText}
+                              </span>
+                            ) : (
+                              <div
+                                className={styles.voicingDegreeWrongGroup ?? ''}
+                                data-testid={`voicing-badge-wrong-group-s${pos.string}`}
+                              >
+                                <span
+                                  className={styles.voicingDegreeBadgeWrong ?? ''}
+                                  data-testid={`voicing-badge-wrong-s${pos.string}`}
+                                >
+                                  × {assigned?.label ?? '?'}
+                                </span>
+                                <span className={styles.voicingDegreeArrow ?? ''} aria-hidden="true">
+                                  →
+                                </span>
+                                <span
+                                  className={styles.voicingDegreeBadgeExpected ?? ''}
+                                  data-testid={`voicing-badge-expected-s${pos.string}`}
+                                >
+                                  ✓ {expectedDegree}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
                       return (
                         <button
                           key={`s${pos.string}f${pos.fret}`}
@@ -864,7 +1065,7 @@ export function DrillsView({
                       <button
                         type="button"
                         className={styles.buttonPrimary}
-                        onClick={() => store.getState().submitAnswer()}
+                        onClick={handleCheckAnswer}
                         data-testid="drill-check-button"
                       >
                         Comprobar · Enter

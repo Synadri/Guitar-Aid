@@ -7,6 +7,7 @@ import {
   createDrillsStore,
   createSettingsStore,
   createMemoryStorage,
+  selectDrillFretboardMarks,
 } from '../../../state';
 import type { AudioEngine } from '../../../audio';
 import { DrillsView } from './DrillsView';
@@ -468,6 +469,278 @@ describe('Hito A7 — UI: Ejercicios (src/ui/learn/drills/DrillsView.tsx)', () =
       const listenBtn = screen.getByTestId('drill-listen-button');
       fireEvent.click(listenBtn);
       expect(audioEngine.playEvents).toHaveBeenCalled();
+    });
+
+    it('en A1 (modo all) y B4, las posiciones marcadas por el usuario muestran "?" sin desvelar la nota', () => {
+      const { drillsStore, settingsStore, audioEngine } = setupDrillsTest({ seed: 601 });
+
+      render(
+        <DrillsView
+          drillsStore={drillsStore}
+          settingsStore={settingsStore}
+          audioEngine={audioEngine}
+        />,
+      );
+
+      act(() => {
+        drillsStore.setState({
+          drillId: 'A1',
+          currentQuestion: {
+            id: 'test-a1-q-marks',
+            drill: 'A1',
+            itemKey: 'note:0',
+            prompt: {
+              pitchClass: 0,
+              noteName: 'C',
+              title: 'Encuentra la nota C',
+              eyebrow: 'A1 · ENCUENTRA LA NOTA',
+            },
+            answerKind: 'positions',
+            expected: {
+              kind: 'positions',
+              positions: [{ string: 5, fret: 3 }],
+            },
+            mode: 'all',
+          },
+          config: { ...drillsStore.getState().config, mode: 'all' },
+          phase: 'question',
+          pinnedPositions: [],
+        });
+      });
+
+      // Hacemos clic en cuerda 5 traste 3
+      const c5f3 = screen.getAllByRole('button', { name: /Cuerda 5, traste 3/i })[0]!;
+      fireEvent.click(c5f3);
+
+      expect(drillsStore.getState().pinnedPositions).toEqual([{ string: 5, fret: 3 }]);
+      const marks = selectDrillFretboardMarks(drillsStore.getState());
+      const pinnedMark = marks.find((m) => m.string === 5 && m.fret === 3);
+      expect(pinnedMark?.role).toBe('pinned');
+      expect(pinnedMark?.label).toBe('?');
+    });
+
+    it('en B5, si hay errores, la vista corregida indica tanto el grado erróneo como el esperado', () => {
+      const { drillsStore, settingsStore, audioEngine } = setupDrillsTest({ seed: 602 });
+
+      render(
+        <DrillsView
+          drillsStore={drillsStore}
+          settingsStore={settingsStore}
+          audioEngine={audioEngine}
+        />,
+      );
+
+      act(() => {
+        drillsStore.setState({
+          drillId: 'B5',
+          currentQuestion: {
+            id: 'test-b5-errors',
+            drill: 'B5',
+            itemKey: 'voicing:partial-Am',
+            prompt: {
+              chordName: 'Am',
+              rootPosition: { string: 5, fret: 0 },
+              positions: [
+                { string: 5, fret: 0 },
+                { string: 2, fret: 1 },
+              ],
+              title: 'Asigna el grado',
+              eyebrow: 'B5',
+            },
+            answerKind: 'labels',
+            expected: {
+              kind: 'labels',
+              labels: [
+                { position: { string: 5, fret: 0 }, degree: '1', label: '1' },
+                { position: { string: 2, fret: 1 }, degree: '♭3', label: '♭3' },
+              ],
+            },
+            mode: 'all',
+          },
+          phase: 'question',
+          assignedLabels: [{ position: { string: 5, fret: 0 }, label: '1' }],
+        });
+      });
+
+      // Asignamos grado erróneo "3" a cuerda 2
+      fireEvent.click(screen.getByTestId('voicing-card-s2-f1'));
+      fireEvent.click(screen.getByTestId('degree-pill-3'));
+
+      // Comprobamos la respuesta
+      fireEvent.click(screen.getByTestId('drill-check-button'));
+
+      expect(drillsStore.getState().phase).toBe('corrected');
+      expect(drillsStore.getState().lastGrade?.correct).toBe(false);
+
+      // Verificamos que la ficha de cuerda 2 muestra el grado erróneo y el esperado
+      expect(screen.getByTestId('voicing-badge-wrong-s2').textContent).toContain('3');
+      expect(screen.getByTestId('voicing-badge-expected-s2').textContent).toContain('♭3');
+      expect(screen.getByTestId('drill-feedback-text').textContent).toContain('era ♭3');
+    });
+
+    it('en C2, consultar la fórmula muestra los grados sin notas y reduce la puntuación al 50%', () => {
+      const { drillsStore, settingsStore, audioEngine } = setupDrillsTest({ seed: 603 });
+
+      render(
+        <DrillsView
+          drillsStore={drillsStore}
+          settingsStore={settingsStore}
+          audioEngine={audioEngine}
+        />,
+      );
+
+      act(() => {
+        drillsStore.setState({
+          drillId: 'C2',
+          currentQuestion: {
+            id: 'test-c2-hint',
+            drill: 'C2',
+            itemKey: 'scale:major|root:0|string:2',
+            prompt: {
+              root: 0,
+              scaleType: 'major',
+              scaleName: 'C mayor',
+              string: 2,
+              title: 'Toca la escala C mayor en la cuerda 2',
+              eyebrow: 'C2 · ESCALA EN UNA CUERDA',
+            },
+            answerKind: 'positions',
+            expected: {
+              kind: 'positions',
+              positions: [
+                { string: 2, fret: 1 },
+                { string: 2, fret: 3 },
+              ],
+            },
+            mode: 'all',
+          },
+          phase: 'question',
+          pinnedPositions: [],
+        });
+      });
+
+      // El botón de pista está visible inicialmente
+      const hintBtn = screen.getByTestId('c2-show-formula-button');
+      expect(hintBtn).toBeTruthy();
+      expect(hintBtn.textContent).toContain('Ver grados de la escala');
+
+      // Pulsamos el botón de pista
+      fireEvent.click(hintBtn);
+
+      // Ahora se visualizan los grados de la escala mayor (1 2 3 4 5 6 7) sin nombres de notas
+      const formulaEl = screen.getByTestId('c2-scale-formula-degrees');
+      expect(formulaEl.textContent).toContain('1');
+      expect(formulaEl.textContent).toContain('2');
+      expect(formulaEl.textContent).toContain('3');
+      expect(formulaEl.textContent).not.toContain('C');
+      expect(formulaEl.textContent).not.toContain('D');
+      expect(screen.getByTestId('c2-formula-penalty-badge').textContent).toContain('50%');
+
+      // Marcamos las posiciones correctas y comprobamos
+      const c2f1 = screen.getAllByRole('button', { name: /Cuerda 2, traste 1/i })[0]!;
+      const c2f3 = screen.getAllByRole('button', { name: /Cuerda 2, traste 3/i })[0]!;
+      fireEvent.click(c2f1);
+      fireEvent.click(c2f3);
+
+      fireEvent.click(screen.getByTestId('drill-check-button'));
+
+      expect(drillsStore.getState().phase).toBe('corrected');
+      expect(drillsStore.getState().lastGrade?.correct).toBe(true);
+      expect(drillsStore.getState().lastGrade?.score).toBe(0.5);
+      expect(screen.getByTestId('drill-feedback-text').textContent).toContain('50%');
+    });
+
+    it('en C1, la fundamental aparece como referencia, permite completar el voicing y admite pista de fórmula (-50%)', () => {
+      const { drillsStore, settingsStore, audioEngine } = setupDrillsTest({ seed: 701 });
+
+      render(
+        <DrillsView
+          drillsStore={drillsStore}
+          settingsStore={settingsStore}
+          audioEngine={audioEngine}
+        />,
+      );
+
+      // Inyectamos un ejercicio C1 para C mayor con fundamental en cuerda 5 traste 3
+      act(() => {
+        drillsStore.setState({
+          drillId: 'C1',
+          currentQuestion: {
+            id: 'test-c1-open-c',
+            drill: 'C1',
+            itemKey: 'chord:maj|root:0',
+            prompt: {
+              root: 0,
+              quality: 'maj',
+              chordName: 'C',
+              voicingId: 'open-C-maj',
+              family: 'open',
+              rootPosition: { string: 5, fret: 3 },
+              rootNoteName: 'C',
+              string: 5,
+              targetStrings: [5, 4, 3, 2, 1],
+              allVoicingPositions: [
+                { string: 5, fret: 3 },
+                { string: 4, fret: 2 },
+                { string: 3, fret: 0 },
+                { string: 2, fret: 1 },
+                { string: 1, fret: 0 },
+              ],
+              title: 'Construye el acorde C desde la cuerda 5, traste 3',
+              eyebrow: 'C1 · CONSTRUYE EL ACORDE',
+            },
+            answerKind: 'positions',
+            expected: {
+              kind: 'positions',
+              positions: [
+                { string: 4, fret: 2 },
+                { string: 3, fret: 0 },
+                { string: 2, fret: 1 },
+                { string: 1, fret: 0 },
+              ],
+            },
+            mode: 'all',
+          },
+          phase: 'question',
+          pinnedPositions: [],
+        });
+      });
+
+      // La fundamental aparece como marca de pregunta / referencia
+      const marks = selectDrillFretboardMarks(drillsStore.getState());
+      const rootMark = marks.find((m) => m.string === 5 && m.fret === 3);
+      expect(rootMark?.role).toBe('question');
+      expect(rootMark?.isRoot).toBe(true);
+
+      // Probamos el botón de pista en C1
+      const hintBtn = screen.getByTestId('c1-show-formula-button');
+      expect(hintBtn).toBeTruthy();
+      fireEvent.click(hintBtn);
+
+      // Muestra la fórmula del acorde mayor (1 3 5)
+      const formulaEl = screen.getByTestId('c1-scale-formula-degrees');
+      expect(formulaEl.textContent).toContain('1');
+      expect(formulaEl.textContent).toContain('3');
+      expect(formulaEl.textContent).toContain('5');
+
+      // Marcamos las posiciones del voicing (cuerda 4 traste 2, cuerda 3 traste 0, etc.)
+      const c4f2 = screen.getAllByRole('button', { name: /Cuerda 4, traste 2/i })[0]!;
+      const c3f0 = screen.getAllByRole('button', { name: /Cuerda 3, traste 0/i })[0]!;
+      const c2f1 = screen.getAllByRole('button', { name: /Cuerda 2, traste 1/i })[0]!;
+      const c1f0 = screen.getAllByRole('button', { name: /Cuerda 1, traste 0/i })[0]!;
+
+      fireEvent.click(c4f2);
+      fireEvent.click(c3f0);
+      fireEvent.click(c2f1);
+      fireEvent.click(c1f0);
+
+      // Comprobamos la respuesta
+      fireEvent.click(screen.getByTestId('drill-check-button'));
+
+      expect(drillsStore.getState().phase).toBe('corrected');
+      expect(drillsStore.getState().lastGrade?.correct).toBe(true);
+      expect(drillsStore.getState().lastGrade?.score).toBe(0.5); // 50% por pista
+      expect(screen.getByTestId('drill-feedback-text').textContent).toContain('50%');
     });
 
     it('(o) respeta afinaciones como Drop D en el mástil y en la reproducción', () => {
