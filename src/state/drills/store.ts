@@ -341,6 +341,43 @@ export function createDrillsStore(
             averageTimeMs: newAvgTime,
           };
 
+          const nextItemStats: Record<string, ItemStats> = {
+            ...state.itemStats,
+            [q.itemKey]: updatedItemStats,
+          };
+
+          // En A1 (Encuentra la nota), registrar también el resultado por posición física
+          // para alimentar el mapa de aciertos del mástil (A1 y A2 · últimas 20 respuestas por posición)
+          if (q.drill === 'A1') {
+            const recordPosOutcome = (pos: FretPosition, hit: boolean) => {
+              const posKey = `pos:s${pos.string}f${pos.fret}`;
+              const prevPos = nextItemStats[posKey];
+              const pAttempts = (prevPos?.attempts ?? 0) + 1;
+              const pHits = (prevPos?.hits ?? 0) + (hit ? 1 : 0);
+              const pResults = [...(prevPos?.recentResults ?? []), hit].slice(-20);
+              const pPrevAvg = prevPos?.averageTimeMs ?? elapsedMs;
+              const pAvg = Math.round(((pPrevAvg * (pAttempts - 1)) + elapsedMs) / pAttempts);
+              nextItemStats[posKey] = {
+                attempts: pAttempts,
+                hits: pHits,
+                recentResults: pResults,
+                averageTimeMs: pAvg,
+              };
+            };
+
+            for (const pos of gradeResult.hits as readonly FretPosition[]) {
+              recordPosOutcome(pos, true);
+            }
+            for (const pos of gradeResult.extras as readonly FretPosition[]) {
+              recordPosOutcome(pos, false);
+            }
+            if (q.mode === 'all') {
+              for (const pos of gradeResult.misses as readonly FretPosition[]) {
+                recordPosOutcome(pos, false);
+              }
+            }
+          }
+
           set({
             lastGrade: gradeResult,
             phase: 'corrected',
@@ -349,10 +386,7 @@ export function createDrillsStore(
               correctCount: nextCorrectCount,
               totalTimeMs: nextTotalTimeMs,
             },
-            itemStats: {
-              ...state.itemStats,
-              [q.itemKey]: updatedItemStats,
-            },
+            itemStats: nextItemStats,
           });
         },
 
@@ -444,12 +478,32 @@ export function createDrillsStore(
 
         importData: (raw: string | unknown) => {
           try {
-            const data =
+            const parsed =
               typeof raw === 'string'
-                ? (JSON.parse(raw) as Partial<PersistedDrillsState>)
-                : (raw as Partial<PersistedDrillsState>);
+                ? (JSON.parse(raw) as unknown)
+                : raw;
 
-            if (!data || typeof data !== 'object') return false;
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+
+            const root =
+              'drills' in parsed &&
+              parsed.drills &&
+              typeof parsed.drills === 'object' &&
+              !Array.isArray(parsed.drills)
+                ? (parsed as { drills: Partial<PersistedDrillsState> }).drills
+                : (parsed as Partial<PersistedDrillsState>);
+
+            if (!root || typeof root !== 'object' || Array.isArray(root)) return false;
+
+            const hasValidShape =
+              'itemStats' in root ||
+              'history' in root ||
+              'version' in root ||
+              'configs' in root ||
+              'lastDrillId' in root;
+            if (!hasValidShape) return false;
+
+            const data = root;
 
             const itemStats: Record<string, ItemStats> = {};
             if (data.itemStats && typeof data.itemStats === 'object') {

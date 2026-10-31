@@ -37,10 +37,15 @@ export function selectFretboardAccuracyMap(
       const item = state.itemStats[key];
       const attempts = item?.attempts ?? 0;
       const hits = item?.hits ?? 0;
-      const accuracy = attempts > 0 ? Math.round((hits / attempts) * 100) : 0;
+      const recent = item?.recentResults;
+      const hasRecent = Array.isArray(recent) && recent.length > 0;
+      const effectiveAttempts = hasRecent ? recent.length : attempts;
+      const effectiveHits = hasRecent ? recent.filter(Boolean).length : hits;
+      const accuracy =
+        effectiveAttempts > 0 ? Math.round((effectiveHits / effectiveAttempts) * 100) : 0;
 
       let status: PositionAccuracyStatus = 'untested';
-      if (attempts > 0) {
+      if (effectiveAttempts > 0) {
         if (accuracy >= 85) {
           status = 'mastered';
         } else if (accuracy >= 60) {

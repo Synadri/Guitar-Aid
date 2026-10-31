@@ -15,6 +15,7 @@ import { getStudyDayKey } from '../../learning/srs/queue';
 import { FormulasView } from './formulas/FormulasView';
 import { DrillsView } from './drills/DrillsView';
 import { FlashcardsView } from './cards/FlashcardsView';
+import { ProgressView } from './progress/ProgressView';
 import styles from './LearnView.module.css';
 
 export type LearnTab = 'drills' | 'cards' | 'formulas' | 'progress';
@@ -230,14 +231,14 @@ export function LearnView({
             id="learn-tabpanel-progress"
             role="tabpanel"
             aria-labelledby="learn-tab-progress"
-            className={styles.placeholderCard}
+            style={{ width: '100%', height: '100%' }}
             data-testid="learn-panel-progress"
           >
-            <h2 className={styles.placeholderTitle}>Progreso</h2>
-            <p className={styles.placeholderDesc}>
-              Mapa de aciertos del mástil, análisis de intervalos débiles, estadísticas de tarjetas y
-              copia de seguridad en JSON.
-            </p>
+            <ProgressView
+              drillsStore={drillsStore}
+              decksStore={decksStore}
+              settingsStore={settingsStore}
+            />
           </div>
         )}
       </main>

@@ -649,3 +649,47 @@ Decisiones de diseño, arquitectura e implementación adoptadas durante la Fase 
   - En [`FlashcardsView.tsx`](file:///home/adri/Desktop/Guitar-Aid/src/ui/learn/cards/FlashcardsView.tsx), `handlePlayAudio` reproduce intervalos con `intervalEvents`, escalas y tipos de escala con `arpeggioEvents` melódico ascendente, y acordes/digitaciones/grados/progresiones con `arpeggioEvents` armónico.
   - `resolveCard` y los selectores `selectCurrentCardResolved` y `selectDeckCardsDetail` reciben ahora `nameMode` (`'sharps' | 'flats'`) desde `settingsStore`.
 
+---
+
+## 2026-11-01 — Hito A9: UI de Progreso, copia de seguridad y cierre de la Fase 2
+
+### 1. Estructura y layout de `ProgressView` (`src/ui/learn/progress/ProgressView.tsx`, §7.1)
+- **Decisión:**
+  - Se implementó `ProgressView` siguiendo el layout asimétrico de dos columnas especificado en `interfaz_fase2.md` §7.1 (`grid-template-columns: minmax(0, 1.85fr) minmax(340px, 1fr); gap: 16px; height: 100%`), con `flex-shrink: 0` en las tarjetas de la columna derecha para evitar solapamientos verticales y caída automática a una columna por debajo de `1100 px`.
+  - En `LearnView.tsx`, la pestaña `Progreso` monta `<ProgressView />` inyectando `drillsStore`, `decksStore` y `settingsStore`.
+
+### 2. Mapa de aciertos del mástil sin saltos de layout al hacer hover y unificación entre `A1` y `A2` (§7.2)
+- **Decisión:**
+  - **Registro por posición en `A1` y `A2`:** mientras `A2` (`Nombra la nota`) ya tenía `itemKey = "pos:s<c>f<t>"`, en `A1` (`Encuentra la nota`) el `itemKey` primario es `"note:<pc>"` para la ponderación adaptativa por nota. Se amplió `submitAnswer` en [`src/state/drills/store.ts`](file:///home/adri/Desktop/Guitar-Aid/src/state/drills/store.ts) para que, al corregir una pregunta de `A1`, también actualice las entradas `"pos:s<c>f<t>"` de las posiciones acertadas (`hits` → `true`), sobrantes (`extras` → `false`) y olvidadas en modo `'all'` (`misses` → `false`). De este modo, tanto `A1` como `A2` nutren el mapa de aciertos del mástil tal como exige el subtítulo `A1 y A2 · últimas 20 respuestas por posición`.
+  - **Cálculo sobre las últimas 20 respuestas (`recentResults`):** en [`selectFretboardAccuracyMap`](file:///home/adri/Desktop/Guitar-Aid/src/state/drills/selectors/stats.ts), el porcentaje de acierto y el estado de dominio (`mastered` ≥ 85 %, `learning` 60–84 %, `weak` < 60 %, `untested` 0 intentos) se calculan prioritariamente sobre la ventana deslizante `recentResults` (hasta las últimas 20 respuestas de esa posición), con fallback a `hits / attempts` cuando `recentResults` no está definido.
+  - **Codificación accesible (color + estilo de borde) y rango `0–12` / `0–24`:** cada intersección `(cuerda, traste)` renderiza un círculo SVG (`StatusCircleSvg`, `26 px` en vista `0–12` y `18 px` en vista `0–24`) que distingue los 4 niveles sin depender únicamente del color:
+    - **Dominada (`≥ 85 %`):** relleno verde `rgba(34, 197, 94, 0.25)` y borde continuo `#22c55e` (`2 px`).
+    - **Regular (`60 % – 84 %`):** relleno ámbar `rgba(217, 119, 6, 0.20)` y **borde discontinuo** `#d97706` (`stroke-dasharray: 3 2`, `2 px`).
+    - **Débil (`< 60 %`):** relleno coral `rgba(239, 68, 68, 0.30)` y **borde continuo grueso** `#f87171` (`2.5 px`).
+    - **Sin datos (`0` intentos):** círculo hueco tenue (`1.25 px`, `--border`).
+  - **Pie de altura fija invariable (prevención de *hover jitter*):** la franja de detalle (`data-testid="heatmap-active-tooltip"`, `role="status"`, `aria-live="polite"`) permanece siempre montada en el DOM con una altura fija de `26 px` dentro de un `.heatmapFooter` de `28 px` sin salto de línea (`flex-wrap: nowrap`). Cuando no hay ninguna nota bajo el cursor muestra un texto guía atenuado (`Pasa el cursor por una posición para ver su detalle`), y al pasar el ratón o enfocar con teclado actualiza su texto *in situ* (nota, cuerda/traste, porcentaje, aciertos/intentos y tiempo medio) sin desplazar ni un píxel la matriz del mástil.
+
+### 3. Gráfica de precisión de las últimas 10 sesiones con etiquetas visibles y filtro por ejercicio (§7.2.2)
+- **Decisión:**
+  - En lugar de mostrar barras mudas que dependían exclusivamente del tooltip al hacer hover, la tarjeta **`Precisión por sesión · últimas 10`** incorpora información visual directa en cada columna:
+    - **Eje vertical de referencia:** etiquetas `100%`, `50%` y `0%` a la izquierda del área de trazado.
+    - **Cabecera con media y filtro por ejercicio:** insignia con la media de precisión y tiempo medio (`Media: X % · Y,Z s`) y selector desplegable (`Todos los ejercicios` o cualquiera de los 9 ejercicios `A1`–`C2`) para analizar la evolución global o de un ejercicio concreto.
+    - **Etiqueta superior e inferior en cada barra:** encima de cada barra se muestra el porcentaje exacto (`85%`); debajo de la barra se muestra el código del ejercicio en turquesa (`B1`, `A2`…) y el tiempo medio por pregunta (`2,8 s`), o `—` en las ranuras vacías.
+
+### 4. Tarjetas con selector de mazo, curva de evolución de la retención e Intervalos débiles (§7.3)
+- **Decisión:**
+  - **Selector de mazo y evolución de la retención en `Tarjetas`:**
+    - La cabecera de la tarjeta **`Tarjetas`** incorpora un selector (`Todos los mazos` o cada mazo individual creado por el usuario) que filtra tanto la cuadrícula `2×2` (`Pendientes hoy`, `Retención`, `Nuevas`, `En aprendizaje`) como la gráfica inferior.
+    - Bajo los 4 contadores se añadió la sección **`Evolución de la retención (últimos días de estudio)`**, que agrupa el historial de repasos (`decksStore.history`) por día de estudio (`getStudyDayKey`, corte a las `04:00`) y representa en una gráfica de 7 columnas el porcentaje de retención diario (`%` de repasos superados frente a *Otra vez*) con su fecha (`DD/MM`) y el volumen total de repasos.
+  - **Tarjeta `Intervalos débiles` centrada en estadísticas:**
+    - Se eliminó el botón redundante `Practicar los débiles` (que podía desbordar la tarjeta en ventanas de poca altura y solo redirigía a `B1`) para mantener la sección `Progreso` estrictamente dedicada al análisis estadístico.
+    - Cada uno de los 5 intervalos más débiles en `B1–B4` muestra su símbolo (`♭5`, `M6`, `m7`, etc.), barra horizontal proporcional y el desglose `{aciertos}/{intentos} · {precisión} %`.
+
+### 5. Copia de seguridad unificada (Exportar e Importar JSON) y cierre documental (§7.3.3, Criterio m)
+- **Decisión:**
+  - **Formato de exportación unificado (`BackupPayload`):** el botón **`Exportar JSON`** genera un único archivo `guitar-aid-backup-YYYY-MM-DD.json` que empaqueta `{ app: 'guitar-aid', version: 1, exportedAt, decks, drills }` combinando las salidas de `decksStore.getState().exportData()` y `drillsStore.getState().exportData()`.
+  - **Importación versátil y defensiva:** el botón **`Importar`** abre un selector `<input type="file" accept=".json,application/json" />` y valida el contenido aceptando tanto el archivo de copia de seguridad combinado (`{ decks, drills }`) como exportaciones individuales de `decksStore` o `drillsStore`. También se amplió `drillsStore.importData` para desenrollar el campo `drills` cuando recibe un objeto combinado y rechazar objetos vacíos o ajenos al esquema.
+  - **Feedback accesible:** tras exportar o importar (o ante un JSON corrupto o inválido), se muestra un mensaje con `role="status"` (éxito) o `role="alert"` (error) y `aria-live="polite"`, garantizando que un archivo corrupto nunca altere ni rompa el estado existente.
+  - **Actualización de `README.md`:** se actualizó la descripción general del proyecto y el diagrama de arquitectura a cuatro capas (`theory → learning → state → ui` + `audio`) junto con los enlaces a la documentación de la Fase 2.
+
+
