@@ -343,7 +343,7 @@
 
 /* Sección de subdivisión */
 .subdivisionSection {
-  width: 185px;
+  width: 195px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -452,4 +452,29 @@
 .tickSelected .tickLabel {
   color: #00bfa5;
   font-weight: 700;
+}
+
+/* Control de volumen del metrónomo */
+.metronomeVolumeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.metronomeVolumeLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.metronomeVolumeControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }

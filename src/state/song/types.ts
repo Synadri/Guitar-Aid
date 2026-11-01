@@ -110,6 +110,8 @@ export interface SongState {
   metronomeEnabled: boolean;
   /** Subdivisión rítmica del metrónomo ('1' | '1/3' | '1/4' | '1/8' | '1/16'). */
   metronomeSubdivision: MetronomeSubdivision;
+  /** Volumen del metrónomo (0..1). */
+  metronomeVolume: number;
   /** Cuenta atrás previa de 1 compás al reproducir. */
   countInEnabled: boolean;
   /** Rango de compases del bucle [startBar, endBar] (1-based), o null si no hay. */
@@ -152,6 +154,7 @@ export interface SongActions {
   setMetronomeEnabled: (enabled: boolean) => void;
   toggleMetronome: () => void;
   setMetronomeSubdivision: (subdivision: MetronomeSubdivision) => void;
+  setMetronomeVolume: (volume: number) => void;
   setCountInEnabled: (enabled: boolean) => void;
   toggleCountIn: () => void;
   setLoopRange: (range: [number, number] | null) => void;

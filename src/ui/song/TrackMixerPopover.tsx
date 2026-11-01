@@ -30,6 +30,8 @@ export interface TrackMixerPopoverProps {
   onToggleCountIn: () => void;
   metronomeSubdivision?: MetronomeSubdivision;
   onSetMetronomeSubdivision?: (subdivision: MetronomeSubdivision) => void;
+  metronomeVolume?: number;
+  onSetMetronomeVolume?: (volume: number) => void;
   onResetMixer?: () => void;
 }
 
@@ -98,6 +100,8 @@ export function TrackMixerPopover({
   onToggleCountIn,
   metronomeSubdivision = '1/4',
   onSetMetronomeSubdivision,
+  metronomeVolume = 0.8,
+  onSetMetronomeVolume,
   onResetMixer,
 }: TrackMixerPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -138,6 +142,7 @@ export function TrackMixerPopover({
   let subIndex = METRONOME_SUBDIVISIONS.indexOf(metronomeSubdivision);
   if (subIndex === -1) subIndex = 2;
   const subPercent = (subIndex / (METRONOME_SUBDIVISIONS.length - 1)) * 100;
+  const metronomeVolPercent = Math.round(metronomeVolume * 100);
 
   return (
     <div
@@ -368,6 +373,27 @@ export function TrackMixerPopover({
                 </button>
               );
             })}
+          </div>
+
+          {/* Control de volumen del metrónomo */}
+          <div className={styles.metronomeVolumeRow}>
+            <span className={styles.metronomeVolumeLabel}>Vol.</span>
+            <div className={styles.metronomeVolumeControl}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={metronomeVolume}
+                onChange={(e) => onSetMetronomeVolume?.(Number(e.target.value))}
+                aria-label="Volumen del metrónomo"
+                className={styles.volumeSlider}
+                style={{
+                  background: `linear-gradient(to right, #00bfa5 0%, #00bfa5 ${metronomeVolPercent}%, #16253b ${metronomeVolPercent}%, #16253b 100%)`,
+                }}
+              />
+              <span className={styles.volumeText}>{metronomeVolPercent}</span>
+            </div>
           </div>
         </div>
       </div>

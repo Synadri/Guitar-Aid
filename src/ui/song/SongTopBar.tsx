@@ -42,6 +42,7 @@ export function SongTopBar({
   const playbackSpeed = useStore(songStore, (s) => s.playbackSpeed);
   const metronomeEnabled = useStore(songStore, (s) => s.metronomeEnabled);
   const metronomeSubdivision = useStore(songStore, (s) => s.metronomeSubdivision ?? '1/4');
+  const metronomeVolume = useStore(songStore, (s) => s.metronomeVolume ?? 0.8);
   const countInEnabled = useStore(songStore, (s) => s.countInEnabled);
   const loopRange = useStore(songStore, (s) => s.loopRange);
   const loopEnabled = useStore(songStore, (s) => s.loopEnabled);
@@ -169,11 +170,20 @@ export function SongTopBar({
   const handleResetMixer = () => {
     songStore.getState().resetTrackMixer();
     controller.resetTrackMixer();
+    songStore.getState().setMetronomeSubdivision('1/4');
+    controller.setMetronomeSubdivision('1/4');
+    songStore.getState().setMetronomeVolume(0.8);
+    controller.setMetronomeVolume(0.8);
   };
 
   const handleSetMasterVolume = (vol: number) => {
     settingsStore.getState().setVolume(vol);
     controller.setVolume(vol);
+  };
+
+  const handleSetMetronomeVolume = (vol: number) => {
+    songStore.getState().setMetronomeVolume(vol);
+    controller.setMetronomeVolume(vol);
   };
 
   const handleSelectTrack = (trackIdx: number) => {
@@ -265,6 +275,8 @@ export function SongTopBar({
               songStore.getState().setMetronomeSubdivision(sub);
               controller.setMetronomeSubdivision(sub);
             }}
+            metronomeVolume={metronomeVolume}
+            onSetMetronomeVolume={handleSetMetronomeVolume}
             onResetMixer={handleResetMixer}
           />
         </div>

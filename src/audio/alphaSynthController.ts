@@ -14,6 +14,8 @@
  *  - La sincronización con settingsStore se realiza mediante contratos duck-typed (bindSettings, syncWithSettings).
  */
 
+import { metronomeAudio } from './metronomeAudio';
+
 export const DEFAULT_SOUNDFONT_URL = '/soundfont/sonivox.sf2';
 export const MIN_PLAYBACK_SPEED = 0.25;
 export const MAX_PLAYBACK_SPEED = 2.0;
@@ -87,6 +89,7 @@ export interface AlphaSynthLike {
     on: (cb: (args: { currentTime: number; endTime: number; currentTick: number; endTick: number }) => void) => void;
   };
   playedBeatChanged?: { on: (cb: (beat: unknown) => void) => void };
+  midiEventsPlayed?: { on: (cb: (args: { events?: readonly unknown[] }) => void) => void };
   playerFinished?: { on: (cb: () => void) => void };
   soundFontLoaded?: { on: (cb: () => void) => void };
 }
@@ -139,6 +142,7 @@ export interface AlphaSynthController {
   getMetronomeVolume: () => number;
   setMetronomeSubdivision: (subdivision: MetronomeSubdivision) => void;
   getMetronomeSubdivision: () => MetronomeSubdivision;
+  triggerMetronomeBeat?: (info: { numerator: number; durationMs: number }) => void;
   setCountInEnabled: (enabled: boolean) => void;
   isCountInEnabled: () => boolean;
   setCountInVolume: (volume: number) => void;
@@ -257,7 +261,11 @@ export function createAlphaSynthController(
 
   const applyMetronomeToPlayer = () => {
     if (!player) return;
-    player.metronomeVolume = state.metronomeEnabled ? state.metronomeVolume : 0;
+    if ('midiEventsPlayedFilter' in player) {
+      player.metronomeVolume = 0;
+    } else {
+      player.metronomeVolume = state.metronomeEnabled ? state.metronomeVolume : 0;
+    }
   };
 
   const applyCountInToPlayer = () => {
@@ -306,9 +314,39 @@ export function createAlphaSynthController(
       p.playerStateChanged.on((args) => {
         // PlayerState: 0 = Paused, 1 = Playing
         const playing = args.state === 1;
+        if (!playing) {
+          metronomeAudio.stop();
+        }
         if (state.isPlaying !== playing) {
           state.isPlaying = playing;
           emitState();
+        }
+      });
+    }
+
+    if (p.midiEventsPlayed?.on) {
+      try {
+        if ('midiEventsPlayedFilter' in p) {
+          (p as unknown as { midiEventsPlayedFilter: number[] }).midiEventsPlayedFilter = [242];
+        }
+      } catch {
+        // ignore
+      }
+      p.midiEventsPlayed.on((args) => {
+        if (!args?.events) return;
+        for (const ev of args.events) {
+          const m = ev as {
+            isMetronome?: boolean;
+            type?: number;
+            metronomeNumerator?: number;
+            metronomeDurationInMilliseconds?: number;
+          };
+          if (m.isMetronome || m.type === 242) {
+            triggerMetronomeBeat({
+              numerator: m.metronomeNumerator ?? 0,
+              durationMs: m.metronomeDurationInMilliseconds ?? 500,
+            });
+          }
         }
       });
     }
@@ -433,6 +471,7 @@ export function createAlphaSynthController(
   };
 
   const pause = () => {
+    metronomeAudio.stop();
     if (player && typeof player.pause === 'function') {
       player.pause();
     }
@@ -449,6 +488,7 @@ export function createAlphaSynthController(
   };
 
   const stop = () => {
+    metronomeAudio.stop();
     if (player && typeof player.stop === 'function') {
       player.stop();
     } else if (player && typeof player.pause === 'function') {
@@ -503,6 +543,9 @@ export function createAlphaSynthController(
 
   const setMetronomeEnabled = (enabled: boolean) => {
     state.metronomeEnabled = Boolean(enabled);
+    if (!state.metronomeEnabled) {
+      metronomeAudio.stop();
+    }
     applyMetronomeToPlayer();
     emitState();
   };
@@ -516,6 +559,16 @@ export function createAlphaSynthController(
   const setMetronomeSubdivision = (subdivision: MetronomeSubdivision) => {
     state.metronomeSubdivision = subdivision;
     emitState();
+  };
+
+  const triggerMetronomeBeat = (info: { numerator: number; durationMs: number }) => {
+    if (!state.metronomeEnabled || state.metronomeVolume <= 0) return;
+    metronomeAudio.scheduleBeat(
+      info.numerator,
+      info.durationMs,
+      state.metronomeSubdivision ?? '1/4',
+      state.metronomeVolume,
+    );
   };
 
   const setCountInEnabled = (enabled: boolean) => {
@@ -633,6 +686,7 @@ export function createAlphaSynthController(
   };
 
   const seekToTick = (tick: number) => {
+    metronomeAudio.stop();
     if (!player) return;
     player.tickPosition = Math.max(0, Math.round(tick));
   };
@@ -694,6 +748,7 @@ export function createAlphaSynthController(
     getMetronomeVolume: () => state.metronomeVolume,
     setMetronomeSubdivision,
     getMetronomeSubdivision: () => state.metronomeSubdivision ?? '1/4',
+    triggerMetronomeBeat,
     setCountInEnabled,
     isCountInEnabled: () => state.countInEnabled,
     setCountInVolume,

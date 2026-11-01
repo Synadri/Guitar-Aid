@@ -211,6 +211,22 @@ describe('TrackMixerPopover — Rediseño del mezclador', () => {
     expect(onSetMetronomeSubdivision).toHaveBeenCalledWith('1/16');
   });
 
+  it('renderiza y permite ajustar el volumen del metrónomo', () => {
+    const onSetMetronomeVolume = vi.fn();
+    render(
+      <TrackMixerPopover
+        {...defaultProps}
+        metronomeVolume={0.8}
+        onSetMetronomeVolume={onSetMetronomeVolume}
+      />,
+    );
+
+    const metronomeVolSlider = screen.getByRole('slider', { name: 'Volumen del metrónomo' });
+    expect(metronomeVolSlider).toBeTruthy();
+    fireEvent.change(metronomeVolSlider, { target: { value: '0.65' } });
+    expect(onSetMetronomeVolume).toHaveBeenCalledWith(0.65);
+  });
+
   it('cierra con la tecla Escape', () => {
     const onClose = vi.fn();
     render(<TrackMixerPopover {...defaultProps} onClose={onClose} />);

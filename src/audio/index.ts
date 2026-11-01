@@ -2,3 +2,4 @@ export * from './pluck';
 export * from './engine';
 export * from './playback';
 export * from './alphaSynthController';
+export * from './metronomeAudio';

@@ -156,6 +156,11 @@ export function AlphaTabViewport({
               settings.notation.elements.set(at.NotationElement.EffectLyrics, currentLyrics);
 
               const api = new at.AlphaTabApi(alphaTabHostRef.current, settings);
+              try {
+                api.midiEventsPlayedFilter = [at.midi.MidiEventType.AlphaTabMetronome];
+              } catch {
+                // ignore
+              }
               apiInstance = api as unknown as AlphaSynthLike;
               apiRef.current = apiInstance;
               if (apiInstance) {
