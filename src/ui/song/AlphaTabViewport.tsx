@@ -124,9 +124,14 @@ export function AlphaTabViewport({
               const currentScoreMode = songStore.getState().scoreViewMode;
               const currentLyrics = songStore.getState().showLyrics;
 
+              const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+              const fontDir = `${baseUrl}/font/`;
+              const soundFontUrl = `${baseUrl}/soundfont/sonivox.sf2`;
+
               const settings = new at.Settings();
+              settings.core.fontDirectory = fontDir;
               settings.core.tracks = [currentTrackIdx];
-              settings.player.soundFont = '/soundfont/sonivox.sf2';
+              settings.player.soundFont = soundFontUrl;
               settings.player.enablePlayer = true;
               settings.player.enableUserInteraction = true;
 
@@ -253,9 +258,7 @@ export function AlphaTabViewport({
     if (!api || !activeSong || prevSongIdRef.current === activeSong.id) return;
     prevSongIdRef.current = activeSong.id;
     const alphaTex =
-      activeSong.alphaTex ??
-      getPresetSong(activeSong.id)?.alphaTex ??
-      PRESET_POP_DIATONIC.alphaTex;
+      activeSong.alphaTex ?? getPresetSong(activeSong.id)?.alphaTex ?? PRESET_POP_DIATONIC.alphaTex;
     if (alphaTex && typeof api.tex === 'function') {
       api.tex(alphaTex, [activeTrackIndex]);
     }
@@ -381,8 +384,7 @@ export function AlphaTabViewport({
                 .filter(Boolean)
                 .join(' ');
 
-              const isEstribillo =
-                bar.sectionMarker?.toLowerCase().includes('estribillo') ?? false;
+              const isEstribillo = bar.sectionMarker?.toLowerCase().includes('estribillo') ?? false;
 
               return (
                 <div
@@ -514,10 +516,7 @@ export function AlphaTabViewport({
                               data-beat-index={beat.index}
                             >
                               {isBeatActive && (
-                                <div
-                                  className={styles.beatCursor}
-                                  data-testid="beat-cursor"
-                                />
+                                <div className={styles.beatCursor} data-testid="beat-cursor" />
                               )}
                               {beat.notes.map((note, nIdx) => {
                                 const baseMidi = track.stringCount <= 4 ? 43 : 64;
@@ -572,10 +571,7 @@ export function AlphaTabViewport({
                               data-beat-index={beat.index}
                             >
                               {isBeatActive && (
-                                <div
-                                  className={styles.tabBeatCursor}
-                                  data-testid="beat-cursor"
-                                />
+                                <div className={styles.tabBeatCursor} data-testid="beat-cursor" />
                               )}
                               {beat.notes.map((note, nIdx) => {
                                 const sCount = track.stringCount || 6;
