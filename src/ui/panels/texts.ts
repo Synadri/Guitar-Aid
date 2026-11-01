@@ -1,4 +1,12 @@
-import { pcName, type NameMode, type PitchClass, type Reason, type ReasonCode } from '../../theory';
+import {
+  getScaleType,
+  pcName,
+  type NameMode,
+  type PitchClass,
+  type Reason,
+  type ReasonCode,
+  type ScaleTypeId,
+} from '../../theory';
 
 type ReasonParams = Record<string, string | number> | undefined;
 type ReasonFormatter = (params: ReasonParams, nameMode: NameMode) => string;
@@ -26,7 +34,11 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
     return count === 1 ? 'omite 1 nota opcional' : `omite ${count} notas opcionales`;
   },
   scaleContainsAllNotes: (params) => `contiene las ${params?.n ?? 0} notas`,
-  tonicMatches: () => 'la tónica coincide',
+  tonicMatches: (params) => {
+    if (params?.position === 'opening') return 'la tónica coincide con el acorde de apertura';
+    if (params?.position === 'closing') return 'la tónica coincide con el acorde de cierre';
+    return 'la tónica coincide';
+  },
   noteRoleInChord: (params) => {
     const interval =
       params?.intervalLong ?? params?.interval ?? params?.category ?? 'nota del acorde';
@@ -71,6 +83,50 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
   formulaAddsTone: (params) => `añade ${params?.degree ?? params?.tone ?? ''}`,
   formulaMissingTone: (params) => `quita ${params?.degree ?? params?.tone ?? ''}`,
   sameNotesOtherRoot: (params) => `sobre el ${params?.rootDegree ?? params?.degree ?? ''}`,
+  // — Fase 3 (Modo Canción) —
+  bassNoteInBar: (params) =>
+    params?.pct !== undefined ? `suena en el bajo (${params.pct} % del bajo)` : 'suena en el bajo',
+  downbeatAccent: () => 'ataca en el tiempo 1',
+  fifthSupport: (params, nameMode) => {
+    if (params?.fifth === undefined) return 'reforzada por su 5ª justa';
+    return `reforzada por su 5ª justa (${pcName(Number(params.fifth) as PitchClass, nameMode)})`;
+  },
+  longestDuration: () => 'es la nota con más duración',
+  scaleCoverage: (params) => `cubre el ${params?.pct ?? 0} % de la duración`,
+  passingTones: (params, nameMode) => {
+    const pcs = String(params?.pcs ?? '')
+      .split(',')
+      .filter((s) => s !== '')
+      .map((s) => pcName(Number(s) as PitchClass, nameMode));
+    const count = Number(params?.count ?? pcs.length);
+    const label = count === 1 ? '1 nota de paso' : `${count} notas de paso`;
+    return pcs.length > 0 ? `${label}: ${pcs.join(', ')}` : label;
+  },
+  fitsDetectedChords: (params) =>
+    `encaja con ${params?.n ?? 0} de ${params?.of ?? 0} acordes`,
+  matchesKeySignature: () => 'coincide con la armadura',
+  diatonicDegree: (params) => `acorde diatónico (${params?.degree ?? ''})`,
+  harmonicMinorDegree: (params) => `dominante de la menor armónica (${params?.degree ?? ''})`,
+  secondaryDominant: (params) => {
+    const base = `dominante secundaria (${params?.degree ?? ''})`;
+    return Number(params?.resolves ?? 0) === 1 ? `${base} que resuelve a ${params?.target ?? ''}` : base;
+  },
+  modalBorrowing: (params, nameMode) => {
+    const degree = params?.degree ?? '';
+    if (params?.sourceType === undefined || params.tonic === undefined) {
+      return `préstamo modal (${degree})`;
+    }
+    const tonic = pcName(Number(params.tonic) as PitchClass, nameMode);
+    const source = getScaleType(params.sourceType as ScaleTypeId).name.toLowerCase();
+    return `préstamo modal de ${tonic} ${source} (${degree})`;
+  },
+  chromaticChord: (params) => `acorde cromático fuera de la tonalidad (${params?.degree ?? ''})`,
+  matchesProgression: (params) => {
+    const name = params?.name ?? '';
+    if (params?.kind === 'contains') return `contiene la plantilla ${name}`;
+    if (params?.kind === 'rotation') return `rotación de la plantilla ${name}`;
+    return `coincide con la plantilla ${name}`;
+  },
 };
 
 /** Traduce una razón estructurada del módulo de teoría a texto en español. */

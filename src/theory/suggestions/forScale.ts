@@ -2,26 +2,13 @@ import { type PcMask, pcsToMask, rotateMask } from '../core/pcset';
 import type { NameMode, PitchClass } from '../core/pitch';
 import { pitchClassOf } from '../core/pitch';
 import { pcName } from '../core/spelling';
-import { CHORD_QUALITIES, type ChordQuality } from '../data/chords';
+import { CHORD_QUALITIES } from '../data/chords';
 import { RELATED_SCALE_SCORING, SCALE_TYPES, type ScaleType, getScaleType } from '../data/scales';
+import { romanNumeral } from '../analysis/roman';
 import { allScales, catalogOrder, popcount, scaleRef } from '../analysis/scaleUtils';
 import type { Candidate, DiatonicChord, Reason, ScaleRef } from '../analysis/types';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const;
-const CHROMATIC_ROMAN = [
-  'I',
-  '♭II',
-  'II',
-  '♭III',
-  'III',
-  'IV',
-  '♭V',
-  'V',
-  '♭VI',
-  'VI',
-  '♭VII',
-  'VII',
-] as const;
 /** Intervalos de la escala mayor: referencia para la alteración de cada grado (♭III, ♭VII…). */
 const MAJOR_OFFSETS = [0, 2, 4, 5, 7, 9, 11] as const;
 
@@ -42,32 +29,6 @@ const SEVENTHS = CHORD_QUALITIES.filter(
       q.id === 'mMaj7' ||
       q.id === 'maj7#5'),
 );
-
-function romanForChordInScale(tonic: PitchClass, root: PitchClass, q: ChordQuality): string {
-  const semitones = (root - tonic + 12) % 12;
-  const base = CHROMATIC_ROMAN[semitones]!;
-  const minorLike =
-    q.id === 'm' ||
-    q.id === 'm7' ||
-    q.id === 'm6' ||
-    q.id === 'dim' ||
-    q.id === 'm7b5' ||
-    q.id === 'dim7' ||
-    q.id === 'mMaj7' ||
-    q.id === 'madd9';
-  const numeral = minorLike ? base.toLowerCase() : base;
-  let suffix = '';
-  if (q.id === 'dim') suffix = '°';
-  else if (q.id === 'aug') suffix = '+';
-  else if (q.id === 'm7') suffix = '7';
-  else if (q.id === 'm6') suffix = '6';
-  else if (q.id === 'm7b5') suffix = 'ø7';
-  else if (q.id === 'dim7') suffix = '°7';
-  else if (q.id === 'mMaj7') suffix = '(maj7)';
-  else if (q.id === 'madd9') suffix = '(add9)';
-  else if (q.id !== 'maj' && q.id !== 'm') suffix = q.symbol;
-  return `${numeral}${suffix}`;
-}
 
 /**
  * Acordes del catálogo, en cualquier raíz, cuyas notas estén todas contenidas en la escala,
@@ -92,7 +53,7 @@ export function chordsWithinScale(scale: ScaleRef, mode: NameMode = 'sharps'): D
       if ((chordMask & scaleMask) !== chordMask) continue;
       rows.push({
         entry: {
-          roman: romanForChordInScale(scale.tonic, root, q),
+          roman: romanNumeral(scale.tonic, root, q),
           chord: { root, quality: q.id, name: `${pcName(root, mode)}${q.symbol}` },
         },
         weight: q.weight,

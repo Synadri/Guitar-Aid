@@ -61,3 +61,36 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
    - `theory` y `learning` pasan a **prohibir importar `song`** (el flujo de dependencias es unidireccional, según el diagrama §2.1). `state` ya podía importar `song` al no estar en su lista de prohibidos; solo se actualizó el mensaje.
 5. **Cobertura en `layers.test.ts`:** se añaden casos prohibidos (React, zustand, state, ui, audio, tonal, alphaTab fuera de `importer.ts`, DOM, y `theory`/`learning` → `song`) y permitidos (theory, learning, alphaTab en `importer.ts`, `state` → `song`).
 6. **Sin tocar `AppShell`/`SideNav`:** el badge `próx.` y el placeholder siguen hasta C6, conforme al plan.
+
+---
+
+## 2026-11-01 — Implementación del hito C1 (teoría para Canción: estimación de raíz, escalas de fragmento y secuencias)
+
+1. **Módulo compartido de numerales romanos cromáticos (`src/theory/analysis/roman.ts`):**
+   - **Decisión:** Extraer y consolidar la función pura `romanNumeral(tonic, root, quality)` en un módulo reutilizable dentro de `src/theory/analysis/`, refactorizando `src/theory/suggestions/forScale.ts` para usarla y eliminando duplicidades.
+   - **Justificación:** Los numerales romanos con alteraciones relativas a la escala mayor (`♭III`, `♭VII`, `♭VI`, etc.) y sufijos de cualidad (`°`, `+`, `7`, `ø7`, `°7`, `(maj7)`, `maj7`, `sus4`) son necesarios tanto para acordes diatónicos en sugerencias como para el análisis funcional de secuencias de compases en el modo Canción. Centralizar la función garantiza coherencia estricta en toda la aplicación.
+
+2. **Normalización y ponderación de factores en `estimateRoot` (`src/theory/analysis/estimateRoot.ts`):**
+   - **Decisión:** Normalizar la puntuación dividiendo la suma ponderada entre el peso total acumulado del segmento o compás. Los pesos asignados a cada factor son: bajo (`BASS_FACTOR: 3`), acento en tiempo 1 (`DOWNBEAT_FACTOR: 1.5`), duración/peso total (`TOTAL_FACTOR: 1`) y soporte acústico de 5ª justa (`FIFTH_SUPPORT_FACTOR: 1`).
+   - **Criterio de corte para la 5ª justa:** El soporte de quinta solo se activa si la 5ª justa suena con un peso de al menos el 25 % del peso de la clase con más duración (`FIFTH_MIN_RATIO: 0.25`).
+   - **Justificación:** Evita que notas de paso ultracortas en subdivisión débil o adornos melódicos refuercen erróneamente fundamentales inexistentes. La normalización asegura que compases con diferente compás o tempo generen puntuaciones en una escala homogénea.
+
+3. **Tolerancia a cromatismos y notas de paso en `rankScalesForFragment` (`src/theory/analysis/rankFragmentScales.ts`):**
+   - **Decisión:** Evaluar las 12 tónicas × 22 escalas del catálogo calculando la cobertura ponderada (`scaleCoverage = pesoCubierto / pesoTotal`), listando las notas de paso en `passingTones` ordenadas por relevancia rítmica, y ponderando el encaje con los acordes detectados (`fitsDetectedChords`), la coincidencia de apertura/resolución (`openingRoot`, `closingRoot`) y la armadura (`matchesKeySignature`).
+   - **Penalización por tamaño excesivo (`EXTRA_SIZE_PENALTY: 12`):** Penaliza escalas de más de 7 notas (Bebop, disminuidas octatónicas) para que no ganen artificialmente a escalas heptatónicas por el simple hecho de contener más notas; una escala de 8 notas debe explicar un peso sustancialmente superior para imponerse.
+   - **Comportamiento defensivo:** Si ningún candidato cumple el umbral de tolerancia (`maxOutsideRatio: 0.20`), la función no devuelve una lista vacía `[]`, sino la lista completa ordenada por cobertura, garantizando que la interfaz siempre disponga de candidatos para orientar al usuario.
+
+4. **Clasificación funcional y reconocimiento de plantillas en `analyzeChordSequence` (`src/theory/analysis/analyzeProgression.ts`):**
+   - **Decisión:** Clasificar cada acorde en una categoría funcional explícita con razones estructuradas:
+     - `diatonic`: perteneciente a la escala o modo activo.
+     - `harmonicMinor`: acorde dominante procedente de la escala menor armónica en contexto de modo menor (p. ej. `V` o `V7`).
+     - `secondaryDominant`: acordes mayores o con séptima dominante dirigidos a un grado diatónico distinto de la tónica (`V/vi`, `V7/V`, etc.), indicando además si resuelven inmediatamente en el acorde siguiente (`resolves: 1`).
+     - `borrowed`: préstamo modal de modos paralelos sobre la misma tónica (menor natural, dórico, mixolidio, lidio, frigio...).
+     - `chromatic`: acordes sin relación modal directa.
+     - `unrecognized`: compases en silencio o con acorde nulo (`null`).
+   - **Algoritmo de plantillas:** Se compactan los acordes consecutivos repetidos (prolongaciones de un mismo acorde a través de compases) y se toleran compases vacíos intermedios. Las coincidencias se gradúan en `exact` (coincidencia idéntica de la secuencia), `contains` (subsecuencia contigua) y `rotation` (coincidencia cíclica por lectura en bucle), desempatando por el tipo de coincidencia y la popularidad de la plantilla (`PROGRESSION_WEIGHTS`).
+
+5. **Ampliación de razones estructuradas y textos en español (`types.ts` y `texts.ts`):**
+   - **Decisión:** Añadir a `ReasonCode` los identificadores estructurados necesarios para la Fase 3 (`bassNoteInBar`, `downbeatAccent`, `fifthSupport`, `longestDuration`, `scaleCoverage`, `passingTones`, `fitsDetectedChords`, `matchesKeySignature`, `diatonicDegree`, `harmonicMinorDegree`, `secondaryDominant`, `modalBorrowing`, `chromaticChord`, `matchesProgression`) y proveer sus correspondientes formateadores en `REASON_FORMATTERS` (`src/ui/panels/texts.ts`).
+   - **Justificación:** Mantiene desacoplada la lógica teórica (código y parámetros numéricos o identificadores) de la capa visual de presentación en español accesible.
+

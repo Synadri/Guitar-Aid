@@ -36,7 +36,24 @@ export type ReasonCode =
   | 'formulaExact'
   | 'formulaAddsTone'
   | 'formulaMissingTone'
-  | 'sameNotesOtherRoot';
+  | 'sameNotesOtherRoot'
+  // — Fase 3 (Modo Canción): estimación de raíz (`estimateRoot`) —
+  | 'bassNoteInBar'
+  | 'downbeatAccent'
+  | 'fifthSupport'
+  | 'longestDuration'
+  // — Fase 3: escalas de fragmento (`rankScalesForFragment`) —
+  | 'scaleCoverage'
+  | 'passingTones'
+  | 'fitsDetectedChords'
+  | 'matchesKeySignature'
+  // — Fase 3: análisis de secuencias de acordes (`analyzeChordSequence`) —
+  | 'diatonicDegree'
+  | 'harmonicMinorDegree'
+  | 'secondaryDominant'
+  | 'modalBorrowing'
+  | 'chromaticChord'
+  | 'matchesProgression';
 
 export interface Reason {
   code: ReasonCode;
