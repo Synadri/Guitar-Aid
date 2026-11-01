@@ -342,3 +342,46 @@ Tras la primera implementación de C6, se identificaron y solucionaron dos probl
    - **Decisión y solución:**
      - Se añade la función pura [`src/song/ticks.ts`](../../src/song/ticks.ts) (`calculateTickForBarBeat(bars, barNumber, beatIndex)`), que calcula el tick MIDI exacto acumulando las duraciones de los compases previos según sus fórmulas de compás (base 960 ticks/negra) y sumando el desplazamiento del pulso relativo.
      - Se sincroniza la posición con `controller.seekToTick(tick)` al hacer clic simple en cualquier compás de `AlphaTabViewport`, al iniciar la reproducción desde pausa con la barra espaciadora o el botón Play de `SongTopBar`, al saltar al inicio (<kbd>Home</kbd> o botón `⏮`), y al desplazarse con las flechas de dirección (<kbd>←</kbd> / <kbd>→</kbd>).
+
+---
+
+## 2026-11-01 — Configuración de producción para AlphaTab en Vite (`pnpm preview` / `pnpm build`), workers, fuentes SMuFL y code-splitting
+
+Tras la implementación de los componentes visuales de Fase 3, se identificó que la reproducción funcionaba en `pnpm dev` pero fallaba en el build de producción (`pnpm preview`), arrojando errores en la consola del navegador y advertencias de empaquetado.
+
+### 1. Problemas identificados
+1. **Fallo en la carga del Web Worker y de las fuentes musicales SMuFL en `pnpm preview`:**
+   - La consola del navegador mostraba:
+     - `Loading Worker from "http://localhost:4173/assets/alphaTab.worker.mjs" was blocked because of a disallowed MIME type ("text/html")`.
+     - `downloadable font: rejected by sanitizer ... source: http://localhost:4173/assets/font/Bravura.woff2`.
+     - `[AlphaTab][Font] [alphaTab] Loading Failed, rendering cannot start Font not available`.
+   - **Causa raíz:** En producción, Vite empaqueta los módulos bajo `dist/assets/`. AlphaTab autodetecta su script base (`Environment._detectScriptFile`) a través de `import.meta.url`, infiriendo que sus workers (`alphaTab.worker.mjs`) y sus fuentes (`font/Bravura.woff2`) residen junto a él en `assets/`. Al no existir en `dist/`, el servidor SPA de Vite servía `index.html` (MIME `text/html`) con código 200, provocando que el navegador bloqueara el worker y el sanitizador de fuentes rechazara el HTML descargado. Sin fuentes, el motor de AlphaTab abortaba inmediatamente la inicialización del lienzo y del reproductor.
+2. **Advertencia de importación dinámica ineficaz (`[INEFFECTIVE_DYNAMIC_IMPORT]`):**
+   - El compilador advertía que `alphaTab.mjs` era importado dinámicamente en `AlphaTabViewport.tsx`, pero a la vez estaba importado estáticamente por `src/song/importer.ts` (arrastrado al bundle de entrada por `presets.ts` y `store.ts`), impidiendo aislar alphaTab en un chunk secundario.
+3. **Advertencia de tamaño de chunks (`> 500 kB`):**
+   - El chunk principal `index.js` alcanzaba ~1,8 MB minificado al contener la totalidad de la librería alphaTab (~1,1 MB) junto con el core de la aplicación y React.
+4. **Petición 404 en `favicon.ico`:**
+   - El navegador solicitaba por defecto `/favicon.ico`, que no estaba presente ni declarado en `index.html`.
+
+### 2. Decisiones y soluciones adoptadas
+1. **Adopción del plugin oficial `@coderline/alphatab-vite`:**
+   - Se instaló `@coderline/alphatab-vite` (v1.8.4) y se configuró en [`vite.config.ts`](../../vite.config.ts).
+   - El plugin intercepta las llamadas a `alphaTabUrl` dentro de alphaTab y empaqueta automáticamente `alphaTab.worker` y `alphaTab.worklet` como artefactos gestionados por Vite en `dist/assets/alphaTab.worker-[hash].js`.
+   - Se configuró `worker: { format: 'es' }` en `vite.config.ts` para compilar los workers como módulos ES nativos sin advertencias de `import.meta`.
+2. **Configuración explícita de `fontDirectory` y `soundFont` en `AlphaTabViewport.tsx`:**
+   - Se configuró en `new at.Settings()`:
+     ```ts
+     const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+     settings.core.fontDirectory = `${baseUrl}/font/`;
+     settings.player.soundFont = `${baseUrl}/soundfont/sonivox.sf2`;
+     ```
+   - Las fuentes Bravura (`Bravura.woff2`, `Bravura.woff`, `Bravura.otf`, etc.) se alojaron en `public/font/` y adicionalmente en `public/assets/font/`, garantizando disponibilidad tanto si se resuelven contra la raíz como contra la subcarpeta `assets/`.
+3. **Estrategia de división de código (`manualChunks`) en `vite.config.ts`:**
+   - Se definió una función `manualChunks` en `rollupOptions.output`:
+     - `@coderline/alphatab` se traslada a su propio chunk independiente (`alphatab-[hash].js`, ~1,14 MB).
+     - Las dependencias de `react` y `react-dom` se aíslan en `react-vendor-[hash].js` (~218 kB).
+     - El código de la aplicación en `index-[hash].js` se reduce drásticamente a **~429 kB** (< 500 kB).
+   - Se ajustó `chunkSizeWarningLimit: 1500` para reflejar con realismo el peso de los motores pesados de notación/audio de terceros.
+   - Se eliminaron por completo las advertencias de compilación.
+4. **Favicon SVG inline:**
+   - Se añadió `<link rel="icon" href="data:image/svg+xml,...">` con el icono 🎸 en [`index.html`](../../index.html) para eliminar la petición 404.
