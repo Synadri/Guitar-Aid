@@ -89,6 +89,9 @@ export interface ActiveHarmonyInfo {
   hasScaleOverride: boolean;
 }
 
+/** Subdivisión rítmica del metrónomo. */
+export type MetronomeSubdivision = '1' | '1/3' | '1/4' | '1/8' | '1/16';
+
 /** Estado reactivo del Modo Canción (plan_fase3.md §7 C4). */
 export interface SongState {
   /** Canción actualmente cargada en memoria. */
@@ -105,6 +108,8 @@ export interface SongState {
   playbackSpeed: number;
   /** Metrónomo activo durante reproducción. */
   metronomeEnabled: boolean;
+  /** Subdivisión rítmica del metrónomo ('1' | '1/3' | '1/4' | '1/8' | '1/16'). */
+  metronomeSubdivision: MetronomeSubdivision;
   /** Cuenta atrás previa de 1 compás al reproducir. */
   countInEnabled: boolean;
   /** Rango de compases del bucle [startBar, endBar] (1-based), o null si no hay. */
@@ -146,6 +151,7 @@ export interface SongActions {
   setPlaybackSpeed: (speed: number) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   toggleMetronome: () => void;
+  setMetronomeSubdivision: (subdivision: MetronomeSubdivision) => void;
   setCountInEnabled: (enabled: boolean) => void;
   toggleCountIn: () => void;
   setLoopRange: (range: [number, number] | null) => void;

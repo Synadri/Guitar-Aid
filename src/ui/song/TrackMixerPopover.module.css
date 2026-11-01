@@ -2,67 +2,149 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: 360px;
-  max-width: 90vw;
-  background-color: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-group);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-  padding: 12px 14px;
+  width: 480px;
+  max-width: min(480px, calc(100vw - 32px));
+  background-color: #0b1320;
+  border: 1px solid #1c2b3e;
+  border-radius: 12px;
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 16px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   user-select: none;
+  box-sizing: border-box;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
 }
 
-.closeBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
+.trackCount {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.resetBtn {
+  background: #0d1726;
+  border: 1px solid #203147;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
+  transition: all 0.12s ease;
 }
 
-.closeBtn:hover {
-  color: var(--text-primary);
-  background: var(--control-hover);
+.resetBtn:hover {
+  background: #142236;
+  border-color: #38bdf8;
+  color: #f1f5f9;
+}
+
+/* Tarjeta Maestro */
+.masterCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #0a1320;
+  border: 1px solid #192739;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.masterLabel {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.masterVolumeControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 155px;
+  flex-shrink: 0;
+}
+
+/* Sección PISTAS */
+.sectionLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #475569;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .trackList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 260px;
+  gap: 6px;
+  max-height: 270px;
   overflow-y: auto;
+  padding-right: 2px;
+}
+
+.trackList::-webkit-scrollbar {
+  width: 5px;
+}
+
+.trackList::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
 }
 
 .trackRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  gap: 10px;
+  padding: 7px 10px;
+  background: #0c1524;
+  border: 1px solid #172437;
+  border-radius: 8px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.trackRowActive {
+  border-color: #00bfa5;
+  background: rgba(0, 191, 165, 0.04);
+}
+
+.radioBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
 }
 
 .trackInfo {
@@ -70,127 +152,304 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  cursor: pointer;
+}
+
+.trackNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .trackName {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.trackSub {
+.activeBadge {
   font-size: 10px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: rgba(0, 191, 165, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(0, 191, 165, 0.3);
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.trackSub {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 
 .btnGroup {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .toggleBtn {
-  width: 26px;
+  width: 25px;
   height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--control-border);
-  background: var(--control-bg);
-  color: var(--text-muted);
+  border-radius: 4px;
+  border: 1px solid #1c2b3e;
+  background: #0c1624;
+  color: #64748b;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.12s ease;
 }
 
 .toggleBtn:hover {
-  background: var(--control-hover);
-  color: var(--text-primary);
+  background: #142236;
+  color: #f1f5f9;
 }
 
 .toggleBtn[aria-pressed="true"].muteBtn {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #fca5a5;
+  background: #78350f;
+  border-color: #b45309;
+  color: #fef3c7;
 }
 
 .toggleBtn[aria-pressed="true"].soloBtn {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: #f59e0b;
-  color: #fbbf24;
+  background: #0369a1;
+  border-color: #0284c7;
+  color: #e0f2fe;
 }
 
 .volumeControl {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 105px;
+  gap: 8px;
+  width: 140px;
   flex-shrink: 0;
   box-sizing: border-box;
 }
 
 .volumeSlider {
+  -webkit-appearance: none;
+  appearance: none;
   flex: 1;
   min-width: 0;
   width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
+  height: 5px;
+  border-radius: 9999px;
+  outline: none;
   cursor: pointer;
-  box-sizing: border-box;
+  margin: 0;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.volumeSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+  background: #ffffff;
+}
+
+.volumeSlider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
 }
 
 .volumeText {
-  width: 30px;
+  width: 22px;
   flex-shrink: 0;
   text-align: right;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
 }
 
+/* Pie */
 .footer {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  font-size: 11px;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
 }
 
 .countInBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--control-border);
-  background: var(--control-bg);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 11px;
-}
-
-.countInBtn[aria-pressed="true"] {
-  background: var(--accent-bg);
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
-.resetBtn {
+  gap: 8px;
   background: transparent;
   border: none;
-  color: var(--text-muted);
   cursor: pointer;
-  font-size: 11px;
-  text-decoration: underline;
-  padding: 4px;
+  padding: 4px 0;
+  color: #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: color 0.12s ease;
 }
 
-.resetBtn:hover {
-  color: var(--text-primary);
+.countInBtn:hover {
+  color: #f1f5f9;
+}
+
+.checkboxBox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #2a3c52;
+  background: #0c1524;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+}
+
+.checkboxChecked {
+  background: #00bfa5;
+  border-color: #00bfa5;
+}
+
+.countInText {
+  user-select: none;
+}
+
+/* Sección de subdivisión */
+.subdivisionSection {
+  width: 185px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subdivisionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.subdivisionTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.subdivisionValue {
+  font-size: 12px;
+  font-weight: 700;
+  color: #00bfa5;
+  font-family: var(--font-mono, monospace);
+}
+
+.subdivisionSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+.subdivisionSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.subdivisionSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+  background: #ffffff;
+}
+
+.subdivisionSlider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.subdivisionTicks {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 3px;
+  padding: 0 4px;
+}
+
+.tickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.tickDash {
+  width: 1px;
+  height: 4px;
+  background-color: #334155;
+  margin-bottom: 3px;
+  transition: background-color 0.12s ease;
+}
+
+.tickSelected .tickDash {
+  background-color: #00bfa5;
+}
+
+.tickLabel {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #64748b;
+  font-weight: 500;
+  transition: color 0.12s ease;
+}
+
+.tickSelected .tickLabel {
+  color: #00bfa5;
+  font-weight: 700;
 }

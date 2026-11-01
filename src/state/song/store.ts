@@ -36,6 +36,7 @@ export function initialSongState(
     isPlaying: false,
     playbackSpeed: 1.0,
     metronomeEnabled: false,
+    metronomeSubdivision: '1/4',
     countInEnabled: false,
     loopRange: null,
     loopEnabled: false,
@@ -174,6 +175,8 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
       setMetronomeEnabled: (enabled) => set({ metronomeEnabled: enabled }),
 
       toggleMetronome: () => set((s) => ({ metronomeEnabled: !s.metronomeEnabled })),
+
+      setMetronomeSubdivision: (subdivision) => set({ metronomeSubdivision: subdivision }),
 
       setCountInEnabled: (enabled) => set({ countInEnabled: enabled }),
 

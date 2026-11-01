@@ -35,6 +35,8 @@ export interface PlaybackRangeBounds {
   endTick: number;
 }
 
+export type MetronomeSubdivision = '1' | '1/3' | '1/4' | '1/8' | '1/16';
+
 /** Estado reactivo observable del controlador AlphaSynth. */
 export interface AlphaSynthControllerState {
   isPlaying: boolean;
@@ -43,6 +45,7 @@ export interface AlphaSynthControllerState {
   soundEnabled: boolean;
   metronomeEnabled: boolean;
   metronomeVolume: number;
+  metronomeSubdivision?: MetronomeSubdivision;
   countInEnabled: boolean;
   countInVolume: number;
   isLooping: boolean;
@@ -106,6 +109,7 @@ export interface AlphaSynthControllerOptions {
   initialSoundEnabled?: boolean;
   initialPlaybackSpeed?: number;
   initialMetronomeEnabled?: boolean;
+  initialMetronomeSubdivision?: MetronomeSubdivision;
   initialCountInEnabled?: boolean;
   createPlayer?: () => Promise<AlphaSynthLike | null> | AlphaSynthLike | null;
 }
@@ -133,6 +137,8 @@ export interface AlphaSynthController {
   isMetronomeEnabled: () => boolean;
   setMetronomeVolume: (volume: number) => void;
   getMetronomeVolume: () => number;
+  setMetronomeSubdivision: (subdivision: MetronomeSubdivision) => void;
+  getMetronomeSubdivision: () => MetronomeSubdivision;
   setCountInEnabled: (enabled: boolean) => void;
   isCountInEnabled: () => boolean;
   setCountInVolume: (volume: number) => void;
@@ -182,6 +188,7 @@ export function createAlphaSynthController(
     soundEnabled: options.initialSoundEnabled ?? true,
     metronomeEnabled: options.initialMetronomeEnabled ?? false,
     metronomeVolume: DEFAULT_METRONOME_VOLUME,
+    metronomeSubdivision: options.initialMetronomeSubdivision ?? '1/4',
     countInEnabled: options.initialCountInEnabled ?? false,
     countInVolume: DEFAULT_COUNT_IN_VOLUME,
     isLooping: false,
@@ -506,6 +513,11 @@ export function createAlphaSynthController(
     emitState();
   };
 
+  const setMetronomeSubdivision = (subdivision: MetronomeSubdivision) => {
+    state.metronomeSubdivision = subdivision;
+    emitState();
+  };
+
   const setCountInEnabled = (enabled: boolean) => {
     state.countInEnabled = Boolean(enabled);
     applyCountInToPlayer();
@@ -680,6 +692,8 @@ export function createAlphaSynthController(
     isMetronomeEnabled: () => state.metronomeEnabled,
     setMetronomeVolume,
     getMetronomeVolume: () => state.metronomeVolume,
+    setMetronomeSubdivision,
+    getMetronomeSubdivision: () => state.metronomeSubdivision ?? '1/4',
     setCountInEnabled,
     isCountInEnabled: () => state.countInEnabled,
     setCountInVolume,

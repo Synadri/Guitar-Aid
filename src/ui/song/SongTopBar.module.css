@@ -101,6 +101,12 @@
   border-color: var(--accent);
 }
 
+.mixerWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .btn {
   height: 28px;
   padding: 0 10px;

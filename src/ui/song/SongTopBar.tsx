@@ -41,6 +41,7 @@ export function SongTopBar({
   const isPlaying = useStore(songStore, (s) => s.isPlaying);
   const playbackSpeed = useStore(songStore, (s) => s.playbackSpeed);
   const metronomeEnabled = useStore(songStore, (s) => s.metronomeEnabled);
+  const metronomeSubdivision = useStore(songStore, (s) => s.metronomeSubdivision ?? '1/4');
   const countInEnabled = useStore(songStore, (s) => s.countInEnabled);
   const loopRange = useStore(songStore, (s) => s.loopRange);
   const loopEnabled = useStore(songStore, (s) => s.loopEnabled);
@@ -170,6 +171,15 @@ export function SongTopBar({
     controller.resetTrackMixer();
   };
 
+  const handleSetMasterVolume = (vol: number) => {
+    settingsStore.getState().setVolume(vol);
+    controller.setVolume(vol);
+  };
+
+  const handleSelectTrack = (trackIdx: number) => {
+    songStore.getState().setActiveTrackIndex(trackIdx);
+  };
+
   return (
     <header className={styles.topBar} data-testid="song-top-bar">
       {/* 1. Canción y Biblioteca */}
@@ -221,31 +231,43 @@ export function SongTopBar({
           ))}
         </select>
 
-        <button
-          ref={mixerBtnRef}
-          type="button"
-          className={styles.btn}
-          aria-haspopup="dialog"
-          aria-expanded={isMixerOpen}
-          aria-label="Mezclador multipista"
-          onClick={() => setIsMixerOpen((prev) => !prev)}
-        >
-          <span>Mezclador</span>
-        </button>
+        <div className={styles.mixerWrapper}>
+          <button
+            ref={mixerBtnRef}
+            type="button"
+            className={styles.btn}
+            data-active={isMixerOpen ? 'true' : 'false'}
+            aria-haspopup="dialog"
+            aria-expanded={isMixerOpen}
+            aria-label="Mezclador multipista"
+            onClick={() => setIsMixerOpen((prev) => !prev)}
+          >
+            <span>Mezclador</span>
+          </button>
 
-        <TrackMixerPopover
-          open={isMixerOpen}
-          onClose={() => setIsMixerOpen(false)}
-          triggerRef={mixerBtnRef}
-          tracks={tracks}
-          trackMixer={trackMixer}
-          onSetMute={handleSetMute}
-          onSetSolo={handleSetSolo}
-          onSetVolume={handleSetVolume}
-          countInEnabled={countInEnabled}
-          onToggleCountIn={handleToggleCountIn}
-          onResetMixer={handleResetMixer}
-        />
+          <TrackMixerPopover
+            open={isMixerOpen}
+            onClose={() => setIsMixerOpen(false)}
+            triggerRef={mixerBtnRef}
+            tracks={tracks}
+            activeTrackIndex={activeTrackIndex}
+            onSelectTrack={handleSelectTrack}
+            trackMixer={trackMixer}
+            onSetMute={handleSetMute}
+            onSetSolo={handleSetSolo}
+            onSetVolume={handleSetVolume}
+            masterVolume={volume}
+            onSetMasterVolume={handleSetMasterVolume}
+            countInEnabled={countInEnabled}
+            onToggleCountIn={handleToggleCountIn}
+            metronomeSubdivision={metronomeSubdivision}
+            onSetMetronomeSubdivision={(sub) => {
+              songStore.getState().setMetronomeSubdivision(sub);
+              controller.setMetronomeSubdivision(sub);
+            }}
+            onResetMixer={handleResetMixer}
+          />
+        </div>
       </div>
 
       {/* 3. Grupo de Transporte */}
