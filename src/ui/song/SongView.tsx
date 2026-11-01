@@ -126,7 +126,14 @@ export function SongView({
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        const nextBar = songStore.getState().currentBar - 1;
+        const prevBar = songStore.getState().currentBar;
+        const nextBar = Math.max(1, prevBar - 1);
+        if (e.shiftKey) {
+          const existing = songStore.getState().selectedBarRange ?? [prevBar, prevBar];
+          const newMin = Math.min(existing[0], nextBar);
+          const newMax = Math.max(existing[1], nextBar);
+          songStore.getState().setSelectedBarRange([newMin, newMax]);
+        }
         songStore.getState().setCurrentBar(nextBar);
         const curTrack =
           songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
@@ -138,10 +145,18 @@ export function SongView({
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        const nextBar = songStore.getState().currentBar + 1;
-        songStore.getState().setCurrentBar(nextBar);
+        const prevBar = songStore.getState().currentBar;
         const curTrack =
           songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
+        const maxBars = curTrack?.bars.length ?? 999;
+        const nextBar = Math.min(maxBars, prevBar + 1);
+        if (e.shiftKey) {
+          const existing = songStore.getState().selectedBarRange ?? [prevBar, prevBar];
+          const newMin = Math.min(existing[0], nextBar);
+          const newMax = Math.max(existing[1], nextBar);
+          songStore.getState().setSelectedBarRange([newMin, newMax]);
+        }
+        songStore.getState().setCurrentBar(nextBar);
         controller.seekToTick(
           calculateTickForBarBeat(curTrack?.bars, songStore.getState().currentBar, 0),
         );

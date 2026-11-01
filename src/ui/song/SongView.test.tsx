@@ -420,30 +420,24 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
     expect(songStore.getState().barOverrides[1]).toBeUndefined();
   });
 
-  it('Visualización de bucle: resalta los compases contenidos con distintivo de inicio y fin', async () => {
-    const { songStore } = setupSongView();
+  it('Visualización de bucle: resalta el botón en SongTopBar y el distintivo en la barra contextual', async () => {
+    const { songStore, controller } = setupSongView();
 
     await act(async () => {
       songStore.getState().setLoopRange([2, 4]);
       songStore.getState().setLoopEnabled(true);
     });
 
-    // Compás 1: fuera de bucle
-    const bar1 = screen.getByTestId('bar-1');
-    expect(bar1.getAttribute('data-is-loop')).toBe('false');
+    // Botón de bucle en SongTopBar activado
+    const loopBtn = screen.getByRole('button', { name: /Bucle 2–4/i });
+    expect(loopBtn.getAttribute('aria-pressed')).toBe('true');
 
-    // Compases 2, 3, 4: dentro del bucle
-    const bar2 = screen.getByTestId('bar-2');
-    const bar3 = screen.getByTestId('bar-3');
-    const bar4 = screen.getByTestId('bar-4');
-    expect(bar2.getAttribute('data-is-loop')).toBe('true');
-    expect(bar3.getAttribute('data-is-loop')).toBe('true');
-    expect(bar4.getAttribute('data-is-loop')).toBe('true');
+    // Distintivo de bucle en la barra contextual de AlphaTabViewport
+    const loopBadge = screen.getByTestId('loop-active-badge');
+    expect(loopBadge.textContent).toContain('🔁 Bucle c.2–4');
 
-    // Inicio de bucle en compás 2
-    expect(screen.getByTestId('loop-start-badge')).toBeTruthy();
-    // Fin de bucle en compás 4
-    expect(screen.getByTestId('loop-end-icon')).toBeTruthy();
+    // Controlador sincronizado en modo bucle
+    expect(controller.isLooping()).toBe(true);
   });
 
   it('al cambiar de pista no se pausa la reproducción activa ni se destruye el reproductor', async () => {

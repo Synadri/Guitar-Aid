@@ -1,4 +1,4 @@
-/* AlphaTabViewport.module.css — Estilos del visor de partitura y tablatura en sistemas continuos (docs/Fase-3/decisiones.md Hito C6b) */
+/* AlphaTabViewport.module.css — Estilos del contenedor nativo de AlphaTab con tema oscuro y barra contextual */
 
 .scoreCard {
   flex: 1;
@@ -12,6 +12,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
+/* 1. Cabecera técnica fija (36 px) */
 .scoreHeader {
   height: 36px;
   padding: 0 14px;
@@ -38,7 +39,8 @@
 .viewModeBadge {
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
-  padding: 2px 6px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 7px;
   border-radius: 4px;
   font-size: 10.5px;
   font-weight: 700;
@@ -46,6 +48,7 @@
 
 .trackName {
   color: #e2e8f0;
+  font-weight: 600;
 }
 
 .headerRight {
@@ -55,6 +58,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.scoreTechnicalSubtitle {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  color: #94a3b8;
+  user-select: none;
 }
 
 .dot {
@@ -69,528 +79,204 @@
   color: #94a3b8;
 }
 
-.barPositionText {
+.barTotalText {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* 2. Barra contextual superior de Guitar Aid (34 px) */
+.contextOverlayBar {
+  height: 34px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  user-select: none;
+  gap: 12px;
+}
+
+.contextLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+}
+
+.contextRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+}
+
+.contextBarIndicator {
+  font-weight: 600;
+  color: #f8fafc;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+}
+
+.contextSectionBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(20, 184, 166, 0.16);
+  border: 1px solid #0d9488;
+  color: #2dd4bf;
+}
+
+.contextChordChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+
+.overrideChip {
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.chordSymbol {
+  font-weight: 700;
+}
+
+.chordDegree {
+  font-size: 10.5px;
+  opacity: 0.9;
+}
+
+.overrideDot {
+  font-size: 8px;
+  color: #f59e0b;
+}
+
+.selectedRangeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.clearSelectionButton {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.clearSelectionButton:hover {
+  color: #f8fafc;
+}
+
+.loopBadge {
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   color: #fbbf24;
   font-weight: 600;
 }
 
-.scoreViewport {
+/* 3. Contenedor DOM nativo y visible de AlphaTab (con tema oscuro integrado) */
+.alphaTabContainer {
   flex: 1;
   min-height: 0;
+  width: 100%;
   overflow-y: auto;
   overflow-x: auto;
-  padding: 16px 20px;
-  position: relative;
   background: var(--surface-1);
+  padding: 8px 12px;
+  position: relative;
+  outline: none;
+  box-sizing: border-box;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
-.scoreViewport:focus-visible {
+.alphaTabContainer :global(*),
+.alphaTabContainer :global(text),
+.alphaTabContainer :global(svg) {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.alphaTabContainer:focus-visible {
   outline: 2px solid var(--focus-ring, #14b8a6);
   outline-offset: -2px;
 }
 
-/* Contenedor específico para la librería AlphaTab cuando se monta (aislado fuera de pantalla) */
-.alphaTabContainer {
-  position: fixed !important;
-  top: -99999px !important;
-  left: -99999px !important;
-  width: 800px !important;
-  height: 600px !important;
-  opacity: 0 !important;
+/* Estilos de tema oscuro para los cursores nativos de AlphaTab */
+.alphaTabContainer :global(.at-surface) {
+  background: transparent !important;
+}
+
+.alphaTabContainer :global(.at-cursors) {
   pointer-events: none !important;
-  visibility: hidden !important;
-  z-index: -100 !important;
 }
 
-/* ==========================================================================
-   Contenedor de Sistemas Continuos (Hito C6b)
-   ========================================================================== */
-.systemsContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  width: 100%;
+.alphaTabContainer :global(.at-cursor-bar) {
+  background: rgba(20, 184, 166, 0.08) !important;
+  pointer-events: none !important;
 }
 
-.scoreSystem {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  position: relative;
-  box-sizing: border-box;
+.alphaTabContainer :global(.at-cursor-beat) {
+  background: #14b8a6 !important;
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.6) !important;
+  pointer-events: none !important;
+  z-index: 1000 !important;
 }
 
-/* Carril superior del sistema: Números de compás, Secciones, Cifrados y Bucle */
-.systemTopLane {
-  display: flex;
-  width: 100%;
-  height: 46px;
-  margin-bottom: 8px;
-  position: relative;
-  box-sizing: border-box;
-}
-
-.systemHeaderSpacer {
-  width: 38px;
-  flex-shrink: 0;
-}
-
-.systemBarsTop {
-  display: flex;
-  flex: 1;
-  width: calc(100% - 38px);
-  position: relative;
-  height: 100%;
-}
-
-.barTopMeta {
-  flex: 1;
-  position: relative;
-  height: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border-right: 1px solid transparent;
-  box-sizing: border-box;
-}
-
-.metaTopRow {
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
-  position: relative;
-  user-select: none;
-}
-
-.metaTopLeft {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.metaTopRight {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.barNumber {
-  font-family: var(--font-mono, monospace);
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 700;
-  user-select: none;
-  line-height: 1;
-}
-
-.metaBottomRow {
-  height: 24px;
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  box-sizing: border-box;
-  width: 100%;
-}
-
-.sectionBadge {
-  font-size: 10px;
-  font-weight: 700;
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.15);
-  padding: 1px 6px;
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  user-select: none;
-  line-height: 1.2;
-}
-
-.sectionBadgeEstribillo {
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.18);
-}
-
-.sectionBadgeDefault {
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.15);
-}
-
-.loopBadge,
-.loopMarker {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.2);
-  padding: 1px 5px;
-  border-radius: 3px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  user-select: none;
-}
-
-/* Cifrado armónico flotante en su pulso real */
-.chordName {
-  position: absolute;
-  bottom: 0;
-  transform: translateX(-50%);
-  font-size: 13px;
-  font-weight: 700;
-  color: #cbd5e1;
-  user-select: none;
-  transition: color 0.1s ease, background-color 0.1s ease;
-  white-space: nowrap;
-  line-height: 1;
-  padding: 1px 4px;
-}
-
-.chordNameActive {
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.2);
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  font-weight: 800;
-}
-
-/* ==========================================================================
-   Carril de Pautas (Staves) y Sistemas Continuos
-   ========================================================================== */
-.systemStaveRow {
-  display: flex;
-  width: 100%;
-  position: relative;
-  box-sizing: border-box;
-}
-
-/* Cabecera TAB al inicio del sistema */
-.systemTabHeader {
-  width: 38px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  align-items: center;
-  border-right: 1.5px solid #334155;
-  user-select: none;
-  background: rgba(15, 23, 42, 0.45);
-  box-sizing: border-box;
-}
-
-.tabLetter {
-  font-family: var(--font-mono, monospace);
-  font-weight: 800;
-  font-size: 11.5px;
-  color: #94a3b8;
-  line-height: 1;
-  letter-spacing: 0.05em;
-}
-
-/* Cabecera de clave para modo Partitura */
-.systemClefHeader {
-  width: 38px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1.5px solid #334155;
-  user-select: none;
-  background: rgba(15, 23, 42, 0.45);
-  box-sizing: border-box;
-}
-
-.clefSymbol {
-  font-size: 26px;
-  color: #94a3b8;
-  opacity: 0.75;
-  pointer-events: none;
-  line-height: 1;
-}
-
-/* Contenedor horizontal continuo de compases del sistema */
-.systemBarsContainer {
-  display: flex;
-  flex: 1;
-  width: calc(100% - 38px);
-  position: relative;
-  box-sizing: border-box;
-}
-
-/* Segmento de compás dentro del sistema continuo */
-.barSection,
-.barCell {
-  flex: 1;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-  user-select: none;
-  border-right: 1px solid #334155;
-  transition: background 0.12s ease;
-  box-sizing: border-box;
-}
-
-.barSection:hover {
-  background: rgba(30, 41, 59, 0.35);
-}
-
-.barCell:focus-visible {
-  outline: 2px solid #14b8a6;
-  outline-offset: -1px;
-}
-
-/* Resaltado del compás activo (cálido ambarino suave) */
-.barCellActive {
-  background: rgba(245, 158, 11, 0.08) !important;
-}
-
-/* Resaltado de compases en rango seleccionado (turquesa translúcido) */
-.barCellSelected {
-  background: rgba(20, 184, 166, 0.09) !important;
-}
-
-/* Resaltado de compases dentro del bucle activo */
-.barCellInLoop {
-  background: rgba(245, 158, 11, 0.05) !important;
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3);
-}
-
-.barCellActive.barCellSelected {
-  background: rgba(245, 158, 11, 0.12) !important;
-}
-
-/* Barra divisoria vertical de compás */
-.barDividerLine {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: #334155;
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* ==========================================================================
-   Tablatura Continua (Tab)
-   ========================================================================== */
-.tabContainer {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  overflow: visible;
-}
-
-.tabLine {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #334155;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.tabBeatsRow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  pointer-events: auto;
-}
-
-/* Columna interactiva de pulso/nota */
-.tabBeatColumn {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 28px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  border-radius: 3px;
-  z-index: 3;
-  transition: background 0.1s ease;
-}
-
-.tabBeatColumn:hover {
-  background: rgba(56, 189, 248, 0.08);
-}
-
-.tabBeatColumnActive {
-  background: rgba(20, 184, 166, 0.1);
-}
-
-/* Cursor vertical translúcido turquesa */
-.tabBeatCursor,
-.beatCursor {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  background: rgba(20, 184, 166, 0.22);
-  border-left: 1.5px solid #14b8a6;
-  border-right: 1.5px solid #14b8a6;
-  box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
-  pointer-events: none;
-  z-index: 4;
+/* Resaltado de BUCLE (Loop): ámbar cálido característico */
+.alphaTabContainer[data-highlight-mode='loop'] :global(.at-selection),
+.alphaTabContainer[data-highlight-mode='loop'] :global(.at-selection div) {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
   border-radius: 2px;
 }
 
-/* Número de traste con máscara opaca de fondo para ocluir la cuerda */
-.fretBadge,
-.fretNumber {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-  font-size: 11px;
-  font-weight: 700;
-  color: #f8fafc;
-  line-height: 1;
-  padding: 0 3px;
-  background: var(--surface-1, #0f172a);
+/* Resaltado de SELECCIÓN de compases: turquesa suave (estilo idéntico al resalte de compás actual) */
+.alphaTabContainer[data-highlight-mode='selection'] :global(.at-selection),
+.alphaTabContainer[data-highlight-mode='selection'] :global(.at-selection div) {
+  background: rgba(20, 184, 166, 0.16) !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
   border-radius: 2px;
-  z-index: 5;
-  pointer-events: none;
 }
 
-.fretBadgeActive,
-.fretNumberActive {
-  color: #042f2e;
-  background: #2dd4bf;
-  box-shadow: 0 0 8px rgba(45, 212, 191, 0.9);
-  font-weight: 800;
+/* Regla base limpia para cualquier bloque de selección de AlphaTab */
+.alphaTabContainer :global(.at-selection),
+.alphaTabContainer :global(.at-selection div) {
+  background: rgba(20, 184, 166, 0.16) !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  border-radius: 2px;
 }
 
-/* ==========================================================================
-   Partitura (Score)
-   ========================================================================== */
-.staffContainer {
-  position: relative;
-  min-height: 48px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.staffLines {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.staffLine {
-  height: 1px;
-  background: #334155;
-  width: 100%;
-}
-
-.staffBeatsRow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  pointer-events: auto;
-}
-
-.staffBeatColumn {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  cursor: pointer;
-  z-index: 3;
-}
-
-.staffBeatColumn:hover {
-  background: rgba(56, 189, 248, 0.08);
-}
-
-.staffNoteHead {
-  position: absolute;
-  font-size: 13px;
-  color: #f8fafc;
-  line-height: 1;
-  transform: translateY(50%);
-  pointer-events: none;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
-  z-index: 5;
-}
-
-.staffNoteHeadActive {
-  color: #2dd4bf;
-  text-shadow: 0 0 6px rgba(45, 212, 191, 0.9);
-}
-
-/* ==========================================================================
-   Carril de Letras
-   ========================================================================== */
-.systemLyricsLane {
-  display: flex;
-  width: 100%;
-  min-height: 20px;
-  margin-top: 4px;
-}
-
-.systemBarsLyrics {
-  display: flex;
-  flex: 1;
-  width: calc(100% - 38px);
-}
-
-.barLyricsContainer {
-  flex: 1;
-  position: relative;
-  min-height: 18px;
-  border-right: 1px solid transparent;
-}
-
-.beatLyric {
-  position: absolute;
-  transform: translateX(-50%);
-  font-style: italic;
-  font-size: 12px;
-  color: var(--app-muted, #94a3b8);
-  white-space: nowrap;
-  user-select: none;
-}
-
-.lyricsRow {
-  font-style: italic;
-  font-size: 12px;
-  color: var(--app-muted, #94a3b8);
-  min-height: 18px;
-  padding: 3px 2px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: none;
+.alphaTabContainer :global(.at-highlight *),
+.alphaTabContainer :global(.at-cursor-beat *) {
+  fill: #2dd4bf !important;
+  stroke: #2dd4bf !important;
 }
 
 .emptyState {
@@ -600,5 +286,4 @@
   height: 100%;
   color: var(--app-muted);
   font-size: 13px;
-  font-style: italic;
 }

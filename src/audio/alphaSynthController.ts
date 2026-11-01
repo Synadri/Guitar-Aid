@@ -89,6 +89,10 @@ export interface AlphaSynthLike {
     on: (cb: (args: { currentTime: number; endTime: number; currentTick: number; endTick: number }) => void) => void;
   };
   playedBeatChanged?: { on: (cb: (beat: unknown) => void) => void };
+  beatMouseDown?: { on: (cb: (beat: unknown) => void) => void };
+  beatMouseMove?: { on: (cb: (beat: unknown) => void) => void };
+  beatMouseUp?: { on: (cb: (beat: unknown) => void) => void };
+  postRenderFinished?: { on: (cb: () => void) => void };
   midiEventsPlayed?: { on: (cb: (args: { events?: readonly unknown[] }) => void) => void };
   playerFinished?: { on: (cb: () => void) => void };
   soundFontLoaded?: { on: (cb: () => void) => void };

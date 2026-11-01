@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -8,17 +8,21 @@ import {
 } from '../../audio';
 import {
   songStore as defaultSongStore,
+  resolveActiveHarmony,
   type ScoreViewMode,
   type SongStore,
 } from '../../state/song';
 import {
   getPresetSong,
   PRESET_POP_DIATONIC,
-  calculateTickForBarBeat,
   calculatePlaybackRangeForBars,
   type SongBar,
-  type SongBeat,
 } from '../../song';
+import {
+  getChordQuality,
+  pcName,
+  romanNumeral,
+} from '../../theory';
 import styles from './AlphaTabViewport.module.css';
 
 export interface AlphaTabViewportProps {
@@ -32,7 +36,7 @@ export interface AlphaTabViewportProps {
   style?: React.CSSProperties;
 }
 
-function viewModeLabel(mode: ScoreViewMode): string {
+export function viewModeLabel(mode: ScoreViewMode): string {
   switch (mode) {
     case 'score':
       return 'PARTITURA';
@@ -51,9 +55,40 @@ export function AlphaTabViewport({
   className,
   style,
 }: AlphaTabViewportProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const alphaTabHostRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<AlphaSynthLike | null>(null);
+  const isShiftPressedRef = useRef(false);
+  const dragStartBarRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') isShiftPressedRef.current = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') isShiftPressedRef.current = false;
+    };
+    const handleMouseDown = (e: MouseEvent) => {
+      isShiftPressedRef.current = e.shiftKey;
+      if (alphaTabHostRef.current?.contains(e.target as Node)) {
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    const handleMouseUp = () => {
+      dragStartBarRef.current = null;
+      isDraggingRef.current = false;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mousedown', handleMouseDown, true);
+    window.addEventListener('mouseup', handleMouseUp, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mousedown', handleMouseDown, true);
+      window.removeEventListener('mouseup', handleMouseUp, true);
+    };
+  }, []);
 
   // Estado del store de canción
   const activeSong = useStore(songStore, (s) => s.activeSong);
@@ -67,9 +102,6 @@ export function AlphaTabViewport({
   const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
   const barOverrides = useStore(songStore, (s) => s.barOverrides);
 
-  // Estado local para interacción de arrastre (drag selection de compases)
-  const [dragStartBar, setDragStartBar] = useState<number | null>(null);
-
   // Pista activa
   const track = useMemo(() => {
     if (!activeSong || activeSong.tracks.length === 0) return null;
@@ -80,7 +112,43 @@ export function AlphaTabViewport({
   const tuningName = track?.tuning.name ?? 'Estándar';
   const capoFret = track?.capoFret ?? 0;
 
-  // 1. Inicialización del reproductor y visor AlphaTab (se ejecuta al montar)
+  // Compás activo y marcador de sección
+  const activeBar: SongBar | undefined = useMemo(() => {
+    if (!track) return undefined;
+    return (
+      track.bars.find((b) => b.number === currentBar) ??
+      track.bars[currentBar - 1] ??
+      track.bars[0]
+    );
+  }, [track, currentBar]);
+
+  const sectionName = activeBar?.sectionMarker;
+
+  // Armonía activa calculada para el compás y pulso actual
+  const harmony = useMemo(() => {
+    return resolveActiveHarmony(songStore.getState());
+  }, [songStore, currentBar, currentBeat, activeTrackIndex, activeSong, barOverrides]);
+
+  const chordInfo = useMemo(() => {
+    if (!harmony || harmony.chordRoot === undefined || !harmony.chordQuality) {
+      return null;
+    }
+    const cRootName = pcName(harmony.chordRoot, 'sharps');
+    const quality = getChordQuality(harmony.chordQuality);
+    const chordNameStr = `${cRootName}${quality.symbol}`;
+    const roman = romanNumeral(harmony.scaleTonic, harmony.chordRoot, quality);
+    return {
+      name: chordNameStr,
+      roman,
+      hasOverride: harmony.hasChordOverride,
+    };
+  }, [harmony]);
+
+  const chordDisplay = chordInfo?.name;
+  const chordRoman = chordInfo?.roman;
+  const hasOverride = chordInfo?.hasOverride ?? false;
+
+  // 1. Inicialización de AlphaTab (montaje en contenedor DOM visible)
   useEffect(() => {
     let isMounted = true;
     let apiInstance: AlphaSynthLike | null = null;
@@ -103,11 +171,195 @@ export function AlphaTabViewport({
           songStore.getState().setCurrentPosition(barNum, beatIdx);
         });
       }
+
+      if (api.postRenderFinished?.on) {
+        api.postRenderFinished.on(() => {
+          if (!isMounted) return;
+          const store = songStore.getState();
+          const curTrack = store.activeSong?.tracks[store.activeTrackIndex];
+          if (!curTrack?.bars) return;
+          const rawApi = api as unknown as {
+            _updateSelectionCursor?: (
+              range: { startTick: number; endTick: number } | null,
+            ) => void;
+          };
+          if (typeof rawApi._updateSelectionCursor !== 'function') return;
+
+          if (store.loopEnabled && store.loopRange) {
+            const range = calculatePlaybackRangeForBars(curTrack.bars, store.loopRange);
+            if (range) {
+              if (alphaTabHostRef.current) {
+                alphaTabHostRef.current.setAttribute('data-highlight-mode', 'loop');
+              }
+              rawApi._updateSelectionCursor({
+                startTick: range.startTick,
+                endTick: Math.max(range.startTick, range.endTick - 10),
+              });
+            }
+          } else if (store.selectedBarRange) {
+            const range = calculatePlaybackRangeForBars(curTrack.bars, store.selectedBarRange);
+            if (range) {
+              if (alphaTabHostRef.current) {
+                alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
+              }
+              rawApi._updateSelectionCursor({
+                startTick: range.startTick,
+                endTick: Math.max(range.startTick, range.endTick - 10),
+              });
+            }
+          }
+        });
+      }
+
+      if (api.beatMouseDown?.on) {
+        api.beatMouseDown.on((beat: unknown) => {
+          if (!isMounted || !beat) return;
+          const b = beat as {
+            index?: number;
+            voice?: { bar?: { index?: number } };
+            absolutePlaybackStart?: number;
+            shiftKey?: boolean;
+            isShift?: boolean;
+          };
+          const barNum = (b.voice?.bar?.index ?? 0) + 1;
+          const beatIdx = b.index ?? 0;
+
+          // Detección de selección múltiple de compases mediante Shift + Clic
+          const isShift = isShiftPressedRef.current || Boolean(b.shiftKey || b.isShift);
+          const store = songStore.getState();
+          dragStartBarRef.current = barNum;
+          isDraggingRef.current = false;
+
+          if (isShift) {
+            const prevBar = store.selectedBarRange ? store.selectedBarRange[0] : store.currentBar;
+            const minBar = Math.min(prevBar, barNum);
+            const maxBar = Math.max(prevBar, barNum);
+            store.setSelectedBarRange([minBar, maxBar]);
+
+            // Resaltar visualmente en turquesa sin desplazar el cursor de reproducción
+            const curTrack = store.activeSong?.tracks[store.activeTrackIndex];
+            if (curTrack?.bars) {
+              const bounds = calculatePlaybackRangeForBars(curTrack.bars, [minBar, maxBar]);
+              if (bounds) {
+                if (alphaTabHostRef.current) {
+                  alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
+                }
+                const rawApi = api as unknown as {
+                  _updateSelectionCursor?: (
+                    range: { startTick: number; endTick: number } | null,
+                  ) => void;
+                };
+                rawApi._updateSelectionCursor?.({
+                  startTick: bounds.startTick,
+                  endTick: Math.max(bounds.startTick, bounds.endTick - 10),
+                });
+              }
+            }
+            return;
+          }
+
+          // Clic normal sin Shift: limpiar selección previa si existía
+          if (store.selectedBarRange) {
+            store.setSelectedBarRange(null);
+          }
+
+          // Si el bucle estaba activo pero el usuario hace clic fuera del rango del bucle:
+          // Desactivamos el bucle para permitir situar la reproducción y reproducir libremente en esa posición
+          if (
+            store.loopEnabled &&
+            store.loopRange &&
+            (barNum < store.loopRange[0] || barNum > store.loopRange[1])
+          ) {
+            store.setLoopEnabled(false);
+            controller.setPlaybackRange(null);
+            controller.setLoopEnabled(false);
+            if (alphaTabHostRef.current) {
+              alphaTabHostRef.current.removeAttribute('data-highlight-mode');
+            }
+            const rawApi = api as unknown as {
+              _updateSelectionCursor?: (range: unknown) => void;
+            };
+            rawApi._updateSelectionCursor?.(null);
+          }
+
+          store.setCurrentPosition(barNum, beatIdx);
+
+          let tick = b.absolutePlaybackStart;
+          if (tick === undefined || Number.isNaN(tick)) {
+            const currentSong = store.activeSong;
+            const currentTrack = currentSong?.tracks[store.activeTrackIndex];
+            const startBar = currentTrack?.bars[barNum - 1];
+            const num = startBar?.timeSignature?.numerator ?? 4;
+            const den = startBar?.timeSignature?.denominator ?? 4;
+            const ticksPerMeasure = Math.round((960 * 4 * num) / den);
+            const ticksPerBeat = Math.round((960 * 4) / den);
+            tick = (barNum - 1) * ticksPerMeasure + beatIdx * ticksPerBeat;
+          }
+
+          if (tick !== undefined && !Number.isNaN(tick)) {
+            controller.seekToTick(tick);
+            const rawApi = api as unknown as {
+              _cursorUpdateTick?: (
+                tick: number,
+                stop: boolean,
+                speed: number,
+                shouldScroll?: boolean,
+                forceUpdate?: boolean,
+              ) => void;
+            };
+            if (typeof rawApi._cursorUpdateTick === 'function') {
+              rawApi._cursorUpdateTick(tick, false, 1, false, true);
+            }
+          }
+        });
+      }
+
+      if (api.beatMouseMove?.on) {
+        api.beatMouseMove.on((beat: unknown) => {
+          if (!isMounted || !beat) return;
+          if (dragStartBarRef.current === null) return;
+          const b = beat as { voice?: { bar?: { index?: number } } };
+          const hoverBar = (b.voice?.bar?.index ?? 0) + 1;
+          if (hoverBar !== dragStartBarRef.current) {
+            isDraggingRef.current = true;
+            const minBar = Math.min(dragStartBarRef.current, hoverBar);
+            const maxBar = Math.max(dragStartBarRef.current, hoverBar);
+            const store = songStore.getState();
+            store.setSelectedBarRange([minBar, maxBar]);
+            const curTrack = store.activeSong?.tracks[store.activeTrackIndex];
+            if (curTrack?.bars) {
+              const bounds = calculatePlaybackRangeForBars(curTrack.bars, [minBar, maxBar]);
+              if (bounds) {
+                if (alphaTabHostRef.current) {
+                  alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
+                }
+                const rawApi = api as unknown as {
+                  _updateSelectionCursor?: (
+                    range: { startTick: number; endTick: number } | null,
+                  ) => void;
+                };
+                rawApi._updateSelectionCursor?.({
+                  startTick: bounds.startTick,
+                  endTick: Math.max(bounds.startTick, bounds.endTick - 10),
+                });
+              }
+            }
+          }
+        });
+      }
+
+      if (api.beatMouseUp?.on) {
+        api.beatMouseUp.on(() => {
+          if (!isMounted) return;
+          dragStartBarRef.current = null;
+          isDraggingRef.current = false;
+        });
+      }
     };
 
     if (alphaTabHostRef.current) {
       if (createApi) {
-        // Doble inyectable para tests
+        // Fábrica inyectable para pruebas unitarias y de integración
         apiInstance = createApi(alphaTabHostRef.current, {
           scoreViewMode: songStore.getState().scoreViewMode,
           showLyrics: songStore.getState().showLyrics,
@@ -122,7 +374,7 @@ export function AlphaTabViewport({
         typeof window !== 'undefined' &&
         !(typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom'))
       ) {
-        // Carga diferida en navegador real
+        // Carga nativa en navegador real
         import('@coderline/alphatab')
           .then((at) => {
             if (!isMounted || !alphaTabHostRef.current) return;
@@ -140,21 +392,59 @@ export function AlphaTabViewport({
               settings.core.tracks = [currentTrackIdx];
               settings.player.soundFont = soundFontUrl;
               settings.player.enablePlayer = true;
-              settings.player.enableUserInteraction = true;
+              settings.player.enableUserInteraction = false;
+              settings.player.enableCursor = true;
+              settings.player.enableAnimatedBeatCursor = false;
+              settings.player.enableElementHighlighting = true;
+              settings.player.scrollElement = alphaTabHostRef.current;
+              settings.player.scrollMode = at.ScrollMode.Continuous;
+              settings.display.layoutMode = at.LayoutMode.Page;
+              settings.display.scale = 0.9;
+              settings.display.padding = [8, 12, 8, 12];
 
+              // 1. Modos nativos de AlphaTab y visualización del ritmo en Tablatura
               switch (currentScoreMode) {
                 case 'score':
                   settings.display.staveProfile = at.StaveProfile.Score;
+                  settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
                   break;
                 case 'score-tab':
                   settings.display.staveProfile = at.StaveProfile.ScoreTab;
+                  settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
                   break;
                 case 'tab':
                 default:
                   settings.display.staveProfile = at.StaveProfile.Tab;
+                  settings.notation.rhythmMode = at.TabRhythmMode.ShowWithBars;
                   break;
               }
 
+              // 2. Tema oscuro nativo integrado en los recursos de grabado
+              const Color = at.model.Color;
+              settings.display.resources.staffLineColor = Color.fromJson('#334155')!;
+              settings.display.resources.barSeparatorColor = Color.fromJson('#475569')!;
+              settings.display.resources.mainGlyphColor = Color.fromJson('#f8fafc')!;
+              settings.display.resources.secondaryGlyphColor = Color.fromJson('#94a3b8')!;
+              settings.display.resources.barNumberColor = Color.fromJson('#64748b')!;
+              settings.display.resources.scoreInfoColor = Color.fromJson('#f8fafc')!;
+
+              // Ocultar cabeceras repetitivas redundantes (ya mostradas en SongTopBar)
+              settings.notation.elements.set(at.NotationElement.ScoreTitle, false);
+              settings.notation.elements.set(at.NotationElement.ScoreSubTitle, false);
+              settings.notation.elements.set(at.NotationElement.ScoreArtist, false);
+              settings.notation.elements.set(at.NotationElement.ScoreAlbum, false);
+              settings.notation.elements.set(at.NotationElement.ScoreWords, false);
+              settings.notation.elements.set(at.NotationElement.ScoreMusic, false);
+              settings.notation.elements.set(at.NotationElement.ScoreWordsAndMusic, false);
+              settings.notation.elements.set(at.NotationElement.ScoreCopyright, false);
+              settings.notation.elements.set(at.NotationElement.GuitarTuning, false);
+              settings.notation.elements.set(at.NotationElement.TrackNames, false);
+
+              // Ocultar marcadores de sección en la partitura/tablatura para evitar solapamientos con acordes
+              // (Guitar Aid los muestra limpia y ordenadamente en la barra contextual superior)
+              settings.notation.elements.set(at.NotationElement.EffectMarker, false);
+
+              // Letra
               settings.notation.elements.set(at.NotationElement.EffectLyrics, currentLyrics);
 
               const api = new at.AlphaTabApi(alphaTabHostRef.current, settings);
@@ -169,7 +459,6 @@ export function AlphaTabViewport({
                 controller.attachPlayer(apiInstance);
                 setupApiEvents(apiInstance);
 
-                // Al quedar listo el reproductor con el SoundFont/score cargado, sincronizar niveles del mezclador
                 if (api.playerReady) {
                   api.playerReady.on(() => {
                     if (!isMounted) return;
@@ -198,7 +487,7 @@ export function AlphaTabViewport({
             }
           })
           .catch(() => {
-            // Entorno sin navegador / test runner
+            // Entorno sin soporte / test runner
           });
       }
     }
@@ -213,7 +502,7 @@ export function AlphaTabViewport({
     };
   }, [createApi, controller, songStore]);
 
-  // 2. Cambio de pista activa: se conmuta la pista renderizada en AlphaTab sin reiniciar el reproductor
+  // 2. Cambio de pista activa: se conmuta la pista renderizada en AlphaTab
   useEffect(() => {
     const api = apiRef.current as {
       renderTracks?: (tracks: unknown[]) => void;
@@ -229,12 +518,12 @@ export function AlphaTabViewport({
     }
   }, [activeTrackIndex]);
 
-  // 3. Cambio reactivo de modo de visualización (Score, Score+Tab, Tab) y letras
+  // 3. Cambio reactivo de modo de vista (Score, Score+Tab, Tab)
   useEffect(() => {
     const api = apiRef.current as {
       settings?: {
         display?: { staveProfile?: number };
-        notation?: { elements?: { set?: (key: number, val: boolean) => void } };
+        notation?: { rhythmMode?: number };
       };
       updateSettings?: () => void;
       render?: () => void;
@@ -247,165 +536,116 @@ export function AlphaTabViewport({
         switch (scoreViewMode) {
           case 'score':
             if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.Score;
+            if (api.settings.notation) api.settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
             break;
           case 'score-tab':
             if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.ScoreTab;
+            if (api.settings.notation) api.settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
             break;
           case 'tab':
           default:
             if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.Tab;
+            if (api.settings.notation) api.settings.notation.rhythmMode = at.TabRhythmMode.ShowWithBars;
             break;
         }
-        api.settings.notation?.elements?.set?.(at.NotationElement.EffectLyrics, showLyrics);
-        api.updateSettings?.();
-        api.render?.();
+        if (typeof api.updateSettings === 'function') api.updateSettings();
+        if (typeof api.render === 'function') api.render();
+      })
+      .catch(() => {
+        // En entorno de tests sin bundler de AlphaTab
+      });
+  }, [scoreViewMode]);
+
+  // 4. Conmutación reactiva de la letra
+  useEffect(() => {
+    const api = apiRef.current as {
+      settings?: {
+        notation?: { elements?: { set?: (key: number, val: boolean) => void } };
+      };
+      updateSettings?: () => void;
+      render?: () => void;
+    } | null;
+    if (!api || !api.settings) return;
+
+    import('@coderline/alphatab')
+      .then((at) => {
+        if (!apiRef.current || !api.settings?.notation?.elements?.set) return;
+        api.settings.notation.elements.set(at.NotationElement.EffectLyrics, showLyrics);
+        if (typeof api.updateSettings === 'function') api.updateSettings();
+        if (typeof api.render === 'function') api.render();
       })
       .catch(() => {});
-  }, [scoreViewMode, showLyrics]);
+  }, [showLyrics]);
 
-  // 4. Cambio de canción activa: cargar nueva partitura en formato AlphaTex
-  const prevSongIdRef = useRef<string | null>(activeSong?.id ?? null);
+  // 5. Carga reactiva de nueva canción si cambia activeSong
   useEffect(() => {
-    const api = apiRef.current as { tex?: (t: string, tr?: number[]) => void } | null;
-    if (!api || !activeSong || prevSongIdRef.current === activeSong.id) return;
-    prevSongIdRef.current = activeSong.id;
+    const api = apiRef.current as {
+      tex?: (tex: string, tracks?: number[]) => void;
+    } | null;
+    if (!api || typeof api.tex !== 'function' || !activeSong) return;
+
     const alphaTex =
-      activeSong.alphaTex ?? getPresetSong(activeSong.id)?.alphaTex ?? PRESET_POP_DIATONIC.alphaTex;
-    if (alphaTex && typeof api.tex === 'function') {
+      activeSong.alphaTex ??
+      getPresetSong(activeSong.id ?? '')?.alphaTex ??
+      PRESET_POP_DIATONIC.alphaTex;
+    if (alphaTex) {
       api.tex(alphaTex, [activeTrackIndex]);
     }
   }, [activeSong, activeTrackIndex]);
 
-  // 5. Sincronización reactiva del bucle A–B (loopRange y loopEnabled) con el controlador de audio
+  // 6. Sincronización del bucle con el controlador de reproducción y resaltado visual en AlphaTab
   useEffect(() => {
-    if (loopEnabled && loopRange && track?.bars) {
-      const bounds = calculatePlaybackRangeForBars(track.bars, loopRange);
-      controller.setPlaybackRange(bounds);
-      controller.setLoopEnabled(Boolean(bounds));
-    } else {
-      controller.setPlaybackRange(null);
-      controller.setLoopEnabled(false);
-    }
-  }, [loopEnabled, loopRange, track?.bars, controller]);
+    const rawApi = apiRef.current as unknown as {
+      _updateSelectionCursor?: (
+        range: { startTick: number; endTick: number } | null,
+      ) => void;
+      clearPlaybackRangeHighlight?: () => void;
+    } | null;
 
-  // Agrupación de compases en sistemas continuos (4 compases por sistema conforme al diseño)
-  const systems = useMemo(() => {
-    if (!track || track.bars.length === 0) return [];
-    const result: (typeof track.bars)[] = [];
-    const barsPerSystem = 4;
-    for (let i = 0; i < track.bars.length; i += barsPerSystem) {
-      result.push(track.bars.slice(i, i + barsPerSystem));
-    }
-    return result;
-  }, [track]);
+    if (!track?.bars) return;
 
-  // Cálculo proporcional del centro de un pulso dentro de un compás
-  const getBeatCenterPercent = (bar: SongBar, beat: SongBeat): number => {
-    const num = bar.timeSignature?.numerator ?? 4;
-    const den = bar.timeSignature?.denominator ?? 4;
-    const totalTicks = Math.round((num / den) * 4 * 960);
-    if (totalTicks <= 0 || bar.beats.length <= 1) {
-      return ((beat.index + 0.5) / Math.max(1, bar.beats.length)) * 100;
-    }
-    const beatDuration = beat.durationTicks || Math.round(totalTicks / bar.beats.length);
-    const centerTick = beat.startTick + beatDuration / 2;
-    const rawPercent = (centerTick / totalTicks) * 100;
-    return Math.max(6, Math.min(94, rawPercent));
-  };
+    if (loopEnabled && loopRange) {
+      const playbackRange = calculatePlaybackRangeForBars(track.bars, loopRange);
+      if (playbackRange) {
+        controller.setPlaybackRange(playbackRange);
+        controller.setLoopEnabled(true);
 
-  // Cifrados por compás (override manual, anotaciones por pulso)
-  const getBarChords = (bar: SongBar) => {
-    const override = barOverrides[bar.number]?.chordId;
-    const chords: { beatIndex: number; chord: string; percent: number; isPrimary: boolean }[] = [];
-
-    // 1. Cifrados anotados por pulso
-    bar.beats.forEach((beat) => {
-      if (beat.chordAnnotation) {
-        chords.push({
-          beatIndex: beat.index,
-          chord: beat.chordAnnotation,
-          percent: getBeatCenterPercent(bar, beat),
-          isPrimary: chords.length === 0,
+        // Resaltar visualmente el bucle en ámbar mediante .at-selection en AlphaTab
+        if (alphaTabHostRef.current) {
+          alphaTabHostRef.current.setAttribute('data-highlight-mode', 'loop');
+        }
+        rawApi?._updateSelectionCursor?.({
+          startTick: playbackRange.startTick,
+          endTick: Math.max(playbackRange.startTick, playbackRange.endTick - 10),
         });
+        return;
       }
-    });
+    }
 
-    // 2. Si hay override manual en este compás
-    if (override) {
-      if (chords.length > 0 && chords[0]) {
-        chords[0].chord = override;
-      } else {
-        chords.push({
-          beatIndex: 0,
-          chord: override,
-          percent: bar.beats[0] ? getBeatCenterPercent(bar, bar.beats[0]) : 15,
-          isPrimary: true,
+    controller.setPlaybackRange(null);
+    controller.setLoopEnabled(false);
+
+    // Si hay un rango de selección múltiple (Shift + clic o arrastre), resaltarlo visualmente en turquesa
+    if (selectedBarRange) {
+      const selectionRange = calculatePlaybackRangeForBars(track.bars, selectedBarRange);
+      if (selectionRange) {
+        if (alphaTabHostRef.current) {
+          alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
+        }
+        rawApi?._updateSelectionCursor?.({
+          startTick: selectionRange.startTick,
+          endTick: Math.max(selectionRange.startTick, selectionRange.endTick - 10),
         });
+        return;
       }
     }
 
-    // 3. Fallback: si no hay ninguno pero algún beat tiene anotación
-    if (chords.length === 0) {
-      const anyAnnotated = bar.beats.find((b) => b.chordAnnotation)?.chordAnnotation;
-      if (anyAnnotated) {
-        chords.push({
-          beatIndex: 0,
-          chord: anyAnnotated,
-          percent: bar.beats[0] ? getBeatCenterPercent(bar, bar.beats[0]) : 15,
-          isPrimary: true,
-        });
-      }
+    if (alphaTabHostRef.current) {
+      alphaTabHostRef.current.removeAttribute('data-highlight-mode');
     }
-
-    return chords;
-  };
-
-  // Selección de pulsos o notas concretas con ratón
-  const handleBeatClick = (barNumber: number, beatIndex: number, event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (event.shiftKey) {
-      // Shift + Clic: selecciona el rango entre el compás previo y el pulsado
-      const start = Math.min(currentBar, barNumber);
-      const end = Math.max(currentBar, barNumber);
-      songStore.getState().setSelectedBarRange([start, end]);
-      songStore.getState().setInspectedBar(barNumber);
-    } else {
-      // Si el bucle está activo y se pulsa fuera de su rango, desactivar bucle para permitir navegar libremente
-      if (loopEnabled && loopRange && (barNumber < loopRange[0] || barNumber > loopRange[1])) {
-        songStore.getState().setLoopEnabled(false);
-        controller.setLoopEnabled(false);
-        controller.setPlaybackRange(null);
-      }
-      // Clic simple: fija compás activo, pulso concreto y busca en audio
-      songStore.getState().setCurrentBar(barNumber);
-      songStore.getState().setCurrentBeat(beatIndex);
-      songStore.getState().setInspectedBar(barNumber);
-      songStore.getState().setSelectedBarRange(null);
-      const tick = calculateTickForBarBeat(track?.bars, barNumber, beatIndex);
-      controller.seekToTick(tick);
-    }
-  };
-
-  // Selección de compás haciendo clic en área libre
-  const handleBarClick = (barNumber: number, event: React.MouseEvent) => {
-    handleBeatClick(barNumber, 0, event);
-  };
-
-  const handleBarMouseDown = (barNumber: number, event: React.MouseEvent) => {
-    if (event.button !== 0 || event.shiftKey) return;
-    setDragStartBar(barNumber);
-  };
-
-  const handleBarMouseEnter = (barNumber: number) => {
-    if (dragStartBar === null) return;
-    const start = Math.min(dragStartBar, barNumber);
-    const end = Math.max(dragStartBar, barNumber);
-    songStore.getState().setSelectedBarRange([start, end]);
-  };
-
-  const handleMouseUp = () => {
-    setDragStartBar(null);
-  };
+    rawApi?._updateSelectionCursor?.(null);
+    rawApi?.clearPlaybackRangeHighlight?.();
+  }, [loopEnabled, loopRange, selectedBarRange, track, activeTrackIndex, controller]);
 
   return (
     <div
@@ -414,26 +654,9 @@ export function AlphaTabViewport({
       data-testid="alphatab-viewport"
       data-score-view-mode={scoreViewMode}
       data-track-index={activeTrackIndex}
-      onMouseUp={handleMouseUp}
+      role="region"
+      aria-label="Visor de partitura y tablatura"
     >
-      {/* Contenedor DOM para la librería AlphaTab (aislado fuera de pantalla con position: fixed para evitar desplazamiento del lienzo) */}
-      <div
-        ref={alphaTabHostRef}
-        className={styles.alphaTabContainer}
-        data-testid="alphatab-container"
-        style={{
-          position: 'fixed',
-          top: -99999,
-          left: -99999,
-          width: 800,
-          height: 600,
-          opacity: 0,
-          pointerEvents: 'none',
-          visibility: 'hidden',
-          zIndex: -100,
-        }}
-      />
-
       {/* 1. Cabecera interna fija (36 px) */}
       <header className={styles.scoreHeader}>
         <div className={styles.headerLeft}>
@@ -442,411 +665,100 @@ export function AlphaTabViewport({
           <span className={styles.trackName}>{(track?.name ?? 'Pista 1').toUpperCase()}</span>
         </div>
         <div className={styles.headerRight}>
-          <span className={styles.tuningText}>{tuningName}</span>
-          <span className={styles.dot}>·</span>
-          <span className={styles.capoText}>Capo {capoFret}</span>
-          <span className={styles.dot}>·</span>
-          <span className={styles.barPositionText}>
-            compás {currentBar} de {totalBars}
-          </span>
+          {scoreViewMode === 'score' ? (
+            <span className={styles.scoreTechnicalSubtitle}>
+              {track?.isPercussion
+                ? 'Percusión'
+                : (track?.stringCount ?? 6) <= 4
+                ? 'Clave de fa'
+                : 'Clave de sol (8vb)'} · {totalBars} compases
+            </span>
+          ) : (
+            <>
+              <span className={styles.tuningText}>{tuningName}</span>
+              <span className={styles.dot}>·</span>
+              <span className={styles.capoText}>Capo {capoFret}</span>
+              <span className={styles.dot}>·</span>
+              <span className={styles.barTotalText}>{totalBars} compases</span>
+            </>
+          )}
         </div>
       </header>
 
-      {/* 2. Lienzo de sistemas de partitura y tablatura continuos con scroll */}
+      {/* 2. Barra contextual superior de Guitar Aid (acordes analizados, secciones y bucle) */}
+      <div className={styles.contextOverlayBar} data-testid="context-overlay-bar">
+        <div className={styles.contextLeft}>
+          <span className={styles.contextBarIndicator} data-testid="active-bar-badge">
+            Compás {currentBar}
+            {currentBeat > 0 ? ` · Pulso ${currentBeat + 1}` : ''}
+          </span>
+          {sectionName && (
+            <span className={styles.contextSectionBadge} data-testid="section-badge">
+              {sectionName}
+            </span>
+          )}
+          {chordDisplay && (
+            <span
+              className={`${styles.contextChordChip} ${hasOverride ? styles.overrideChip : ''}`}
+              data-testid="analyzed-chord-chip"
+              title={
+                hasOverride
+                  ? 'Acorde fijado manualmente por el usuario'
+                  : 'Acorde analizado por Guitar Aid'
+              }
+            >
+              <span className={styles.chordSymbol}>{chordDisplay}</span>
+              {chordRoman && <span className={styles.chordDegree}>({chordRoman})</span>}
+              {hasOverride && <span className={styles.overrideDot}>●</span>}
+            </span>
+          )}
+        </div>
+        <div className={styles.contextRight}>
+          {selectedBarRange && (
+            <span className={styles.selectedRangeBadge} data-testid="selected-range-badge">
+              Selección: c.{selectedBarRange[0]}–{selectedBarRange[1]}
+              <button
+                type="button"
+                className={styles.clearSelectionButton}
+                onClick={() => {
+                  songStore.getState().setSelectedBarRange(null);
+                  if (alphaTabHostRef.current) {
+                    alphaTabHostRef.current.removeAttribute('data-highlight-mode');
+                  }
+                  const rawApi = apiRef.current as unknown as {
+                    _updateSelectionCursor?: (range: null) => void;
+                  };
+                  rawApi?._updateSelectionCursor?.(null);
+                }}
+                title="Quitar selección"
+                aria-label="Quitar selección"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {loopEnabled && loopRange && (
+            <span className={styles.loopBadge} data-testid="loop-active-badge">
+              🔁 Bucle c.{loopRange[0]}–{loopRange[1]}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Contenedor nativo y visible de AlphaTab (con tema oscuro integrado) */}
       <div
-        ref={containerRef}
-        className={styles.scoreViewport}
+        ref={alphaTabHostRef}
+        className={styles.alphaTabContainer}
+        data-testid="alphatab-container"
         tabIndex={0}
-        role="region"
-        aria-label="Lienzo de partitura y tablatura"
+        onMouseDown={(e) => {
+          if (e.button === 0) {
+            e.preventDefault();
+            window.getSelection()?.removeAllRanges();
+          }
+        }}
       >
-        {!track ? (
-          <div className={styles.emptyState}>No hay ninguna canción activa.</div>
-        ) : (
-          <div className={styles.systemsContainer} data-testid="score-systems">
-            {systems.map((systemBars, sysIdx) => {
-              const stringCount = track.stringCount || 6;
-              const stringSpacing = 13;
-              const tabHeight = (stringCount - 1) * stringSpacing + 14;
-
-              return (
-                <div
-                  key={`system-${sysIdx}`}
-                  className={styles.scoreSystem}
-                  data-testid={`system-${sysIdx}`}
-                >
-                  {/* Carril superior: Metadatos (Sección, número de compás, acordes y bucle) */}
-                  <div className={styles.systemTopLane}>
-                    <div className={styles.systemHeaderSpacer} />
-                    <div className={styles.systemBarsTop}>
-                      {systemBars.map((bar) => {
-                        const chords = getBarChords(bar);
-                        const isActive = bar.number === currentBar;
-                        const isLoopStart =
-                          Boolean(loopEnabled) && Boolean(loopRange) && bar.number === loopRange![0];
-                        const isLoopEnd =
-                          Boolean(loopEnabled) && Boolean(loopRange) && bar.number === loopRange![1];
-                        const isEstribillo =
-                          bar.sectionMarker?.toLowerCase().includes('estribillo') ?? false;
-                        const isSectionHeader =
-                          Boolean(bar.sectionMarker) &&
-                          (bar.index % 4 === 0 ||
-                            track.bars[bar.index - 1]?.sectionMarker !== bar.sectionMarker);
-
-                        return (
-                          <div key={`top-${bar.number}`} className={styles.barTopMeta}>
-                            {/* Fila superior de metadatos: Número de compás, Sección e indicador de bucle */}
-                            <div className={styles.metaTopRow}>
-                              <div className={styles.metaTopLeft}>
-                                <span className={styles.barNumber}>{bar.number}</span>
-                                {isSectionHeader && (
-                                  <span
-                                    className={`${styles.sectionBadge} ${
-                                      isEstribillo
-                                        ? styles.sectionBadgeEstribillo
-                                        : styles.sectionBadgeDefault
-                                    }`}
-                                    data-testid={`section-${bar.number}`}
-                                  >
-                                    {bar.sectionMarker}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className={styles.metaTopRight}>
-                                {isLoopStart && (
-                                  <span
-                                    className={styles.loopBadge}
-                                    title={`Inicio del bucle (compás ${loopRange![0]})`}
-                                    data-testid="loop-start-badge"
-                                  >
-                                    <svg
-                                      width="10"
-                                      height="10"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="m17 2 4 4-4 4" />
-                                      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-                                      <path d="m7 22-4-4 4-4" />
-                                      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-                                    </svg>
-                                    <span>[</span>
-                                  </span>
-                                )}
-
-                                {isLoopEnd && (
-                                  <span
-                                    className={styles.loopMarker}
-                                    title={`Fin del bucle (compás ${loopRange![1]})`}
-                                    data-testid="loop-end-icon"
-                                  >
-                                    <span>]</span>
-                                    <svg
-                                      width="10"
-                                      height="10"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="m17 2 4 4-4 4" />
-                                      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-                                      <path d="m7 22-4-4 4-4" />
-                                      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-                                    </svg>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Fila inferior de metadatos: Cifrados armónicos exclusivamente */}
-                            <div className={styles.metaBottomRow}>
-                              {chords.map((ch, chIdx) => {
-                                const isChordActive = isActive && ch.beatIndex === currentBeat;
-                                return (
-                                  <span
-                                    key={`chord-${bar.number}-${chIdx}`}
-                                    className={`${styles.chordName} ${
-                                      isChordActive || (isActive && ch.isPrimary)
-                                        ? styles.chordNameActive
-                                        : ''
-                                    }`}
-                                    style={{ left: `${ch.percent}%` }}
-                                    data-testid={ch.isPrimary ? `chord-${bar.number}` : undefined}
-                                  >
-                                    {ch.chord}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Carril de Partitura (cuando scoreViewMode es 'score' o 'score-tab') */}
-                  {(scoreViewMode === 'score' || scoreViewMode === 'score-tab') && (
-                    <div className={styles.systemStaveRow}>
-                      <div className={styles.systemClefHeader}>
-                        <span className={styles.clefSymbol} aria-hidden="true">
-                          {track.isPercussion ? '𝄌' : track.stringCount <= 4 ? '𝄢' : '𝄞'}
-                        </span>
-                      </div>
-                      <div className={styles.systemBarsContainer}>
-                        {systemBars.map((bar) => {
-                          const isActive = bar.number === currentBar;
-                          const isSelected =
-                            Boolean(selectedBarRange) &&
-                            bar.number >= selectedBarRange![0] &&
-                            bar.number <= selectedBarRange![1];
-                          const isInLoop =
-                            Boolean(loopEnabled) &&
-                            Boolean(loopRange) &&
-                            bar.number >= loopRange![0] &&
-                            bar.number <= loopRange![1];
-
-                          return (
-                            <div
-                              key={`staff-${bar.number}`}
-                              className={`${styles.barSection} ${isActive ? styles.barCellActive : ''} ${
-                                isSelected ? styles.barCellSelected : ''
-                              } ${isInLoop ? styles.barCellInLoop : ''}`}
-                              data-testid="staff-notation"
-                            >
-                              <div className={styles.staffLines}>
-                                {[0, 1, 2, 3, 4].map((line) => (
-                                  <div key={line} className={styles.staffLine} />
-                                ))}
-                              </div>
-                              <div className={styles.staffBeatsRow}>
-                                {bar.beats.map((beat) => {
-                                  const isBeatActive = isActive && beat.index === currentBeat;
-                                  const beatPercent = getBeatCenterPercent(bar, beat);
-                                  return (
-                                    <div
-                                      key={`staff-beat-${beat.index}`}
-                                      className={`${styles.staffBeatColumn} ${
-                                        isBeatActive ? styles.beatColumnActive : ''
-                                      }`}
-                                      style={{ left: `${beatPercent}%` }}
-                                      data-beat-index={beat.index}
-                                      onClick={(e) => handleBeatClick(bar.number, beat.index, e)}
-                                    >
-                                      {isBeatActive && (
-                                        <div className={styles.beatCursor} data-testid="beat-cursor" />
-                                      )}
-                                      {beat.notes.map((note, nIdx) => {
-                                        const baseMidi = track.stringCount <= 4 ? 43 : 64;
-                                        const step = Math.round((note.midi - baseMidi) / 2);
-                                        const bottomPx = Math.max(2, Math.min(34, 6 + step * 3.5));
-                                        return (
-                                          <span
-                                            key={`staff-note-${nIdx}`}
-                                            className={`${styles.staffNoteHead} ${
-                                              isBeatActive ? styles.staffNoteHeadActive : ''
-                                            }`}
-                                            style={{ bottom: `${bottomPx}px` }}
-                                            title={`Nota MIDI ${note.midi}`}
-                                          >
-                                            ●
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              <div className={styles.barDividerLine} />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Carril de Tablatura (cuando scoreViewMode es 'tab' o 'score-tab') */}
-                  {(scoreViewMode === 'tab' || scoreViewMode === 'score-tab') && (
-                    <div className={styles.systemStaveRow}>
-                      {/* Cabecera TAB vertical continua al inicio del sistema */}
-                      <div className={styles.systemTabHeader} style={{ height: `${tabHeight}px` }}>
-                        <span className={styles.tabLetter}>T</span>
-                        <span className={styles.tabLetter}>A</span>
-                        <span className={styles.tabLetter}>B</span>
-                      </div>
-
-                      {/* Pauta de compases continua */}
-                      <div className={styles.systemBarsContainer}>
-                        {systemBars.map((bar) => {
-                          const isActive = bar.number === currentBar;
-                          const isSelected =
-                            Boolean(selectedBarRange) &&
-                            bar.number >= selectedBarRange![0] &&
-                            bar.number <= selectedBarRange![1];
-                          const isInLoop =
-                            Boolean(loopEnabled) &&
-                            Boolean(loopRange) &&
-                            bar.number >= loopRange![0] &&
-                            bar.number <= loopRange![1];
-
-                          return (
-                            <div
-                              key={`tab-bar-${bar.number}`}
-                              className={`${styles.barSection} ${styles.barCell} ${
-                                isActive ? styles.barCellActive : ''
-                              } ${isSelected ? styles.barCellSelected : ''} ${
-                                isInLoop ? styles.barCellInLoop : ''
-                              }`}
-                              data-testid={`bar-${bar.number}`}
-                              data-bar-number={bar.number}
-                              data-is-active={isActive}
-                              data-is-selected={isSelected}
-                              data-is-loop={isInLoop}
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`Compás ${bar.number}${
-                                bar.sectionMarker ? `, Sección ${bar.sectionMarker}` : ''
-                              }`}
-                              onClick={(e) => handleBarClick(bar.number, e)}
-                              onMouseDown={(e) => handleBarMouseDown(bar.number, e)}
-                              onMouseEnter={() => handleBarMouseEnter(bar.number)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  handleBarClick(bar.number, e as unknown as React.MouseEvent);
-                                }
-                              }}
-                            >
-                              {/* Contenedor de tablatura */}
-                              <div
-                                className={styles.tabContainer}
-                                data-testid="tab-notation"
-                                style={{ height: `${tabHeight}px` }}
-                              >
-                                {/* Líneas horizontales de cuerda continuas */}
-                                {Array.from({ length: stringCount }).map((_, stringIdx) => (
-                                  <div
-                                    key={`line-${stringIdx}`}
-                                    className={styles.tabLine}
-                                    style={{ top: `${stringIdx * stringSpacing + 7}px` }}
-                                  />
-                                ))}
-
-                                {/* Pulsos y notas del compás */}
-                                <div className={styles.tabBeatsRow}>
-                                  {bar.beats.map((beat) => {
-                                    const isBeatActive = isActive && beat.index === currentBeat;
-                                    const beatPercent = getBeatCenterPercent(bar, beat);
-
-                                    return (
-                                      <div
-                                        key={`beat-${beat.index}`}
-                                        className={`${styles.tabBeatColumn} ${
-                                          isBeatActive ? styles.tabBeatColumnActive : ''
-                                        }`}
-                                        style={{ left: `${beatPercent}%` }}
-                                        data-beat-index={beat.index}
-                                        onClick={(e) => handleBeatClick(bar.number, beat.index, e)}
-                                      >
-                                        {/* Cursor de pulso activo */}
-                                        {isBeatActive && (
-                                          <div
-                                            className={styles.tabBeatCursor}
-                                            data-testid="beat-cursor"
-                                          />
-                                        )}
-
-                                        {/* Dígitos de traste centrados en su cuerda */}
-                                        {beat.notes.map((note, nIdx) => {
-                                          const lineIdx = Math.max(
-                                            0,
-                                            Math.min(stringCount - 1, note.string - 1),
-                                          );
-                                          const topPx = lineIdx * stringSpacing + 7;
-                                          return (
-                                            <span
-                                              key={`note-${nIdx}`}
-                                              className={`${styles.fretBadge} ${
-                                                isBeatActive ? styles.fretBadgeActive : ''
-                                              }`}
-                                              style={{ top: `${topPx}px` }}
-                                            >
-                                              {note.fret}
-                                            </span>
-                                          );
-                                        })}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {/* Barra divisoria vertical de compás */}
-                              <div className={styles.barDividerLine} />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Carril de letra (cuando showLyrics está activo) */}
-                  {showLyrics && (
-                    <div className={styles.systemLyricsLane}>
-                      <div className={styles.systemHeaderSpacer} />
-                      <div className={styles.systemBarsLyrics}>
-                        {systemBars.map((bar) => {
-                          const barLyrics = bar.beats
-                            .map((b) => b.lyrics)
-                            .filter(Boolean)
-                            .join(' ');
-                          if (!barLyrics) {
-                            return (
-                              <div
-                                key={`lyrics-${bar.number}`}
-                                className={styles.barLyricsContainer}
-                              />
-                            );
-                          }
-                          return (
-                            <div
-                              key={`lyrics-${bar.number}`}
-                              className={styles.barLyricsContainer}
-                              data-testid="lyrics-line"
-                            >
-                              {bar.beats.map((beat, bIdx) => {
-                                if (!beat.lyrics) return null;
-                                const beatPercent = getBeatCenterPercent(bar, beat);
-                                return (
-                                  <span
-                                    key={`lyric-${bIdx}`}
-                                    className={styles.beatLyric}
-                                    style={{ left: `${beatPercent}%` }}
-                                  >
-                                    {beat.lyrics}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {!track && <div className={styles.emptyState}>No hay ninguna canción activa.</div>}
       </div>
     </div>
   );

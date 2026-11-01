@@ -139,7 +139,7 @@ export function resolveActiveHarmony(
 
   const scalePcs = scalePitchClasses(scaleTonic, scaleType);
 
-  // 2. Acorde del compás (override o calculado)
+  // 2. Acorde del compás o del pulso actual (override manual o detectado dinámicamente)
   let chordRoot: PitchClass | undefined;
   let chordQuality: ChordQualityId | undefined;
   let hasChordOverride = false;
@@ -153,12 +153,42 @@ export function resolveActiveHarmony(
     }
   }
 
+  // 2a. Si no hay override manual, buscar si el pulso actual (o anterior en el compás) tiene acorde anotado
+  if (chordRoot === undefined && activeBar.beats.length > 0) {
+    const curBeatIdx = Math.max(0, Math.min(activeBar.beats.length - 1, state.currentBeat ?? 0));
+    let beatChordAnnotation: string | undefined;
+    for (let i = curBeatIdx; i >= 0; i--) {
+      const b = activeBar.beats[i];
+      if (b?.chordAnnotation) {
+        beatChordAnnotation = b.chordAnnotation;
+        break;
+      }
+    }
+    if (beatChordAnnotation) {
+      const parsed = parseChordSymbol(beatChordAnnotation);
+      if (parsed) {
+        chordRoot = parsed.root;
+        chordQuality = parsed.quality;
+      }
+    }
+  }
+
+  // 2b. Si no hay anotación en el pulso, usar el desglose armónico detectado (splitChords o primaryChord)
   if (chordRoot === undefined) {
     const barChords = analyzeBarChords(activeBar, {
       mode: nameMode,
       override,
     });
-    if (barChords.primaryChord) {
+    const curBeatIdx = Math.max(0, Math.min(activeBar.beats.length - 1, state.currentBeat ?? 0));
+    const isSecondHalf = curBeatIdx >= Math.floor(activeBar.beats.length / 2);
+
+    if (isSecondHalf && barChords.splitChords?.secondHalf?.[0]) {
+      chordRoot = barChords.splitChords.secondHalf[0].value.root;
+      chordQuality = barChords.splitChords.secondHalf[0].value.quality;
+    } else if (barChords.splitChords?.firstHalf?.[0]) {
+      chordRoot = barChords.splitChords.firstHalf[0].value.root;
+      chordQuality = barChords.splitChords.firstHalf[0].value.quality;
+    } else if (barChords.primaryChord) {
       chordRoot = barChords.primaryChord.root;
       chordQuality = barChords.primaryChord.quality;
     }

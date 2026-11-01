@@ -525,3 +525,83 @@ Para mantener entregas incrementales verificadas:
 4. **Máscaras de oclusión de fondo en números de traste (`fretBadge`):**
    - **Decisión:** En lugar de dejar que las líneas de las cuerdas atraviesen los números de traste, cada dígito de traste cuenta con un fondo opaco del color de la superficie (`var(--surface-1)`), padding horizontal de 3px y `z-index: 5`.
    - **Justificación:** Ocluye limpiamente la cuerda subyacente y ofrece una legibilidad nítida e instantánea de las digitaciones, idéntica al estándar editorial de Guitar Pro y tablaturas comerciales.
+
+---
+
+## 2026-11-01 — Decisiones de diseño e implementación del Hito C6b (Reimplementación de la Vista Partitura)
+
+1. **Grabado musical estándar de sistemas continuos sin cabeceras repetitivas:**
+   - **Problema previo:** El modo partitura previo renderizaba una cabecera con clave de sol (`𝄞`) en cada sistema horizontal y caracteres Unicode `●` flotantes sin plicas, barras rítmicas ni líneas adicionales.
+   - **Decisión:** Implementar la regla canónica de notación editorial reflejada en la maqueta original:
+     - **Compás 1 (Inicio de la obra):** Se dibuja la clave musical (clave de sol octavada inferior `𝄞₈` para guitarra o clave de fa `𝄢` para bajo) y la fórmula de compás (p. ej. `4/4` con numerador sobre denominador) en el extremo izquierdo del pentagrama.
+     - **Compases 2 en adelante:** La pauta de 5 líneas continuas atraviesa el sistema de izquierda a derecha sin repetir la clave ni el compás, dibujándolos únicamente ante modulaciones de armadura o cambios de métrica métricos explícitos («solo se dibujan al inicio y en los cambios»).
+     - **Subtítulo técnico conciso:** En la cabecera de la tarjeta se muestra información relevante y concisa para el músico: `Clave de sol (8vb) · compás {N} de {Total}` (o `Clave de fa · ...` para bajo, `Percusión · ...` para percusión).
+
+2. **Mapeo de tonos con transposición 8vb y líneas adicionales (ledger lines):**
+   - **Decisión:** La guitarra y el bajo eléctrico son instrumentos transpositores que suenan una octava más grave de lo escrito (`8vb`). Se implementó en `ScoreRenderer.tsx` la función pura `midiToDiatonicStep`:
+     - Altura escrita: `writtenMidi = soundingMidi + 12`.
+     - Paso relativo a la 1ª línea inferior del pentagrama (`relStep`): `0 = Línea 1 (Mi4)`, `4 = Línea 3 (Si4)`, `8 = Línea 5 (Fa5)`.
+     - Notas graves por debajo del pentagrama (como Mi2 al aire en cuerda 6, `relStep = -7`): se calculan y graban dinámicamente sus líneas adicionales (`ledgerLines = [-2, -4, -6]`). En Drop D (Re2, `relStep = -8`), se añade la 4ª línea adicional en `-8`.
+     - Notas agudas por encima del pentagrama: líneas adicionales automáticas en pasos pares superiores (`10, 12...`).
+     - Alteraciones accidentales: renderizado de sostenidos (`♯`) y bemoles (`♭`) a la izquierda de la cabeza de la nota cuando no pertenecen a la armadura natural.
+
+3. **Plicas (stems), unión rítmica por barras (beams), corcheas y semicorcheas:**
+   - **Decisión:**
+     - **Dirección de plica:** En notación de guitarra (que suena 8vb), la convención editorial estándar sitúa las plicas hacia arriba (`'up'`) para despejar el pentagrama y evitar que las plicas atraviesen los acordes. Solo se orientan hacia abajo si todas las notas del grupo o pulso están en el registro muy agudo (Línea 4 Re5 o superior, `relStep >= 6`).
+     - **Geometría sincronizada de plicas y barras:** Se unificó la función de posicionamiento horizontal `getBarBeatPercent`. Para cada grupo de barras, la altura y pendiente suave (`slopeDy` acotada a ±6px) se calculan de forma que todas las plicas del grupo toquen exactamente la línea de la barra (`stemEndY = y1 + t * slopeDy`) sin desfase ni sobrepaso.
+     - **Corcheas y semicorcheas (beams dobles y banderolas):**
+       - Corcheas (`durationTicks <= 480`): barra simple de 3.2px o banderola simple si está aislada (`score-flag-primary`).
+       - Semicorcheas (`durationTicks <= 240`): barra doble paralela desplazada 5px hacia las notas (`score-beam-secondary`) o doble banderola si está aislada (`score-flag-secondary`).
+       - Fusas (`durationTicks <= 120`): barra terciaria o triple banderola.
+
+4. **Cursor interactivo unificado y compatibilidad total:**
+   - **Decisión:** Cada pulso dentro del pentagrama es un contenedor interactivo con cursor turquesa vertical iluminado (`#14b8a6`, ~16px con halo translúcido) y resaltado `#2dd4bf` sobre la cabeza y plica de la nota activa. Clicar sobre cualquier nota o pulso posiciona inmediatamente el cursor y ejecuta `seekToTick` en el controlador de audio.
+   - **Alcance acotado:** Conforme a los requisitos, se reimplementó exclusivamente el modo Partitura (`scoreViewMode === 'score'`), manteniendo intacta la tablatura y postergando el acoplamiento dual pentagrama + tablatura.
+
+---
+
+## 2026-11-01 — Re-especificación y delegación íntegra del renderizado visual de partituras y tablaturas a AlphaTab
+
+### 1. Diagnóstico y contexto del problema
+Durante las iteraciones del Hito C6b, se intentó implementar un motor de grabado musical propio en SVG y HTML dentro de React (`ScoreRenderer.tsx` y sistemas de tablatura manuales en `AlphaTabViewport.tsx`), relegando a `@coderline/alphatab` a un contenedor fuera de pantalla (`top: -99999`) únicamente como disparador de audio.
+
+Esta estrategia generó graves inconvenientes arquitectónicos y de producto:
+1. **Reinvención innecesaria de la rueda:** La notación musical para guitarra y bajo exige manejar una enorme cantidad de técnicas y detalles editoriales: *bends* (cuarto, medio, entero, *pre-bends*, *release*), *slides* (cambio de posición, ligados), ligados de articulación (*hammer-on* y *pull-off*), vibrato, *palm mute*, armónicos, plicas, barras de unión de notas (*beams*), tresillos, líneas adicionales, compases imperfectos, silencios, armaduras, claves y saltos de línea automáticos.
+2. **Fragilidad y sobrecarga de código:** El motor artesanal en SVG requería cientos de líneas de cálculo manual de coordenadas, pendientes de barras, posiciones de cabezas de nota y anchos de compás, produciendo errores visuales, desalineaciones con el audio y una gran deuda técnica.
+3. **Desaprovechamiento de AlphaTab:** AlphaTab ya está integrado en el proyecto (`@coderline/alphatab`), incluye la fuente SMuFL `Bravura` y los renderizadores SVG/canvas de nivel editorial más avanzados del ecosistema web. Intentar competir contra su propio renderizador carecía de sentido práctico.
+
+### 2. Decisiones adoptadas
+
+1. **Delegación total del renderizado gráfico a AlphaTab:**
+   - Se desmantela el renderizado artesanal (`ScoreRenderer.tsx` y sistemas manuales) y se elimina cualquier truco de ocultar AlphaTab fuera de pantalla (`top: -99999`).
+   - `AlphaTabViewport.tsx` renderiza de forma visible y a pantalla completa el contenedor nativo de `AlphaTabApi` (`.alphaTabHost`), con scroll vertical nativo y tamaño responsivo.
+
+2. **Modos nativos directos de AlphaTab (`settings.display.staveProfile`):**
+   - **`Tab` (`at.StaveProfile.Tab`):** tablatura pura con cuerdas, trastes y todas las articulaciones de guitarra.
+   - **`Score` (`at.StaveProfile.Score`):** partitura clásica en solfeo con clave (sol 8vb / fa), armadura, plicas automáticas y figuras rítmicas.
+   - **`ScoreTab` (`at.StaveProfile.ScoreTab`):** notación dual acoplada sincronizada al milímetro.
+   - **Soporte inmediato de técnicas:** Se obtiene de inmediato y de forma nativa soporte perfecto para *bends*, *slides*, *hammer-on/pull-off*, *vibrato*, *ties*, *tuplets*, *lyrics*, etc., sin escribir una sola línea de grabado manual.
+
+3. **Tema oscuro integrado en AlphaTab:**
+   - La apariencia oscura de la aplicación se inyecta directamente en las propiedades de renderizado de AlphaTab mediante `settings.display.resources`:
+     - `staffLineColor`: `#334155`
+     - `barSeparatorColor`: `#475569`
+     - `mainGlyphColor`: `#f8fafc` (blanco nítido de alto contraste para notas, números de traste, plicas y claves)
+     - `secondaryGlyphColor`: `#94a3b8`
+     - `barNumberColor`: `#64748b`
+     - `scoreInfoColor`: `#f8fafc`
+   - Se configuran las fuentes locales (`public/font/` con `Bravura`) y estilos CSS para el contenedor (`background: var(--surface-1)`) y los cursores nativos (`.at-cursor-bar`, `.at-cursor-beat`, `.at-selection`) con la paleta turquesa de Guitar Aid (`#14b8a6` / `#2dd4bf`).
+
+4. **Conservación de la Barra Contextual de Guitar Aid sobre el visor:**
+   - Encima del lienzo de AlphaTab se sitúa fija nuestra barra contextual, preservando el valor teórico y diferencial de Guitar Aid:
+     - **Acordes analizados:** cifrado y grado del acorde calculado para el compás activo (con resaltado ámbar `#fbbf24` y el punto `●` de override manual).
+     - **Marcador de sección:** insignia de la sección actual (`Intro`, `Estribillo`, etc.).
+     - **Marcadores de bucle y selección:** estado del bucle `[🔁 A–B]` y compases seleccionados.
+
+5. **Sincronización interactiva bidireccional:**
+   - **AlphaTab → Guitar Aid:**
+     - El cursor nativo de AlphaTab y los eventos `playedBeatChanged` y `beatMouseDown` actualizan `currentBar` y `currentBeat` en `songStore`.
+     - Esto sincroniza en tiempo real las notas activas en el mástil (`Fretboard`) y el piano (`Piano`), superpuestas sobre la escala activa (`scale-bg`) con sus marcas `pinned` y `root`.
+   - **Guitar Aid → AlphaTab:**
+     - Cambios en el transporte, tempo, pista activa o selección de compás reposicionan o re-renderizan AlphaTab a través de `alphaSynthController` y `AlphaTabApi`.
+

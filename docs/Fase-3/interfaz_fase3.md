@@ -129,17 +129,34 @@ Tarjeta superior (`.timelineCard`, `padding: 10px 12px`, `border-radius: 10px`, 
 Tarjeta inferior (`.scoreCard`, `flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--border)`):
 
 1. **Cabecera interna fija (`36 px`, `padding: 0 14px`, `border-bottom: 1px solid var(--border)`):**
-   - **Izquierda:** modo de vista y nombre de la pista en mayúsculas (`11 px`, `--app-muted`, `letter-spacing: 0.06em`, p. ej. `TABLATURA · GUITARRA 1`).
+   - **Izquierda:** insignia del modo de vista activo (`TABLATURA`, `PARTITURA + TAB` o `PARTITURA`) · separador · nombre de la pista activa en mayúsculas (`11 px`, `--app-muted`, `letter-spacing: 0.06em`, p. ej. `TABLATURA · GUITARRA 1`).
    - **Derecha:** resumen técnico en fuente monoespaciada (`11.5 px`, `--app-muted`, p. ej. `Drop D · Capo 0 · compás 7 de 16`).
-2. **Lienzo de sistemas de tablatura / partitura (`flex: 1; overflow-y: auto; padding: 14px 16px`):**
-   - Renderizado en tema oscuro de alto contraste sobre `--surface-1`:
-     - Líneas de cuerda/pentagrama en `#334155`, números de traste en blanco nítido (`#f8fafc`, `IBM Plex Mono` bold).
-     - Sobre cada sistema/compás: nombre de sección en turquesa (`Estribillo`) o gris claro (`Estrofa`), icono de bucle `🔁` en ámbar al final del rango de repetición, cifrado del acorde encima de cada compás (`C`, `G`, **`Am`** en ámbar `#fbbf24` para el compás activo, `F`) y número de compás (`5`, `6`, `7`, `8`).
-     - Debajo de cada compás (cuando `Letra` está activo): texto de la letra en cursiva (`[letra]`, `12 px`, `--app-muted`).
-   - **Resaltados sincronizados:**
-     - Los compases que pertenecen al rango seleccionado (`5–8`) llevan un fondo translúcido turquesa suave (`rgba(20, 184, 166, 0.06)`).
-     - El compás activo (`7`) lleva un fondo cálido (`rgba(245, 158, 11, 0.10)`).
-     - El **cursor del pulso activo** (p. ej. pulso 3 en el traste `2` de la cuerda 3) se dibuja como una barra vertical turquesa (`#14b8a6`, con halo translúcido de `14 px` de ancho y recuadro oscuro sobre el número de traste activo).
+
+2. **Barra contextual superior de Guitar Aid (`34 px`, `padding: 0 14px`, `background: var(--surface-2)`, `border-bottom: 1px solid var(--border)`):**
+   - Situada fija encima del lienzo de AlphaTab, visible de forma permanente sin importar el scroll vertical:
+     - **Acordes analizados por Guitar Aid:** muestra el acorde y grado armónico del compás activo (p. ej. `Am (vi)`) en ámbar cálido (`#fbbf24`, fondo `rgba(245, 158, 11, 0.12)`, borde `#f59e0b`). Si tiene sobreescritura manual, incluye el indicador `●`.
+     - **Sección activa:** insignia de sección (`Intro`, `Estrofa`, `Estribillo`, `Solo`, o `Puente · Modulación` en violeta `#a855f7`).
+     - **Control de bucle y selección:** indicador del rango de bucle activo (`[🔁 5–8]`), compases seleccionados y botón para activar/desactivar o ajustar el fragmento de estudio.
+
+3. **Lienzo nativo de AlphaTab con tema oscuro integrado (`flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px`):**
+   - El renderizado de partituras y tablaturas está **100 % delegado a `@coderline/alphatab`** en un contenedor DOM visible (`.alphaTabHost`), eliminando cualquier motor de grabado artesanal o SVG manual:
+     - **Técnicas de guitarra y articulaciones nativas:** AlphaTab renderiza de forma automática y matemáticamente exacta todas las articulaciones complejas (*bends*, *pre-bends*, *release*, *slides*, *hammer-on / pull-off*, *vibrato*, *palm mute*, *armónicos*, ligaduras de prolongación, tresillos y compases perfectos).
+     - **Configuración de Tema Oscuro de alto contraste:**
+       - `display.resources.staffLineColor`: `#334155` (pautas discretas y nítidas de 5 líneas para pentagrama o 6/4 líneas para tablatura).
+       - `display.resources.barSeparatorColor`: `#475569` (barras verticales divisorias de compás).
+       - `display.resources.mainGlyphColor`: `#f8fafc` (blanco nítido de alto contraste para cabezas de nota, números de digitación en tablatura, plicas, barras de unión rítmica, alteraciones accidentales, claves y métrica).
+       - `display.resources.secondaryGlyphColor`: `#94a3b8` (indicaciones dinámicas y técnicas auxiliares).
+       - `display.resources.barNumberColor`: `#64748b` (numeración de compases en gris legible).
+       - Tipografía musical SMuFL: fuente `Bravura` local (`public/font/`, 100 % offline).
+       - Estilos CSS de cursores nativos: cursor de compás y pulso activo con estilos turquesa (`#14b8a6` / `#2dd4bf`) y halo translúcido.
+     - **Modos nativos conmutables (`settings.display.staveProfile`):**
+       - **Tablatura (`Tab`):** modo de tablatura pura (`at.StaveProfile.Tab`) con digitaciones sobre las cuerdas y articulaciones de guitarra completas.
+       - **Partitura (`Score`):** pentagrama clásico (`at.StaveProfile.Score`) con clave (sol 8vb para guitarra, fa para bajo), armadura, compás, plicas calculadas, figuras rítmicas y líneas adicionales.
+       - **Partitura + Tablatura (`ScoreTab`):** sistema dual acoplado (`at.StaveProfile.ScoreTab`) con barras de compás continuas y alineación temporal exacta entre notas de solfeo y trastes.
+       - **Letra:** conmutación nativa de la fila de lírica bajo los compases mediante `settings.notation.elements.set(at.NotationElement.EffectLyrics, showLyrics)`.
+   - **Interacción y sincronización con el ecosistema Guitar Aid:**
+     - Hacer clic sobre cualquier nota, pulso o compás en AlphaTab dispara la navegación inmediata (`seekToTick`), actualizando en tiempo real `currentBar` y `currentBeat` en `songStore`.
+     - Esto sincroniza de inmediato las notas sonando en el `Fretboard` y `Piano` (marcas `pinned` y `root` sobre `scale-bg`), y actualiza la celda enfocada en la cinta `SongTimelineBar` y la barra contextual.
 
 ---
 
@@ -231,7 +248,7 @@ Separado por `border-top: 1px solid var(--border)` (`padding: 10px 16px 12px`):
 
 | Hito | Ruta del componente | Responsabilidad |
 |---|---|---|
-| **C5** | `src/ui/song/AlphaTabViewport.tsx` | Contenedor del visor de `@coderline/alphatab` (`Tab`, `Partitura + Tab`, `Partitura`, `Letra`), cursor de pulso y selección de compases |
+| **C5 / C6b** | `src/ui/song/AlphaTabViewport.tsx` | Contenedor visible de AlphaTab en tema oscuro integrado (modos nativos `Tab`, `Partitura`, `Partitura + Tab` y `Letra`), con barra contextual superior de acordes analizados, secciones y bucle |
 | **C6** | `src/ui/song/SongView.tsx` | Contenedor principal (`100vh`) conectado a `songStore`, `settingsStore`, `sandboxStore`, `decksStore`, `drillsStore`, `audioEngine` y `alphaSynthController` |
 | **C6** | `src/ui/song/SongTopBar.tsx` | Barra superior compacta con biblioteca, selector de pista, mezclador, transporte, bucle, velocidad y selector de vista |
 | **C6** | `src/ui/song/TrackMixerPopover.tsx` | Popover multipista con `Mute`, `Solo`, `Volumen` por pista y cuenta atrás |
