@@ -94,3 +94,40 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
    - **Decisión:** Añadir a `ReasonCode` los identificadores estructurados necesarios para la Fase 3 (`bassNoteInBar`, `downbeatAccent`, `fifthSupport`, `longestDuration`, `scaleCoverage`, `passingTones`, `fitsDetectedChords`, `matchesKeySignature`, `diatonicDegree`, `harmonicMinorDegree`, `secondaryDominant`, `modalBorrowing`, `chromaticChord`, `matchesProgression`) y proveer sus correspondientes formateadores en `REASON_FORMATTERS` (`src/ui/panels/texts.ts`).
    - **Justificación:** Mantiene desacoplada la lógica teórica (código y parámetros numéricos o identificadores) de la capa visual de presentación en español accesible.
 
+---
+
+## 2026-11-01 — Implementación del hito C2 (importador puro GP/TG/MusicXML/AlphaTex y canciones de ejemplo)
+
+1. **Aislamiento de `@coderline/alphatab` exclusivamente en `src/song/importer.ts`:**
+   - **Decisión:** Mantener el parser y los módulos de `@coderline/alphatab` circunscritos con exclusividad a `src/song/importer.ts`. Ni los tests unitarios (`importer.test.ts`, `presets.test.ts`) ni los presets (`presets.ts`) importan alphaTab directamente; para las pruebas de lectura binaria Guitar Pro se expone la función pura `exportAlphaTexToGp7Bytes` desde el propio importador.
+   - **Justificación:** Cumple estrictamente la regla de capas verificada en `eslint.config.js` y `src/architecture/layers.test.ts`, garantizando que ningún cambio en la librería externa impacte al resto del proyecto ni requiera excepciones adicionales.
+
+2. **Inversión y normalización de la numeración de cuerdas (`stringNumber`):**
+   - **Decisión:** En alphaTab internamente la cuerda 1 es la más grave y la cuerda $S$ es la más aguda. En Guitar Aid la convención del dominio (definida en `Fretboard` y `src/theory/fretboard/`) fija que la cuerda 1 es la más aguda y la cuerda $S$ es la más grave. El importador realiza la conversión `string = stringCount > 0 ? (stringCount - note.string + 1) : note.string`.
+   - **Justificación:** Permite que las posiciones `(string, fret)` de cualquier archivo GP, MusicXML o AlphaTex importado se representen de forma directa sobre el mástil (`Fretboard`) sin cálculos ni transformaciones intermedias en la interfaz.
+
+3. **Resolución bidireccional de afinaciones (`Tuning`) y cuerdas:**
+   - **Decisión:** `staff.stringTuning.tunings` almacena las notas al aire en orden aguda a grave (p. ej. `[64, 59, 55, 50, 45, 40]`). El importador invierte el arreglo a grave a aguda (`[40, 45, 50, 55, 59, 64]`) y busca coincidencia con las afinaciones del catálogo de Guitar Aid (`TUNINGS`). Si coincide, reutiliza la definición canónica (`standard`, `dropD`, etc.); si no coincide, genera una afinación personalizada inmutable (`id: custom-...`). Para pistas de percusión (`isPercussion: true`), se asigna `stringCount: 0` y afinación `{ id: 'percussion', name: 'Percusión', strings: [] }`.
+
+4. **Tratamiento de `midi` y `bendSemitones` en notas con bend:**
+   - **Decisión:** `SongNote.midi` preserva la altura MIDI física del traste pisado (con la afinación y cejilla/capo aplicadas por alphaTab en `realValue`), mientras que `bendSemitones` refleja el desplazamiento en semitonos hacia la nota destino (`maxBendPoint.value / 2`).
+   - **Justificación:** Conserva la coherencia física entre la digitación `(cuerda, traste)` y el sonido de base en el diapasón, permitiendo al mismo tiempo que los algoritmos de análisis armónico y el visor conozcan con exactitud la altura melódica alcanzada en el bend.
+
+5. **Ponderación métrica precalculada por compás (`computeMetricWeight`):**
+   - **Decisión:** Implementar la función de cálculo métrico según la especificación §3.1/§3.2 del plan: `1.5` en tiempo 1 (`startTick === 0`), `1.2` en el pulso intermedio fuerte (tiempo 3 en 4/4, tiempo 4 en 6/8, tiempo 7 en 12/8), `1.0` en tiempos a tierra enteros y `0.75` en subdivisiones y contratiempos.
+
+6. **Propagación continua de secciones (`sectionMarker`) y tempo (`tempoBpm`):**
+   - **Decisión:** Las secciones (`Intro`, `Estribillo`, etc.) y las automatizaciones de tempo se propagan hacia adelante a todos los compases subsiguientes hasta que aparezca una nueva directiva.
+   - **Justificación:** Permite que cualquier compás individual conozca a qué sección pertenece y a qué tempo debe reproducirse o analizarse, facilitando la agrupación visual en `SongTimelineBar`, los bucles de sección y el suavizado contextual de tonalidad en `detectSongKeysByBar`.
+
+7. **Detección robusta de contenido binario vs. texto plano (`isLikelyText`):**
+   - **Decisión:** Antes de intentar decodificar bytes como texto AlphaTex en `importSongFromBytes`, se comprueba mediante `isLikelyText` que el búfer no contenga bytes de control o nulos. Si el archivo está corrupto o es binario no soportado, se lanza un error descriptivo (`No se pudo importar la canción: formato no soportado o archivo corrupto.`).
+   - **Justificación:** Evita que datos binarios aleatorios o archivos corruptos sean interpretados erróneamente como texto AlphaTex vacío, asegurando una validación defensiva limpia y accesible.
+
+8. **Diseño musical de las 3 canciones de ejemplo en `src/song/presets.ts`:**
+   - **Decisión:** Crear tres piezas musicales completas de 8 compases cada una en AlphaTex puro, con dos secciones diferenciadas y anotaciones estructuradas para servir de base a los hitos C3 a C9:
+     - `Pop Diatónico en C/Am`: 2 pistas (Guitarra rítmica de 6 cuerdas y Bajo eléctrico de 4 cuerdas), secciones `Intro` y `Estribillo`, progresiones `I–V–vi–IV` y `vi–IV–I–V`, letra y cifrados (`C`, `G`, `Am`, `F`).
+     - `Blues & Rock Riff en E`: 2 pistas (Guitarra Lead y Guitarra Rítmica), secciones `Intro Riff` y `Blues Solo & Chords`, power chords (`E5`, `A5`, `B5`), acordes dominantes (`E7`, `A7`, `B7`), ghost notes y bends expresivos (`{b bend (0 4)}`).
+     - `Modulación y Menor Armónica en Am/C`: 1 pista (Guitarra Española), sección A en La menor con cadencia `Am–Dm–E7–Am` (con `G♯`, grado sensible de la escala menor armónica) y modulación en sección B a Do mayor con cadencia completa `C–F–Dm–G7–C`.
+
+

@@ -77,3 +77,19 @@ export interface SongModel {
   initialTempoBpm: number;
   tracks: readonly SongTrack[];
 }
+
+/** Sobreescritura manual de un compás por el usuario (plan_fase3.md §4.4 y §5.4). */
+export interface BarOverride {
+  chordId?: string;
+  tonic?: PitchClass;
+  scaleId?: string;
+}
+
+/** Anotaciones y personalizaciones de una canción persistidas en IndexedDB (plan_fase3.md §7 C4). */
+export interface UserSongAnnotations {
+  songId: string;
+  barOverrides: Record<number, BarOverride>;
+  loopRange?: [number, number];
+  updatedAt: string;
+}
+
