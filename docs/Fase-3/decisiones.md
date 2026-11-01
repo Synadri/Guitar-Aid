@@ -196,3 +196,44 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
 
 
 
+
+
+---
+
+## 2026-11-01 — Implementación del hito C5 (Controlador `AlphaSynth` offline y visor `AlphaTabViewport`)
+
+1. **Controlador desacoplado `AlphaSynthController` (`src/audio/alphaSynthController.ts`) sin violar la regla de capas:**
+   - **Decisión:** Implementar `AlphaSynthController` dentro de `src/audio/` como fachada unificada del sintetizador multipista. La regla de capas prohíbe terminantemente que `src/audio/` importe de `src/state/` o `src/ui/`. Para la sincronización con `settingsStore` (`soundEnabled`, `volume`), se definió un contrato duck-type (`SoundSettingsStoreLike` con `getState()` y `subscribe()`) en los métodos `syncWithSettings` y `bindSettings`.
+   - **Justificación:** Respeta escrupulosamente `layers.test.ts` y la arquitectura unidireccional de capas, permitiendo sincronizar en tiempo real el silenciado global y el volumen del usuario sin acoplar la capa de audio a Zustand ni a tiendas específicas.
+
+2. **Carga diferida (*lazy loading*) y offline del SoundFont local (`/soundfont/sonivox.sf2`):**
+   - **Decisión:** El controlador se instancia sin inicializar Web Audio ni descargar buffers de sonido en el arranque. El método `ensureReady()` ejecuta la inicialización diferida e idempotente en el primer gesto de reproducción (`play()`) o cuando el consumidor lo solicita explícitamente, cargando `public/soundfont/sonivox.sf2` (1.3 MB) de forma 100 % local.
+   - **Justificación:** Cumple la decisión de diseño de C0 y optimiza el tiempo de arranque de la aplicación (TBT/FCP), evitando que usuarios que únicamente utilicen el Sandbox o Aprender consuman memoria de audio o inicialicen contexts innecesariamente.
+
+3. **Control de transporte, velocidad acotada, metrónomo, cuenta atrás y bucle A–B:**
+   - **Decisión:**
+     - **Transporte:** Métodos `play()`, `pause()`, `playPause()` y `stop()` con emisión reactiva de eventos `stateChange`, `positionChange` y `finish`.
+     - **Velocidad:** Factor acotado estrictamente en el rango `[0.25, 2.0]` (`clampSpeed`), sincronizado con `player.playbackSpeed`.
+     - **Metrónomo y cuenta atrás:** Manejados mediante `metronomeVolume` y `countInVolume`, activándose/desactivándose al enviar el volumen correspondiente o 0 al reproductor.
+     - **Bucle A–B:** Controlado mediante `isLooping` y `playbackRange` (límites `startTick` y `endTick`), delegando directamente a las propiedades nativas de `AlphaSynth` / `AlphaTabApi`.
+
+4. **Mezclador multipista independiente (*Mute / Solo / Volumen* por pista):**
+   - **Decisión:** Mantener en el controlador un mapa reactivo `trackMixer: Record<number, TrackMixerItem>`. Los métodos `setTrackMute`, `setTrackSolo`, `setTrackVolume` y `applyTrackMixer` actualizan el estado interno y delegan de forma compatible a `changeTrackMute`/`changeTrackSolo`/`changeTrackVolume` (o a `setChannelMute`/`setChannelSolo`/`setChannelVolume`). Al conectar un nuevo reproductor (`attachPlayer`), todos los ajustes vigentes del mezclador se inyectan inmediatamente en el reproductor entrante.
+   - **Justificación:** Garantiza que cambiar de pista o reinicializar el visor preserve intacto el equilibrio de mezcla del usuario (criterio k).
+
+5. **Visor de partitura y tablatura reactivo (`AlphaTabViewport.tsx`):**
+   - **Decisión:** Implementar la tarjeta `.scoreCard` con su cabecera fija de 36 px (mostrando el modo de vista activo en mayúsculas, el nombre de la pista y el resumen técnico monoespaciado: afinación, cejilla y posición de compás) y el lienzo de sistemas `.scoreViewport`.
+   - **Conmutación de vista:** Conecta con `scoreViewMode` para alternar entre `'tab'` (tablatura pura con números de traste claros y líneas de cuerda), `'score-tab'` (pentagrama estándar + tablatura) y `'score'` (pentagrama estándar puro), mapeando a `StaveProfile` de alphaTab.
+   - **Línea de letra:** Responde reactivamente a `showLyrics`, mostrando las sílabas cursivas debajo de cada compás en estribillos y estrofas cuando está activo, y ocultándolas por completo cuando está inactivo.
+   - **Cursor de pulso y selección:** Dibuja el compás activo con fondo cálido ambarino (`rgba(245, 158, 11, 0.10)`), el cursor del pulso activo con barra turquesa `#14b8a6` e iluminación del traste activo, los compases seleccionados con fondo turquesa suave (`rgba(20, 184, 166, 0.08)`) y el icono `🔁` al final del rango de bucle.
+
+6. **Interacción con ratón para navegación y selección de compases:**
+   - **Decisión:**
+     - **Clic simple:** Sitúa el cursor de reproducción en el compás pulsado (`currentBar`), resetea `currentBeat = 0`, enfoca `inspectedBar` y limpia la selección previa.
+     - **Shift + Clic:** Selecciona el rango continuo de compases entre el compás previo y el pulsado (`selectedBarRange: [min, max]`).
+     - **Arrastre (drag selection):** `onMouseDown` + `onMouseEnter` sobre las celdas permite seleccionar intuitivamente un bloque de compases con el ratón.
+     - **Accesibilidad:** Cada celda de compás es un elemento interactivo accesible (`role="button"`, `tabIndex={0}`, `aria-label="Compás X..."`) operable con teclado (<kbd>Enter</kbd> / <kbd>Espacio</kbd>).
+
+7. **Arquitectura de pruebas con doble inyectable (`createApi` y `createMockPlayer`):**
+   - **Decisión:** Dado que `@coderline/alphatab` comprueba en su constructor la presencia de un entorno de navegador real y arroja un error en JSDOM/Node.js, se diseñó la prop opcional `createApi?: (container: HTMLElement, settings?: unknown) => AlphaSynthLike` en `AlphaTabViewport` y la interfaz `AlphaSynthLike` en `alphaSynthController`. En pruebas de Vitest, `createApi` inyecta un doble espía que emite eventos (`playedBeatChanged`, `playerStateChanged`, etc.), mientras que en tiempo de ejecución del navegador real se carga dinámicamente `AlphaTabApi`.
+   - **Justificación:** Permite ejecutar la batería completa de pruebas unitarias y de integración de UI y audio en JSDOM en menos de 1.5 segundos con aislamiento absoluto y determinismo sin requerir emulación pesada de Canvas/WebGL.
