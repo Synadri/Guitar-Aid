@@ -13,6 +13,7 @@ import {
   createSongStore,
 } from '../../state';
 import {
+  calculateTickForBarBeat,
   loadPresetSongModel,
   PRESET_POP_DIATONIC,
 } from '../../song';
@@ -410,5 +411,93 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
     expect(screen.getByTestId('loop-start-badge')).toBeTruthy();
     // Fin de bucle en compás 4
     expect(screen.getByTestId('loop-end-icon')).toBeTruthy();
+  });
+
+  it('al cambiar de pista no se pausa la reproducción activa ni se destruye el reproductor', async () => {
+    const { songStore, controller, mockPlayer } = setupSongView();
+
+    // Iniciar reproducción
+    await act(async () => {
+      await controller.play();
+      songStore.getState().setIsPlaying(true);
+    });
+    expect(controller.isPlaying()).toBe(true);
+
+    // Cambiar de pista a la pista 1 (Bajo)
+    const trackSelect = screen.getByLabelText('Seleccionar pista activa');
+    act(() => {
+      fireEvent.change(trackSelect, { target: { value: '1' } });
+    });
+
+    // La pista activa ahora es 1, pero la reproducción NO se pausa
+    expect(songStore.getState().activeTrackIndex).toBe(1);
+    expect(controller.isPlaying()).toBe(true);
+    expect(songStore.getState().isPlaying).toBe(true);
+    // El reproductor sigue conectado al controlador
+    expect(controller.getPlayer()).toBe(mockPlayer);
+  });
+
+  it('al cambiar de pista y pulsar reproducir se continúa desde el compás/pulso actual', async () => {
+    const { songStore, controller } = setupSongView();
+
+    // Situarse en el compás 3, pulso 1
+    act(() => {
+      songStore.getState().setCurrentPosition(3, 1);
+    });
+    expect(songStore.getState().currentBar).toBe(3);
+    expect(songStore.getState().currentBeat).toBe(1);
+
+    // Cambiar de pista a la pista 1
+    const trackSelect = screen.getByLabelText('Seleccionar pista activa');
+    act(() => {
+      fireEvent.change(trackSelect, { target: { value: '1' } });
+    });
+
+    expect(songStore.getState().activeTrackIndex).toBe(1);
+    expect(songStore.getState().currentBar).toBe(3);
+    expect(songStore.getState().currentBeat).toBe(1);
+
+    // Pulsar reproducir desde el transporte
+    const playBtn = screen.getByRole('button', { name: 'Reproducir' });
+    await act(async () => {
+      fireEvent.click(playBtn);
+    });
+
+    // El reproductor ha sido posicionado en el tick correspondiente al compás 3 pulso 1
+    const expectedTick = calculateTickForBarBeat(songStore.getState().activeSong?.tracks[1]?.bars, 3, 1);
+    expect(controller.getPlayer()?.tickPosition).toBe(expectedTick);
+    expect(controller.isPlaying()).toBe(true);
+  });
+
+  it('los niveles del mezclador modifican la pista seleccionada independientemente de qué pista esté activa', () => {
+    const { songStore, mockPlayer } = setupSongView();
+
+    // Seleccionar pista activa 1
+    act(() => {
+      songStore.getState().setActiveTrackIndex(1);
+    });
+    expect(songStore.getState().activeTrackIndex).toBe(1);
+
+    // Abrir mezclador
+    const mixerBtn = screen.getByRole('button', { name: 'Mezclador multipista' });
+    fireEvent.click(mixerBtn);
+    const popover = screen.getByTestId('track-mixer-popover');
+
+    // Modificar volumen de la Pista 0 (Guitarra) mientras la activa es Pista 1 (Bajo)
+    const track0Row = popover.querySelector('[data-track-index="0"]')!;
+    const slider0 = within(track0Row as HTMLElement).getByRole('slider');
+    fireEvent.change(slider0, { target: { value: '0.4' } });
+
+    // Se actualiza el store y el reproductor para la pista 0
+    expect(songStore.getState().trackMixer[0]?.volume).toBe(0.4);
+    expect(mockPlayer.changeTrackVolume).toHaveBeenCalledWith([0], 0.4);
+
+    // Modificar volumen de la Pista 1 (Bajo)
+    const track1Row = popover.querySelector('[data-track-index="1"]')!;
+    const slider1 = within(track1Row as HTMLElement).getByRole('slider');
+    fireEvent.change(slider1, { target: { value: '0.7' } });
+
+    expect(songStore.getState().trackMixer[1]?.volume).toBe(0.7);
+    expect(mockPlayer.changeTrackVolume).toHaveBeenCalledWith([1], 0.7);
   });
 });

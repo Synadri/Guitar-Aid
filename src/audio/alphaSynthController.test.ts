@@ -343,6 +343,12 @@ describe('AlphaSynthController (Hito C5, docs/Fase-3/plan_fase3.md §7 C5)', () 
       2: { muted: true, volume: 0.5 },
     });
     expect(controller.getTrackMixer()[2]).toEqual({ muted: true, solo: false, volume: 0.5 });
+
+    // Restablecimiento del mezclador
+    controller.resetTrackMixer();
+    expect(controller.getTrackMixer()).toEqual({});
+    expect(mockPlayer.calls.changeTrackVolume).toContainEqual({ tracks: [0], volume: 1.0 });
+    expect(mockPlayer.calls.changeTrackMute).toContainEqual({ tracks: [0], mute: false });
   });
 
   it('al conectar un nuevo reproductor (attachPlayer) se le aplican todos los ajustes vigentes', () => {

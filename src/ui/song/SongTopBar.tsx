@@ -13,6 +13,7 @@ import {
 } from '../../state';
 import { SettingsPopover } from '../toolbar/SettingsPopover';
 import { TrackMixerPopover } from './TrackMixerPopover';
+import { calculateTickForBarBeat } from '../../song';
 import styles from './SongTopBar.module.css';
 
 export interface SongTopBarProps {
@@ -90,6 +91,11 @@ export function SongTopBar({
 
   // Reproducir / Pausa
   const handlePlayPause = async () => {
+    if (!controller.isPlaying()) {
+      const state = songStore.getState();
+      const tick = calculateTickForBarBeat(currentTrack?.bars, state.currentBar, state.currentBeat);
+      controller.seekToTick(tick);
+    }
     await controller.playPause();
     songStore.getState().setIsPlaying(controller.isPlaying());
   };
@@ -98,7 +104,7 @@ export function SongTopBar({
   const handleGoToStart = () => {
     const startBar = loopEnabled && loopRange ? loopRange[0] : 1;
     songStore.getState().setCurrentPosition(startBar, 0);
-    controller.seekToTick(0);
+    controller.seekToTick(calculateTickForBarBeat(currentTrack?.bars, startBar, 0));
   };
 
   // Conmutar bucle
@@ -144,7 +150,7 @@ export function SongTopBar({
 
   const handleResetMixer = () => {
     songStore.getState().resetTrackMixer();
-    controller.applyTrackMixer({});
+    controller.resetTrackMixer();
   };
 
   return (

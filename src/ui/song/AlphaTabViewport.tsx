@@ -11,7 +11,7 @@ import {
   type ScoreViewMode,
   type SongStore,
 } from '../../state/song';
-import { getPresetSong, PRESET_POP_DIATONIC } from '../../song';
+import { getPresetSong, PRESET_POP_DIATONIC, calculateTickForBarBeat } from '../../song';
 import styles from './AlphaTabViewport.module.css';
 
 export interface AlphaTabViewportProps {
@@ -46,6 +46,7 @@ export function AlphaTabViewport({
 }: AlphaTabViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const alphaTabHostRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<AlphaSynthLike | null>(null);
 
   // Estado del store de canción
   const activeSong = useStore(songStore, (s) => s.activeSong);
@@ -72,7 +73,7 @@ export function AlphaTabViewport({
   const tuningName = track?.tuning.name ?? 'Estándar';
   const capoFret = track?.capoFret ?? 0;
 
-  // Integración con AlphaTabApi (inyectado o diferido en navegador)
+  // 1. Inicialización del reproductor y visor AlphaTab (se ejecuta al montar)
   useEffect(() => {
     let isMounted = true;
     let apiInstance: AlphaSynthLike | null = null;
@@ -101,11 +102,12 @@ export function AlphaTabViewport({
       if (createApi) {
         // Doble inyectable para tests
         apiInstance = createApi(alphaTabHostRef.current, {
-          scoreViewMode,
-          showLyrics,
-          activeTrackIndex,
+          scoreViewMode: songStore.getState().scoreViewMode,
+          showLyrics: songStore.getState().showLyrics,
+          activeTrackIndex: songStore.getState().activeTrackIndex,
         });
         if (apiInstance) {
+          apiRef.current = apiInstance;
           controller.attachPlayer(apiInstance);
           setupApiEvents(apiInstance);
         }
@@ -118,13 +120,17 @@ export function AlphaTabViewport({
           .then((at) => {
             if (!isMounted || !alphaTabHostRef.current) return;
             try {
+              const currentTrackIdx = songStore.getState().activeTrackIndex;
+              const currentScoreMode = songStore.getState().scoreViewMode;
+              const currentLyrics = songStore.getState().showLyrics;
+
               const settings = new at.Settings();
-              settings.core.tracks = [activeTrackIndex];
+              settings.core.tracks = [currentTrackIdx];
               settings.player.soundFont = '/soundfont/sonivox.sf2';
               settings.player.enablePlayer = true;
               settings.player.enableUserInteraction = true;
 
-              switch (scoreViewMode) {
+              switch (currentScoreMode) {
                 case 'score':
                   settings.display.staveProfile = at.StaveProfile.Score;
                   break;
@@ -137,17 +143,28 @@ export function AlphaTabViewport({
                   break;
               }
 
-              settings.notation.elements.set(at.NotationElement.EffectLyrics, showLyrics);
+              settings.notation.elements.set(at.NotationElement.EffectLyrics, currentLyrics);
 
               const api = new at.AlphaTabApi(alphaTabHostRef.current, settings);
               apiInstance = api as unknown as AlphaSynthLike;
+              apiRef.current = apiInstance;
               if (apiInstance) {
                 controller.attachPlayer(apiInstance);
                 setupApiEvents(apiInstance);
-                const activeSong = songStore.getState().activeSong;
+
+                // Al quedar listo el reproductor con el SoundFont/score cargado, sincronizar niveles del mezclador
+                if (api.playerReady) {
+                  api.playerReady.on(() => {
+                    if (!isMounted) return;
+                    const mixer = songStore.getState().trackMixer;
+                    controller.applyTrackMixer(mixer);
+                  });
+                }
+
+                const currentSong = songStore.getState().activeSong;
                 const alphaTex =
-                  activeSong?.alphaTex ??
-                  getPresetSong(activeSong?.id ?? '')?.alphaTex ??
+                  currentSong?.alphaTex ??
+                  getPresetSong(currentSong?.id ?? '')?.alphaTex ??
                   PRESET_POP_DIATONIC.alphaTex;
                 if (
                   alphaTex &&
@@ -155,7 +172,7 @@ export function AlphaTabViewport({
                     'function'
                 ) {
                   (api as unknown as { tex: (t: string, tr?: number[]) => void }).tex(alphaTex, [
-                    activeTrackIndex,
+                    currentTrackIdx,
                   ]);
                 }
               }
@@ -172,11 +189,77 @@ export function AlphaTabViewport({
     return () => {
       isMounted = false;
       controller.detachPlayer();
-      if (apiInstance && typeof apiInstance.destroy === 'function') {
-        apiInstance.destroy();
+      if (apiRef.current && typeof apiRef.current.destroy === 'function') {
+        apiRef.current.destroy();
       }
+      apiRef.current = null;
     };
-  }, [createApi, controller, songStore, activeTrackIndex, scoreViewMode, showLyrics]);
+  }, [createApi, controller, songStore]);
+
+  // 2. Cambio de pista activa: se conmuta la pista renderizada en AlphaTab sin reiniciar el reproductor
+  useEffect(() => {
+    const api = apiRef.current as {
+      renderTracks?: (tracks: unknown[]) => void;
+      score?: { tracks?: unknown[] };
+    } | null;
+    if (!api || typeof api.renderTracks !== 'function') return;
+
+    const trackObj = api.score?.tracks?.[activeTrackIndex];
+    if (trackObj) {
+      api.renderTracks([trackObj]);
+    } else {
+      api.renderTracks([activeTrackIndex]);
+    }
+  }, [activeTrackIndex]);
+
+  // 3. Cambio reactivo de modo de visualización (Score, Score+Tab, Tab) y letras
+  useEffect(() => {
+    const api = apiRef.current as {
+      settings?: {
+        display?: { staveProfile?: number };
+        notation?: { elements?: { set?: (key: number, val: boolean) => void } };
+      };
+      updateSettings?: () => void;
+      render?: () => void;
+    } | null;
+    if (!api || !api.settings) return;
+
+    import('@coderline/alphatab')
+      .then((at) => {
+        if (!apiRef.current || !api.settings) return;
+        switch (scoreViewMode) {
+          case 'score':
+            if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.Score;
+            break;
+          case 'score-tab':
+            if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.ScoreTab;
+            break;
+          case 'tab':
+          default:
+            if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.Tab;
+            break;
+        }
+        api.settings.notation?.elements?.set?.(at.NotationElement.EffectLyrics, showLyrics);
+        api.updateSettings?.();
+        api.render?.();
+      })
+      .catch(() => {});
+  }, [scoreViewMode, showLyrics]);
+
+  // 4. Cambio de canción activa: cargar nueva partitura en formato AlphaTex
+  const prevSongIdRef = useRef<string | null>(activeSong?.id ?? null);
+  useEffect(() => {
+    const api = apiRef.current as { tex?: (t: string, tr?: number[]) => void } | null;
+    if (!api || !activeSong || prevSongIdRef.current === activeSong.id) return;
+    prevSongIdRef.current = activeSong.id;
+    const alphaTex =
+      activeSong.alphaTex ??
+      getPresetSong(activeSong.id)?.alphaTex ??
+      PRESET_POP_DIATONIC.alphaTex;
+    if (alphaTex && typeof api.tex === 'function') {
+      api.tex(alphaTex, [activeTrackIndex]);
+    }
+  }, [activeSong, activeTrackIndex]);
 
   // Selección de compases con ratón
   const handleBarClick = (barNumber: number, event: React.MouseEvent) => {
@@ -192,6 +275,8 @@ export function AlphaTabViewport({
       songStore.getState().setCurrentBeat(0);
       songStore.getState().setInspectedBar(barNumber);
       songStore.getState().setSelectedBarRange(null);
+      const tick = calculateTickForBarBeat(track?.bars, barNumber, 0);
+      controller.seekToTick(tick);
     }
   };
 

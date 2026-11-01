@@ -22,6 +22,7 @@ import {
   positionToMidi,
   type FretPosition,
 } from '../../theory';
+import { calculateTickForBarBeat } from '../../song';
 import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
 import { SongContextStrip } from './SongContextStrip';
@@ -83,6 +84,13 @@ export function SongView({
 
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
+        if (!controller.isPlaying()) {
+          const state = songStore.getState();
+          const curTrack =
+            state.activeSong?.tracks[state.activeTrackIndex] ?? state.activeSong?.tracks[0];
+          const tick = calculateTickForBarBeat(curTrack?.bars, state.currentBar, state.currentBeat);
+          controller.seekToTick(tick);
+        }
         void controller.playPause().then(() => {
           songStore.getState().setIsPlaying(controller.isPlaying());
         });
@@ -98,13 +106,25 @@ export function SongView({
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        songStore.getState().setCurrentBar(songStore.getState().currentBar - 1);
+        const nextBar = songStore.getState().currentBar - 1;
+        songStore.getState().setCurrentBar(nextBar);
+        const curTrack =
+          songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
+        controller.seekToTick(
+          calculateTickForBarBeat(curTrack?.bars, songStore.getState().currentBar, 0),
+        );
         return;
       }
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        songStore.getState().setCurrentBar(songStore.getState().currentBar + 1);
+        const nextBar = songStore.getState().currentBar + 1;
+        songStore.getState().setCurrentBar(nextBar);
+        const curTrack =
+          songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
+        controller.seekToTick(
+          calculateTickForBarBeat(curTrack?.bars, songStore.getState().currentBar, 0),
+        );
         return;
       }
 
@@ -115,6 +135,9 @@ export function SongView({
             ? songStore.getState().loopRange![0]
             : 1;
         songStore.getState().setCurrentPosition(startBar, 0);
+        const curTrack =
+          songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
+        controller.seekToTick(calculateTickForBarBeat(curTrack?.bars, startBar, 0));
         return;
       }
 

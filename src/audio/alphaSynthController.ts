@@ -146,6 +146,7 @@ export interface AlphaSynthController {
   setTrackSolo: (trackIndex: number, solo: boolean) => void;
   setTrackVolume: (trackIndex: number, volume: number) => void;
   applyTrackMixer: (mixer: Record<number, Partial<TrackMixerItem>>) => void;
+  resetTrackMixer: () => void;
   getTrackMixer: () => Record<number, TrackMixerItem>;
   seekToTick: (tick: number) => void;
   on(event: 'stateChange', listener: (state: AlphaSynthControllerState) => void): () => void;
@@ -260,12 +261,7 @@ export function createAlphaSynthController(
 
   const applySingleTrackToPlayer = (trackIndex: number, item: TrackMixerItem) => {
     if (!player) return;
-    const playerWithTracks = player as { tracks?: unknown[] };
-    const tracksArg =
-      playerWithTracks.tracks && Array.isArray(playerWithTracks.tracks)
-        ? [playerWithTracks.tracks[trackIndex]].filter(Boolean)
-        : [trackIndex];
-    const finalTracks = tracksArg.length > 0 ? tracksArg : [trackIndex];
+    const finalTracks = [trackIndex];
 
     if (typeof player.changeTrackMute === 'function') {
       player.changeTrackMute(finalTracks, item.muted);
@@ -324,6 +320,25 @@ export function createAlphaSynthController(
       p.soundFontLoaded.on(() => {
         state.soundFontLoaded = true;
         state.isReady = true;
+        applyVolumeToPlayer();
+        applySpeedToPlayer();
+        applyMetronomeToPlayer();
+        applyCountInToPlayer();
+        applyLoopToPlayer();
+        applyAllTracksToPlayer();
+        emitState();
+      });
+    }
+
+    if (p.playerReady?.on) {
+      p.playerReady.on(() => {
+        state.isReady = true;
+        applyVolumeToPlayer();
+        applySpeedToPlayer();
+        applyMetronomeToPlayer();
+        applyCountInToPlayer();
+        applyLoopToPlayer();
+        applyAllTracksToPlayer();
         emitState();
       });
     }
@@ -562,6 +577,16 @@ export function createAlphaSynthController(
     emitState();
   };
 
+  const resetTrackMixer = () => {
+    for (const [idxStr] of Object.entries(state.trackMixer)) {
+      const idx = Number(idxStr);
+      const defaultItem: TrackMixerItem = { muted: false, solo: false, volume: 1.0 };
+      applySingleTrackToPlayer(idx, defaultItem);
+    }
+    state.trackMixer = {};
+    emitState();
+  };
+
   const seekToTick = (tick: number) => {
     if (!player) return;
     player.tickPosition = Math.max(0, Math.round(tick));
@@ -635,6 +660,7 @@ export function createAlphaSynthController(
     setTrackSolo,
     setTrackVolume,
     applyTrackMixer,
+    resetTrackMixer,
     getTrackMixer: () => ({ ...state.trackMixer }),
     seekToTick,
     on,

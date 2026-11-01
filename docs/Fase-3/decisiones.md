@@ -305,3 +305,40 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
    - **Eliminación del espacio vacío en la cabecera del visor:** El elemento host de AlphaTab (`alphaTabHostRef`) se extrajo completamente fuera del contenedor con scroll `.scoreViewport` y se aisló con `position: fixed !important; top: -99999px !important;`. Anteriormente, al residir dentro de `.scoreViewport` (que tiene `display: block`), AlphaTab inyectaba su contenedor de renderizado (`.at-surface`) directamente antes de `.systemsContainer`, ocupando ~170px de espacio vertical invisible en el flujo del DOM que empujaba los compases hasta la parte inferior del visor.
 
 
+
+---
+
+## 2026-11-01 — Corrección de bugs post-C6: persistencia del mezclador multipista, conmutación de pista sin pausa y sincronización de posición de transporte
+
+Tras la primera implementación de C6, se identificaron y solucionaron dos problemas críticos en el motor de reproducción multipista y la interfaz:
+
+1. **Persistencia del ciclo de vida de `AlphaTabApi` frente a cambios de pista activa (`activeTrackIndex`):**
+   - **Problema:** El hook `useEffect` de inicialización de AlphaTab en `AlphaTabViewport.tsx` incluía `activeTrackIndex` en su lista de dependencias. Cada vez que el usuario cambiaba de pista en el desplegable de `SongTopBar`, se ejecutaba la función de limpieza (`controller.detachPlayer()` y `api.destroy()`) y se instanciaba un nuevo `AlphaTabApi`. Esto provocaba:
+     - Detención forzosa de la reproducción en curso (pausa involuntaria al cambiar de pista).
+     - Reseteo de la posición interna del reproductor al tick 0 (inicio de la pieza).
+     - Pérdida de los niveles configurados en el sintetizador AlphaSynth: al procesar la nueva partitura, AlphaTab reinicializaba los canales al volumen por defecto del archivo (100%), mientras la interfaz visual seguía mostrando los porcentajes configurados.
+   - **Decisión y solución:**
+     - Desacoplar el ciclo de vida del reproductor de `activeTrackIndex`, manteniéndolo en una referencia persistente (`apiRef`).
+     - Al conmutar de pista en el desplegable, se invoca exclusivamente `api.renderTracks([trackObj])`. AlphaTab actualiza la notación visual de forma instantánea sin destruir la instancia, sin pausar la reproducción de audio en marcha, sin resetear ticks y preservando intactos los volúmenes, silencios y solos de cada pista.
+     - Los cambios en modo de visualización (`scoreViewMode`) y letra (`showLyrics`) se gestionan mediante `updateSettings()` y `render()`, evitando también cualquier reinicio del motor de audio.
+
+2. **Resolución del direccionamiento de pistas en el mezclador multipista (`applySingleTrackToPlayer`):**
+   - **Problema:** En `alphaSynthController.ts`, `applySingleTrackToPlayer` intentaba indexar `player.tracks[trackIndex]`. En AlphaTab, la propiedad `api.tracks` solo contiene las pistas **que se están dibujando en pantalla** (longitud 1 al renderizar una sola pista). Cuando la pista activa era la 1 (p. ej. Bajo eléctrico), `player.tracks[0]` apuntaba al objeto de la pista 1 y `player.tracks[1]` era `undefined`. Como resultado:
+     - Modificar el volumen de la pista 0 (Guitarra) en el mezclador enviaba `[track1]`, modificando el volumen del Bajo en vez de la Guitarra.
+     - Modificar la pista 1 (Bajo) caía en el fallback `[1]`, modificando también el Bajo.
+     - Era imposible modificar la pista 0 mientras la pista 1 estuviese activa en pantalla.
+   - **Decisión y solución:**
+     - Pasar siempre el arreglo numérico directo `[trackIndex]` a `player.changeTrackVolume`, `changeTrackMute` y `changeTrackSolo`.
+     - La fachada interna de AlphaTab (`_trackIndexesToTracks(uiFacade.parseTracks(tracks))`) resuelve los índices numéricos contra `score.tracks` (la colección completa de pistas de la canción), permitiendo que el mezclador controle cualquier pista independientemente de cuál se esté visualizando en el visor.
+
+3. **Sincronización en el evento `playerReady` y método `resetTrackMixer`:**
+   - **Problema:** Cuando AlphaTab termina de cargar el SoundFont y el archivo MIDI de la partitura, su evento interno `readyForPlayback` restablece los canales a `volume / 16`. Si el controlador no escuchaba este evento, los ajustes del mezclador quedaban anulados hasta que el usuario moviera manualmente un control deslizante. Además, pulsar «Restablecer» en el mezclador ejecutaba `applyTrackMixer({})`, lo cual no revertía los cambios previos en el reproductor.
+   - **Decisión y solución:**
+     - En `registerPlayerListeners`, se añade la escucha del evento `player.playerReady` para re-aplicar automáticamente todos los niveles de `trackMixer` (`applyAllTracksToPlayer`) en cuanto el sintetizador esté listo.
+     - Se implementa el método `resetTrackMixer()` en `AlphaSynthController`, el cual restablece todos los canales a volumen `1.0`, desactiva mutes y solos, y limpia el estado del mezclador al pulsar «Restablecer» en `TrackMixerPopover`.
+
+4. **Cálculo de ticks y sincronización de transporte (`calculateTickForBarBeat`):**
+   - **Problema:** Al hacer clic en un compás en el visor o navegar con las teclas de flecha, el store actualizaba `currentBar` y `currentBeat`, pero el reproductor AlphaTab no recibía el comando de posicionamiento de cursor / ticks (`seekToTick`). Como consecuencia, al pulsar Reproducir, el motor de audio siempre arrancaba desde el tick donde se hubiese quedado o desde el inicio (tick 0).
+   - **Decisión y solución:**
+     - Se añade la función pura [`src/song/ticks.ts`](../../src/song/ticks.ts) (`calculateTickForBarBeat(bars, barNumber, beatIndex)`), que calcula el tick MIDI exacto acumulando las duraciones de los compases previos según sus fórmulas de compás (base 960 ticks/negra) y sumando el desplazamiento del pulso relativo.
+     - Se sincroniza la posición con `controller.seekToTick(tick)` al hacer clic simple en cualquier compás de `AlphaTabViewport`, al iniciar la reproducción desde pausa con la barra espaciadora o el botón Play de `SongTopBar`, al saltar al inicio (<kbd>Home</kbd> o botón `⏮`), y al desplazarse con las flechas de dirección (<kbd>←</kbd> / <kbd>→</kbd>).
