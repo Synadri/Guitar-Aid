@@ -237,3 +237,71 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
 7. **Arquitectura de pruebas con doble inyectable (`createApi` y `createMockPlayer`):**
    - **Decisión:** Dado que `@coderline/alphatab` comprueba en su constructor la presencia de un entorno de navegador real y arroja un error en JSDOM/Node.js, se diseñó la prop opcional `createApi?: (container: HTMLElement, settings?: unknown) => AlphaSynthLike` en `AlphaTabViewport` y la interfaz `AlphaSynthLike` en `alphaSynthController`. En pruebas de Vitest, `createApi` inyecta un doble espía que emite eventos (`playedBeatChanged`, `playerStateChanged`, etc.), mientras que en tiempo de ejecución del navegador real se carga dinámicamente `AlphaTabApi`.
    - **Justificación:** Permite ejecutar la batería completa de pruebas unitarias y de integración de UI y audio en JSDOM en menos de 1.5 segundos con aislamiento absoluto y determinismo sin requerir emulación pesada de Canvas/WebGL.
+
+---
+
+## 2026-11-01 — Implementación del hito C6 (UI Parte 1: `SongView`, `SongTopBar`, `SongContextStrip` e instrumentos en vivo)
+
+1. **Conexión de `SongView` en `AppShell.tsx` e independencia estricta entre modos (Criterio l):**
+   - **Decisión:** Retirar el contenedor de sustitución provisional (*Próximamente*) de `AppShell.tsx` y renderizar directamente `SongView` al seleccionar el modo Canción (`currentMode === 'cancion'`). Añadir la prop opcional inyectable `songStore?: StoreApi<SongStore>` a `AppShellProps` para facilitar pruebas aisladas.
+   - **Aislamiento de estado y atajos:** Al alternar libremente entre `Sandbox`, `Aprender` y `Canción`, el estado de cada modo (selección de notas, contexto activo, tarjetas en estudio, compás y bucle de canción) se conserva íntegro. El atajo global <kbd>M</kbd> conmuta el sonido en todos los modos, mientras que pulsar <kbd>C</kbd> en Canción no limpia ni altera la selección del Sandbox.
+
+2. **Barra superior (`SongTopBar`) y mezclador multipista (`TrackMixerPopover`) (Criterio k):**
+   - **Decisión:** Implementar `SongTopBar` con altura fija de 48 px enmarcada según la maqueta y la especificación de `interfaz_fase3.md`:
+     - **Izquierda:** Botón accesible `📁 Canciones` y bloque de metadatos de la pieza activa (título en negrita y subtítulo dinámico con artista, compás y tempo BPM).
+     - **Grupo PISTA y Mezclador:** Selector desplegable de pista activa mostrando nombre y afinación, y botón `Mezclador` con despliegue flotante accesible de `TrackMixerPopover` (`width: 360px`, cerrable con <kbd>Esc</kbd> o clic exterior), controlando individualmente *Mute (M)*, *Solo (S)* y deslizador de volumen de cada pista de la canción, más el interruptor de cuenta atrás (`Cuenta atrás (1 compás)`).
+     - **Grupo de Transporte:** Botón `⏮` de salto al inicio (o inicio del bucle), botón principal `▶ Reproducir / ⏸ Pausa` (con resaltado turquesa `#14b8a6` durante reproducción), botón dinámico de `Bucle` (que refleja el rango activo p. ej. `Bucle 5–8`), control de velocidad en pasos discretos normalizados `[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]` y botón de metrónomo.
+     - **Grupo VISTA:** Conmutador segmentado de 3 opciones (`Tab`, `Partitura + Tab`, `Partitura`) y botón de conmutación de `Letra`.
+     - **Acciones globales:** Botón `Sonido M` y botón `⚙ Ajustes` compartidos.
+
+3. **Franja de contexto (`SongContextStrip`) y reactividad armónica (Criterio i y h):**
+   - **Decisión:** Implementar `SongContextStrip` con altura de 38 px fijada justo sobre el mástil para estabilidad visual absoluta durante la reproducción:
+     - **Izquierda:** Posición en vivo monoespaciada (`Compás {N} · Pulso {B}`), insignia coloreada de la sección actual (`Estribillo`, `Intro`) y aviso de rango seleccionado con botón compacto `✕ Quitar selección`.
+     - **Centro:** Desplegable de tonalidad activa con indicador de punto ámbar `●` cuando existe una sobreescritura manual y opción de restablecimiento a cálculo automático; desplegable de acorde activo en ámbar (`#f59e0b` / `#fbbf24`) mostrando el acorde vigente y su numeral romano (calculado mediante `romanNumeral` respecto a la tonalidad activa) con opción de sobreescritura manual inmediata a partir de los candidatos analizados del compás; y conmutador segmentado `GRADOS` (`Tonalidad` vs `Acorde`).
+     - **Derecha:** Selector de etiquetas sincronizado con los ajustes (`Nota` · `Intervalo` · `Grado` · `Ninguna`).
+
+4. **Representación de cejilla (`capoFret > 0`) y adaptación de afinación en `Fretboard` y `Piano`:**
+   - **Decisión:**
+     - Añadir la prop opcional `capoFret?: number` a `FretboardProps` y la clase `.capoBar` en `Fretboard.module.css`. Cuando una pista declara cejilla (`capoFret > 0`), se dibuja un rectángulo translúcido vertical sobre ese traste y los trastes anteriores (`0 .. capoFret - 1`) adoptan opacidad atenuada (`opacity: 0.28`).
+     - En `Fretboard.tsx`, ajustar el mapeo de cuerdas al tamaño real de `tuning.strings` (p. ej. 4 cuerdas en el bajo eléctrico) para evitar índices inexistentes o cálculos `NaN` al conmutar de pista.
+     - Conectar las marcas de `selectSongFretboardMarks` y `selectSongPianoMarks` para que reflejen en vivo las notas activas del pulso (`pinned`, con anillo concéntrico si es la fundamental de referencia) sobre el fondo de escala (`scale-bg`) con la afinación y cejilla exactas de la pista activa, sin mutar `sandboxStore.tuning`.
+
+5. **Atajos de teclado del Modo Canción:**
+   - **Decisión:** Habilitar en `SongView` los atajos <kbd>Espacio</kbd> (Play/Pausa), <kbd>L</kbd> (alternar bucle sobre selección o sección actual), <kbd>←</kbd> y <kbd>→</kbd> (avanzar/retroceder de compás), <kbd>Home</kbd> (volver al inicio de la pieza o del bucle) y <kbd>Esc</kbd> (deseleccionar compases o cerrar popovers).
+
+6. **Refinamientos del hito C6 derivados de la verificación interactiva:**
+   - **Estabilidad de layout y ergonomía en `SongTopBar`:**
+     - El botón de Reproducir/Pausa se configuró con anchura fija (`32px`) y solo icono (`▶` / `⏸`), eliminando el ensanchamiento al conmutar texto que desplazaba los controles y ocultaba el botón de Ajustes fuera de la pantalla.
+     - Botón de ajustes reducido a icono `⚙` para ahorrar ~50px de espacio horizontal.
+     - Icono de carpeta de canciones sustituido por un icono SVG vectorial con `stroke="currentColor"` en lugar del emoji amarillo del sistema operativo.
+     - Botones de metrónomo (icono SVG) y bucle (`🔁`) simplificados a iconos compactos accesibles.
+     - Añadido `overflow-x: auto; scrollbar-width: none;` y `flex-shrink: 0;` a los grupos para garantizar que ningún botón quede fuera de vista en resoluciones compactas.
+   - **Aislamiento visual de AlphaTab y síntesis de audio real:**
+     - El contenedor `.alphaTabContainer` se posicionó fuera de pantalla (`top: -9999px; left: -9999px; width: 800px; height: 600px; opacity: 0; visibility: hidden; pointer-events: none;`). Esto impide que el lienzo por defecto de AlphaTab se filtre en la parte superior del visor o distorsione los modos de partitura y tablatura de Guitar Aid.
+     - Al instanciar `AlphaTabApi`, se alimenta la partitura mediante `api.tex(alphaTex, [activeTrackIndex])` para que AlphaSynth cargue los datos de la pista y el SoundFont local (`/soundfont/sonivox.sf2`), posibilitando la reproducción audible de audio en tiempo real.
+     - En `staffContainer`, se implementó la representación visual de notas mediante cabezas de nota (`●`) posicionadas verticalmente según la altura MIDI de cada pulso, junto con el símbolo de clave (`𝄞` o `𝄢`), resolviendo la partitura vacía en los modos `score` y `score-tab`.
+   - **Visualización completa del rango de bucle (Loop):**
+     - Se añadió el cálculo de `isInLoop`, `isLoopStart` e `isLoopEnd`.
+     - Todos los compases dentro del bucle activo reciben la clase `.barCellInLoop` (fondo y borde cálido ambarino resaltado), el compás inicial muestra la insignia `[ 🔁` y el final `🔁 ]` (o `]` si coinciden), haciendo evidente qué compases están en bucle y dónde empieza y termina.
+   - **Corrección crítica de restablecimiento de sobreescrituras (overrides):**
+     - Anteriormente, `setBarOverride` realizaba `{ ...current, ...override }`. Al borrar solo la escala (o solo el acorde) mediante `delete override.tonic`, el spread fusionaba los campos anteriores de `current` restaurando la escala/acorde borrado.
+     - Se implementaron métodos específicos `clearBarScaleOverride(barNumber)` y `clearBarChordOverride(barNumber)` en `store.ts` y se actualizó `setBarOverride` para limpiar valores `undefined` y eliminar la entrada del diccionario cuando no quedan propiedades. Esto permite restablecer la escala automática sin perder el acorde fijado y viceversa.
+   - **Correcciones en `TrackMixerPopover`:**
+     - El deslizador de volumen de cada pista (`.volumeControl` y `.volumeSlider`) se acotó con `flex-shrink: 0; box-sizing: border-box; width: 100%` para evitar que desborde de la tarjeta.
+     - Se reforzó la escucha de la tecla <kbd>Escape</kbd> en fase de captura (`capture: true`) en `window` y `document` para asegurar el cierre inmediato del popover independientemente del elemento con foco.
+
+7. **Anotaciones y tareas críticas para el Hito C8 (Panel de Análisis y Cinta Armónica):**
+   - **[CRÍTICO C8] Normalización de puntuación en ranking de candidatos de acorde:**
+     - En `SongContextStrip`, los candidatos de `analyzeBarChords` mostraban porcentajes incoherentes superiores al 100 % (p. ej. `235%`, `191%`) debido a que la función `detectChords` devuelve puntuaciones acumulativas de ajuste (pesos de fundamental, cobertura y popularidad) y no un valor probabilístico normalizado de 0 a 100. En C6 se normalizó visualmente respecto al candidato superior (`Math.round((score / maxScore) * 100)%`), pero se registra como **tarea crítica para C8** formalizar la escala de confianza o calibración porcentual en el motor de análisis y en el panel detallado.
+   - **[DISEÑO C8] Reubicación del indicador de sobreescritura (punto ámbar `●`):**
+     - El punto ámbar de sobreescritura manual en la píldora de acorde/tonalidad de `SongContextStrip` debe trasladarse a la cinta armónica (`SongTimelineBar`) para C8, señalizando visualmente los compases modificados a lo largo de la línea temporal de la pieza musical.
+
+8. **Segunda ronda de refinamientos del hito C6 (Feedback interactivo y corrección visual):**
+   - **Iconografía monocromática SVG unificada:** Sustitución de los emojis restantes (`🔁`, `🔊`, `🔇`) en `SongTopBar` y `AlphaTabViewport` por iconos SVG vectoriales monocromáticos (`Lucide-style`: `Repeat`, `Volume2`, `VolumeX`) que respetan la paleta oscura de la interfaz (`currentColor`, `#94a3b8`, `#14b8a6`).
+   - **Comportamiento de Bucle sobre compás individual:** Al hacer clic en el botón de bucle sin una selección multirango activa (`selectedBarRange === null`), el bucle se aplica con exactitud al compás activo `[currentBar, currentBar]` en lugar de abarcar toda la sección musical.
+   - **Corrección de espaciado y layout de compases:** En `AlphaTabViewport`, se eliminó la fragmentación rígida en bloques de 4 compases y se implementó una cuadrícula unificada CSS Grid (`repeat(auto-fill, minmax(180px, 1fr))`), eliminando los espacios excesivos al inicio/final y los compases huérfanos.
+   - **Adaptación y corrección de Tablatura (`tab`):** Renderizado de las líneas horizontales según el número de cuerdas de la pista (6 para guitarra, 4 para bajo), posicionamiento de los números de traste (`fretBadge`) centrados directamente sobre su línea con fondo opaco que enmascara la línea subyacente, y cursor de pulso vertical turquesa `#14b8a6`.
+   - **Apertura de `TrackMixerPopover` y gestión de eventos:** Se corrigió el recorte del popover configurando `overflow: visible` y `position: relative` en `.topBar`, se incrementó el `z-index` a `1000` y se añadió `triggerRef` para que el clic sobre el botón de Mezclador abra y cierre el popover sin ser interceptado prematuramente por el detector de clics exteriores.
+   - **Eliminación del espacio vacío en la cabecera del visor:** El elemento host de AlphaTab (`alphaTabHostRef`) se extrajo completamente fuera del contenedor con scroll `.scoreViewport` y se aisló con `position: fixed !important; top: -99999px !important;`. Anteriormente, al residir dentro de `.scoreViewport` (que tiene `display: block`), AlphaTab inyectaba su contenedor de renderizado (`.at-surface`) directamente antes de `.systemsContainer`, ocupando ~170px de espacio vertical invisible en el flujo del DOM que empujaba los compases hasta la parte inferior del visor.
+
+

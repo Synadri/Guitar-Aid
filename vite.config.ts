@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   base: './',
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ['@coderline/alphatab'],
+  },
   test: {
     // Por defecto los tests corren en node. Los que necesiten DOM (Testing Library, desde U1)
     // lo piden con el comentario `// @vitest-environment jsdom` al inicio del archivo.

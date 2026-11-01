@@ -3,7 +3,12 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createSandboxStore, createSettingsStore } from '../../state';
+import {
+  createMemorySongStorage,
+  createSandboxStore,
+  createSettingsStore,
+  createSongStore,
+} from '../../state';
 import { AppShell } from './AppShell';
 
 describe('AppShell — Navegación de modos y preservación de estado (Criterio a)', () => {
@@ -154,5 +159,68 @@ describe('AppShell — Navegación de modos y preservación de estado (Criterio 
     // En Aprender: M vuelve a activar sonido
     fireEvent.keyDown(window, { key: 'M' });
     expect(settingsStore.getState().soundEnabled).toBe(true);
+  });
+
+  it('(Criterio l) el menú lateral conmuta al Modo Canción (SongView), conservando intacto el estado de Sandbox, Aprender y Canción', async () => {
+    const sandboxStore = createSandboxStore();
+    const settingsStore = createSettingsStore({ storageName: 'test-settings-appshell-song-1' });
+    const songStorage = createMemorySongStorage();
+    const songStore = createSongStore({ storage: songStorage });
+
+    // Preparar estado en Sandbox
+    sandboxStore.getState().toggleFretPosition({ string: 5, fret: 3 }); // C3
+    sandboxStore.getState().setContext({ kind: 'chord', root: 0, quality: 'maj' });
+
+    // Preparar estado en Canción
+    songStore.getState().setCurrentBar(3);
+    songStore.getState().setSelectedBarRange([2, 4]);
+
+    render(
+      <AppShell
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        songStore={songStore}
+      />,
+    );
+
+    // Inicialmente en Sandbox
+    expect(screen.getByTestId('sandbox-container')).toBeTruthy();
+    expect(screen.queryByTestId('song-view')).toBeNull();
+
+    // Conmutar a Modo Canción
+    const songNavBtn = screen.getByRole('button', {
+      name: /Modo Canción: Tabs, bucles y análisis/i,
+    });
+    fireEvent.click(songNavBtn);
+
+    // SongView se muestra
+    expect(screen.getByTestId('song-view')).toBeTruthy();
+    expect(screen.queryByTestId('sandbox-container')).toBeNull();
+
+    // El estado del Modo Canción se conserva
+    expect(songStore.getState().currentBar).toBe(3);
+    expect(songStore.getState().selectedBarRange).toEqual([2, 4]);
+
+    // Pulsar tecla C en Canción NO limpia el Sandbox
+    fireEvent.keyDown(window, { key: 'c' });
+    fireEvent.keyDown(window, { key: 'C' });
+    expect(sandboxStore.getState().notes.length).toBe(1);
+    expect(sandboxStore.getState().context).toEqual({ kind: 'chord', root: 0, quality: 'maj' });
+
+    // Volver a Sandbox: el estado de Sandbox sigue intacto
+    const sandboxNavBtn = screen.getByRole('button', {
+      name: /Modo Sandbox: Guitarra y piano sincronizados/i,
+    });
+    fireEvent.click(sandboxNavBtn);
+
+    expect(screen.getByTestId('sandbox-container')).toBeTruthy();
+    expect(sandboxStore.getState().notes.length).toBe(1);
+    expect(sandboxStore.getState().context).toEqual({ kind: 'chord', root: 0, quality: 'maj' });
+
+    // Volver a Canción: el estado de Canción sigue intacto
+    fireEvent.click(songNavBtn);
+    expect(screen.getByTestId('song-view')).toBeTruthy();
+    expect(songStore.getState().currentBar).toBe(3);
+    expect(songStore.getState().selectedBarRange).toEqual([2, 4]);
   });
 });

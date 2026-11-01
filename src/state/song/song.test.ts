@@ -319,12 +319,12 @@ describe('Hito C4 — Capa state/song: Storage, Store, Marcas e IndexedDB', () =
       store.getState().toggleLoop();
       expect(store.getState().loopEnabled).toBe(false);
 
-      // toggleLoop sin selección previa activa el bucle sobre la sección actual (Intro: compases 1–4)
+      // toggleLoop sin rango previo activa el bucle estrictamente sobre el compás activo ([currentBar, currentBar])
       store.getState().setSelectedBarRange(null);
-      store.getState().setCurrentBar(2); // Sección "Intro" en Pop Diatónico
+      store.getState().setCurrentBar(2);
       store.getState().toggleLoop();
       expect(store.getState().loopEnabled).toBe(true);
-      expect(store.getState().loopRange).toEqual([1, 4]);
+      expect(store.getState().loopRange).toEqual([2, 2]);
     });
 
     it('mezclador multipista: mute, solo, volumen y reset', () => {

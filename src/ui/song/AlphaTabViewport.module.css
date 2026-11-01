@@ -89,38 +89,45 @@
   outline-offset: -2px;
 }
 
-/* Contenedor específico para la librería AlphaTab cuando se monta */
+/* Contenedor específico para la librería AlphaTab cuando se monta (aislado fuera de pantalla para no alterar el layout) */
 .alphaTabContainer {
-  width: 100%;
+  position: fixed !important;
+  top: -99999px !important;
+  left: -99999px !important;
+  width: 800px !important;
+  height: 600px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  z-index: -100 !important;
 }
 
 /* Representación estructurada y reactiva de compases */
 .systemsContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
   width: 100%;
 }
 
 .systemRow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  width: 100%;
+  display: contents;
 }
 
 .barCell {
   position: relative;
   border: 1px solid #334155;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: rgba(15, 23, 42, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
   user-select: none;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .barCell:hover {
@@ -143,6 +150,23 @@
 .barCellSelected {
   background: rgba(20, 184, 166, 0.08) !important;
   border-color: rgba(20, 184, 166, 0.5) !important;
+}
+
+/* Resaltado de compases dentro del bucle activo (ámbar cálido y contorno nítido) */
+.barCellInLoop {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.55) !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.25);
+}
+
+.loopBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
 }
 
 /* Coincidencia: activo y en rango */
@@ -216,12 +240,36 @@
 
 /* Notación pentagrama / partitura */
 .staffContainer {
+  position: relative;
+  min-height: 48px;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+}
+
+.clefSymbol {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 26px;
+  color: #94a3b8;
+  opacity: 0.6;
+  pointer-events: none;
+  line-height: 1;
+  z-index: 1;
+}
+
+.staffLines {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 0;
-  border-top: 1px solid #334155;
-  border-bottom: 1px solid #334155;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
 .staffLine {
@@ -230,78 +278,128 @@
   width: 100%;
 }
 
-/* Tablatura */
-.tabContainer {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.tabLine {
-  height: 1px;
-  background: #334155;
-  width: 100%;
-  position: relative;
-}
-
-.beatsRow {
+.staffBeatsRow {
   position: relative;
   display: flex;
   justify-content: space-around;
   align-items: center;
-  min-height: 52px;
-  padding: 2px 0;
+  width: 100%;
+  height: 48px;
+  padding-left: 22px;
+  box-sizing: border-box;
 }
 
-.beatColumn {
+.staffBeatColumn {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: 100%;
   min-width: 28px;
-  padding: 2px;
+  padding: 0 2px;
   border-radius: 4px;
   transition: background 0.1s ease;
 }
 
-.beatColumnActive {
+.staffNoteHead {
+  position: absolute;
+  font-size: 13px;
+  color: #f8fafc;
+  line-height: 1;
+  transform: translateY(50%);
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+}
+
+.staffNoteHeadActive {
+  color: #2dd4bf;
+  text-shadow: 0 0 6px rgba(45, 212, 191, 0.8);
+}
+
+/* Tablatura */
+.tabContainer {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0;
+}
+
+.tabLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #334155;
+  pointer-events: none;
+}
+
+.tabBeatsRow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: stretch;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+.tabBeatColumn {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 18px;
+  height: 100%;
+  border-radius: 3px;
+  transition: background 0.1s ease;
+}
+
+.tabBeatColumnActive {
   background: rgba(20, 184, 166, 0.12);
 }
 
 /* Cursor de pulso activo */
+.tabBeatCursor,
 .beatCursor {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: 0;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 2px;
   background: #14b8a6;
-  box-shadow: 0 0 10px 4px rgba(20, 184, 166, 0.35);
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
   pointer-events: none;
   z-index: 2;
   border-radius: 1px;
 }
 
+.fretBadge,
 .fretNumber {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #f8fafc;
   line-height: 1;
-  padding: 1px 3px;
-  border-radius: 3px;
-  background: rgba(15, 23, 42, 0.7);
-  z-index: 1;
+  padding: 0 2px;
+  background: #0f172a;
+  border-radius: 2px;
+  z-index: 3;
+  pointer-events: none;
 }
 
+.fretBadgeActive,
 .fretNumberActive {
   color: #042f2e;
   background: #2dd4bf;
-  box-shadow: 0 0 8px rgba(45, 212, 191, 0.6);
+  box-shadow: 0 0 6px rgba(45, 212, 191, 0.8);
 }
 
 /* Fila de letras */

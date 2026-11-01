@@ -5,15 +5,18 @@ import {
   settingsStore as defaultSettingsStore,
   drillsStore as defaultDrillsStore,
   decksStore as defaultDecksStore,
+  songStore as defaultSongStore,
   type SandboxStore,
   type SettingsStore,
   type DrillsStore,
   type DecksStore,
+  type SongStore,
 } from '../../state';
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { SideNav, type AppMode } from '../layout/SideNav';
 import { SandboxView } from '../sandbox/SandboxView';
 import { LearnView } from '../learn/LearnView';
+import { SongView } from '../song/SongView';
 import styles from './AppShell.module.css';
 
 export interface AppShellProps {
@@ -22,6 +25,7 @@ export interface AppShellProps {
   settingsStore?: StoreApi<SettingsStore>;
   drillsStore?: StoreApi<DrillsStore>;
   decksStore?: StoreApi<DecksStore>;
+  songStore?: StoreApi<SongStore>;
   audioEngine?: AudioEngine;
 }
 
@@ -31,6 +35,7 @@ export function AppShell({
   settingsStore = defaultSettingsStore,
   drillsStore = defaultDrillsStore,
   decksStore = defaultDecksStore,
+  songStore = defaultSongStore,
   audioEngine = defaultAudioEngine,
 }: AppShellProps) {
   const [currentMode, setCurrentMode] = useState<AppMode>(initialMode);
@@ -95,38 +100,12 @@ export function AppShell({
         )}
 
         {currentMode === 'cancion' && (
-          <div className={styles.comingSoonContainer}>
-            <div className={styles.comingSoonCard}>
-              <div className={styles.comingSoonIcon} aria-hidden="true">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-              </div>
-              <h2 className={styles.comingSoonTitle}>Modo Canción — Fase 3</h2>
-              <p className={styles.comingSoonDesc}>
-                Importa tablaturas, reproduce bucles, visualiza acordes en tiempo real y analiza
-                progresiones de tus canciones favoritas.
-              </p>
-              <button
-                type="button"
-                className={styles.comingSoonBtn}
-                onClick={() => setCurrentMode('sandbox')}
-              >
-                Volver a Sandbox
-              </button>
-            </div>
-          </div>
+          <SongView
+            songStore={songStore}
+            settingsStore={settingsStore}
+            sandboxStore={sandboxStore}
+            audioEngine={audioEngine}
+          />
         )}
       </div>
     </div>

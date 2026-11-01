@@ -1,0 +1,91 @@
+.songView {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-0);
+  box-sizing: border-box;
+}
+
+.instrumentsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.instrumentsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.bottomArea {
+  display: grid;
+  grid-template-columns: minmax(0, 1.62fr) minmax(400px, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 12px 12px;
+  box-sizing: border-box;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.rightColumn {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.timelinePlaceholder {
+  height: 46px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-group);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.analysisPlaceholder {
+  flex: 1;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-group);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.analysisHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.analysisTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.analysisSub {
+  font-size: 12px;
+  color: var(--text-muted);
+}

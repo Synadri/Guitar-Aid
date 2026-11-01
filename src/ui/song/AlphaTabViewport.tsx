@@ -11,6 +11,7 @@ import {
   type ScoreViewMode,
   type SongStore,
 } from '../../state/song';
+import { getPresetSong, PRESET_POP_DIATONIC } from '../../song';
 import styles from './AlphaTabViewport.module.css';
 
 export interface AlphaTabViewportProps {
@@ -143,6 +144,20 @@ export function AlphaTabViewport({
               if (apiInstance) {
                 controller.attachPlayer(apiInstance);
                 setupApiEvents(apiInstance);
+                const activeSong = songStore.getState().activeSong;
+                const alphaTex =
+                  activeSong?.alphaTex ??
+                  getPresetSong(activeSong?.id ?? '')?.alphaTex ??
+                  PRESET_POP_DIATONIC.alphaTex;
+                if (
+                  alphaTex &&
+                  typeof (api as unknown as { tex?: (t: string, tr?: number[]) => void }).tex ===
+                    'function'
+                ) {
+                  (api as unknown as { tex: (t: string, tr?: number[]) => void }).tex(alphaTex, [
+                    activeTrackIndex,
+                  ]);
+                }
               }
             } catch (err) {
               console.warn('AlphaTabApi initialization deferred/skipped:', err);
@@ -196,17 +211,6 @@ export function AlphaTabViewport({
     setDragStartBar(null);
   };
 
-  // Agrupación de compases en sistemas de hasta 4 por fila para visualización clara
-  const systems = useMemo(() => {
-    if (!track) return [];
-    const barsPerSystem = 4;
-    const result: (typeof track.bars)[] = [];
-    for (let i = 0; i < track.bars.length; i += barsPerSystem) {
-      result.push(track.bars.slice(i, i + barsPerSystem));
-    }
-    return result;
-  }, [track]);
-
   return (
     <div
       className={`${styles.scoreCard} ${className ?? ''}`}
@@ -216,6 +220,24 @@ export function AlphaTabViewport({
       data-track-index={activeTrackIndex}
       onMouseUp={handleMouseUp}
     >
+      {/* Contenedor DOM para la librería AlphaTab (aislado fuera de pantalla con position: fixed para evitar desplazamiento del lienzo) */}
+      <div
+        ref={alphaTabHostRef}
+        className={styles.alphaTabContainer}
+        data-testid="alphatab-container"
+        style={{
+          position: 'fixed',
+          top: -99999,
+          left: -99999,
+          width: 800,
+          height: 600,
+          opacity: 0,
+          pointerEvents: 'none',
+          visibility: 'hidden',
+          zIndex: -100,
+        }}
+      />
+
       {/* 1. Cabecera interna fija (36 px) */}
       <header className={styles.scoreHeader}>
         <div className={styles.headerLeft}>
@@ -242,170 +264,266 @@ export function AlphaTabViewport({
         role="region"
         aria-label="Lienzo de partitura y tablatura"
       >
-        {/* Contenedor DOM para la librería AlphaTab */}
-        <div
-          ref={alphaTabHostRef}
-          className={styles.alphaTabContainer}
-          data-testid="alphatab-container"
-        />
-
         {/* Representación estructurada y reactiva de compases (visible y accesible en tests/fallback) */}
         {!track ? (
           <div className={styles.emptyState}>No hay ninguna canción activa.</div>
         ) : (
           <div className={styles.systemsContainer} data-testid="score-systems">
-            {systems.map((system, sysIdx) => (
-              <div key={sysIdx} className={styles.systemRow}>
-                {system.map((bar) => {
-                  const isActive = bar.number === currentBar;
-                  const isSelected =
-                    Boolean(selectedBarRange) &&
-                    bar.number >= selectedBarRange![0] &&
-                    bar.number <= selectedBarRange![1];
-                  const isLoopEnd =
-                    Boolean(loopEnabled) && Boolean(loopRange) && bar.number === loopRange![1];
+            {track.bars.map((bar) => {
+              const isActive = bar.number === currentBar;
+              const isSelected =
+                Boolean(selectedBarRange) &&
+                bar.number >= selectedBarRange![0] &&
+                bar.number <= selectedBarRange![1];
+              const isInLoop =
+                Boolean(loopEnabled) &&
+                Boolean(loopRange) &&
+                bar.number >= loopRange![0] &&
+                bar.number <= loopRange![1];
+              const isLoopStart =
+                Boolean(loopEnabled) && Boolean(loopRange) && bar.number === loopRange![0];
+              const isLoopEnd =
+                Boolean(loopEnabled) && Boolean(loopRange) && bar.number === loopRange![1];
 
-                  // Detección de acorde visible en el compás (override manual o anotación)
-                  const overrideChord = barOverrides[bar.number]?.chordId;
-                  const annotatedChord = bar.beats.find((b) => b.chordAnnotation)?.chordAnnotation;
-                  const chordDisplay = overrideChord ?? annotatedChord;
+              // Detección de acorde visible en el compás (override manual o anotación)
+              const overrideChord = barOverrides[bar.number]?.chordId;
+              const annotatedChord = bar.beats.find((b) => b.chordAnnotation)?.chordAnnotation;
+              const chordDisplay = overrideChord ?? annotatedChord;
 
-                  // Letras del compás
-                  const barLyrics = bar.beats
-                    .map((b) => b.lyrics)
-                    .filter(Boolean)
-                    .join(' ');
+              // Letras del compás
+              const barLyrics = bar.beats
+                .map((b) => b.lyrics)
+                .filter(Boolean)
+                .join(' ');
 
-                  const isEstribillo =
-                    bar.sectionMarker?.toLowerCase().includes('estribillo') ?? false;
+              const isEstribillo =
+                bar.sectionMarker?.toLowerCase().includes('estribillo') ?? false;
 
-                  return (
-                    <div
-                      key={bar.number}
-                      className={`${styles.barCell} ${isActive ? styles.barCellActive : ''} ${
-                        isSelected ? styles.barCellSelected : ''
-                      }`}
-                      data-testid={`bar-${bar.number}`}
-                      data-bar-number={bar.number}
-                      data-is-active={isActive}
-                      data-is-selected={isSelected}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Compás ${bar.number}${
-                        bar.sectionMarker ? `, Sección ${bar.sectionMarker}` : ''
-                      }${chordDisplay ? `, Acorde ${chordDisplay}` : ''}`}
-                      onClick={(e) => handleBarClick(bar.number, e)}
-                      onMouseDown={(e) => handleBarMouseDown(bar.number, e)}
-                      onMouseEnter={() => handleBarMouseEnter(bar.number)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleBarClick(bar.number, e as unknown as React.MouseEvent);
-                        }
-                      }}
-                    >
-                      {/* Meta superior del compás: Sección, Número, Acorde y Bucle */}
-                      <div className={styles.barTopMeta}>
-                        <div className={styles.metaLeft}>
-                          {bar.sectionMarker && (
-                            <span
-                              className={`${styles.sectionBadge} ${
-                                isEstribillo
-                                  ? styles.sectionBadgeEstribillo
-                                  : styles.sectionBadgeDefault
-                              }`}
-                              data-testid={`section-${bar.number}`}
-                            >
-                              {bar.sectionMarker}
-                            </span>
-                          )}
-                          <span className={styles.barNumber}>{bar.number}</span>
-                        </div>
-                        <div className={styles.metaRight}>
-                          {chordDisplay && (
-                            <span
-                              className={`${styles.chordName} ${
-                                isActive ? styles.chordNameActive : ''
-                              }`}
-                              data-testid={`chord-${bar.number}`}
-                            >
-                              {chordDisplay}
-                            </span>
-                          )}
-                          {isLoopEnd && (
-                            <span
-                              className={styles.loopMarker}
-                              title="Fin del bucle"
-                              data-testid="loop-end-icon"
-                            >
-                              🔁
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Notación pentagrama (Score / ScoreTab) */}
-                      {(scoreViewMode === 'score' || scoreViewMode === 'score-tab') && (
-                        <div className={styles.staffContainer} data-testid="staff-notation">
-                          {[0, 1, 2, 3, 4].map((line) => (
-                            <div key={line} className={styles.staffLine} />
-                          ))}
-                        </div>
+              return (
+                <div
+                  key={bar.number}
+                  className={`${styles.barCell} ${isActive ? styles.barCellActive : ''} ${
+                    isSelected ? styles.barCellSelected : ''
+                  } ${isInLoop ? styles.barCellInLoop : ''}`}
+                  data-testid={`bar-${bar.number}`}
+                  data-bar-number={bar.number}
+                  data-is-active={isActive}
+                  data-is-selected={isSelected}
+                  data-is-loop={isInLoop}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Compás ${bar.number}${
+                    bar.sectionMarker ? `, Sección ${bar.sectionMarker}` : ''
+                  }${chordDisplay ? `, Acorde ${chordDisplay}` : ''}`}
+                  onClick={(e) => handleBarClick(bar.number, e)}
+                  onMouseDown={(e) => handleBarMouseDown(bar.number, e)}
+                  onMouseEnter={() => handleBarMouseEnter(bar.number)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleBarClick(bar.number, e as unknown as React.MouseEvent);
+                    }
+                  }}
+                >
+                  {/* Meta superior del compás: Sección, Número, Acorde y Bucle */}
+                  <div className={styles.barTopMeta}>
+                    <div className={styles.metaLeft}>
+                      {bar.sectionMarker && (
+                        <span
+                          className={`${styles.sectionBadge} ${
+                            isEstribillo
+                              ? styles.sectionBadgeEstribillo
+                              : styles.sectionBadgeDefault
+                          }`}
+                          data-testid={`section-${bar.number}`}
+                        >
+                          {bar.sectionMarker}
+                        </span>
                       )}
-
-                      {/* Notación Tablatura (Tab / ScoreTab) */}
-                      {(scoreViewMode === 'tab' || scoreViewMode === 'score-tab') && (
-                        <div className={styles.tabContainer} data-testid="tab-notation">
-                          {Array.from({ length: track.stringCount || 6 }).map((_, stringIdx) => (
-                            <div key={stringIdx} className={styles.tabLine} />
-                          ))}
-
-                          {/* Pulsos y notas del compás */}
-                          <div className={styles.beatsRow}>
-                            {bar.beats.map((beat) => {
-                              const isBeatActive = isActive && beat.index === currentBeat;
-                              return (
-                                <div
-                                  key={beat.index}
-                                  className={`${styles.beatColumn} ${
-                                    isBeatActive ? styles.beatColumnActive : ''
-                                  }`}
-                                  data-beat-index={beat.index}
-                                >
-                                  {isBeatActive && (
-                                    <div
-                                      className={styles.beatCursor}
-                                      data-testid="beat-cursor"
-                                    />
-                                  )}
-                                  {beat.notes.map((note, nIdx) => (
-                                    <span
-                                      key={nIdx}
-                                      className={`${styles.fretNumber} ${
-                                        isBeatActive ? styles.fretNumberActive : ''
-                                      }`}
-                                    >
-                                      {note.fret}
-                                    </span>
-                                  ))}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Fila de letras (cuando showLyrics está activo) */}
-                      {showLyrics && barLyrics && (
-                        <div className={styles.lyricsRow} data-testid="lyrics-line">
-                          {barLyrics}
-                        </div>
+                      <span className={styles.barNumber}>{bar.number}</span>
+                      {isLoopStart && (
+                        <span
+                          className={styles.loopBadge}
+                          title={`Inicio del bucle (compás ${loopRange![0]})`}
+                          data-testid="loop-start-badge"
+                        >
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="m17 2 4 4-4 4" />
+                            <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                            <path d="m7 22-4-4 4-4" />
+                            <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                          </svg>
+                          <span>[</span>
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                    <div className={styles.metaRight}>
+                      {chordDisplay && (
+                        <span
+                          className={`${styles.chordName} ${
+                            isActive ? styles.chordNameActive : ''
+                          }`}
+                          data-testid={`chord-${bar.number}`}
+                        >
+                          {chordDisplay}
+                        </span>
+                      )}
+                      {isLoopEnd && (
+                        <span
+                          className={styles.loopMarker}
+                          title={`Fin del bucle (compás ${loopRange![1]})`}
+                          data-testid="loop-end-icon"
+                        >
+                          <span>]</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="m17 2 4 4-4 4" />
+                            <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                            <path d="m7 22-4-4 4-4" />
+                            <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notación pentagrama (Score / ScoreTab) */}
+                  {(scoreViewMode === 'score' || scoreViewMode === 'score-tab') && (
+                    <div className={styles.staffContainer} data-testid="staff-notation">
+                      <span className={styles.clefSymbol} aria-hidden="true">
+                        {track.isPercussion ? '𝄌' : track.stringCount <= 4 ? '𝄢' : '𝄞'}
+                      </span>
+                      <div className={styles.staffLines}>
+                        {[0, 1, 2, 3, 4].map((line) => (
+                          <div key={line} className={styles.staffLine} />
+                        ))}
+                      </div>
+                      <div className={styles.staffBeatsRow}>
+                        {bar.beats.map((beat) => {
+                          const isBeatActive = isActive && beat.index === currentBeat;
+                          return (
+                            <div
+                              key={`staff-beat-${beat.index}`}
+                              className={`${styles.staffBeatColumn} ${
+                                isBeatActive ? styles.beatColumnActive : ''
+                              }`}
+                              data-beat-index={beat.index}
+                            >
+                              {isBeatActive && (
+                                <div
+                                  className={styles.beatCursor}
+                                  data-testid="beat-cursor"
+                                />
+                              )}
+                              {beat.notes.map((note, nIdx) => {
+                                const baseMidi = track.stringCount <= 4 ? 43 : 64;
+                                const step = Math.round((note.midi - baseMidi) / 2);
+                                const bottomPx = Math.max(2, Math.min(34, 6 + step * 3.5));
+                                return (
+                                  <span
+                                    key={`staff-note-${nIdx}`}
+                                    className={`${styles.staffNoteHead} ${
+                                      isBeatActive ? styles.staffNoteHeadActive : ''
+                                    }`}
+                                    style={{ bottom: `${bottomPx}px` }}
+                                    title={`Nota MIDI ${note.midi}`}
+                                  >
+                                    ●
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notación Tablatura (Tab / ScoreTab) */}
+                  {(scoreViewMode === 'tab' || scoreViewMode === 'score-tab') && (
+                    <div
+                      className={styles.tabContainer}
+                      data-testid="tab-notation"
+                      style={{ height: `${(track.stringCount || 6) * 11}px` }}
+                    >
+                      {/* Líneas horizontales de cuerda */}
+                      {Array.from({ length: track.stringCount || 6 }).map((_, stringIdx) => (
+                        <div
+                          key={stringIdx}
+                          className={styles.tabLine}
+                          style={{ top: `${stringIdx * 11 + 5}px` }}
+                        />
+                      ))}
+
+                      {/* Pulsos y notas del compás */}
+                      <div className={styles.tabBeatsRow}>
+                        {bar.beats.map((beat) => {
+                          const isBeatActive = isActive && beat.index === currentBeat;
+                          return (
+                            <div
+                              key={beat.index}
+                              className={`${styles.tabBeatColumn} ${
+                                isBeatActive ? styles.tabBeatColumnActive : ''
+                              }`}
+                              data-beat-index={beat.index}
+                            >
+                              {isBeatActive && (
+                                <div
+                                  className={styles.tabBeatCursor}
+                                  data-testid="beat-cursor"
+                                />
+                              )}
+                              {beat.notes.map((note, nIdx) => {
+                                const sCount = track.stringCount || 6;
+                                const lineIdx = Math.max(0, Math.min(sCount - 1, note.string - 1));
+                                const topPx = lineIdx * 11 + 5;
+                                return (
+                                  <span
+                                    key={nIdx}
+                                    className={`${styles.fretBadge} ${
+                                      isBeatActive ? styles.fretBadgeActive : ''
+                                    }`}
+                                    style={{ top: `${topPx}px` }}
+                                  >
+                                    {note.fret}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fila de letras (cuando showLyrics está activo) */}
+                  {showLyrics && barLyrics && (
+                    <div className={styles.lyricsRow} data-testid="lyrics-line">
+                      {barLyrics}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

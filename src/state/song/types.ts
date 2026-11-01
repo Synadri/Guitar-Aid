@@ -155,6 +155,8 @@ export interface SongActions {
   setInspectedBar: (barNumber: number | null) => void;
   setBarOverride: (barNumber: number, override: Partial<BarOverride>) => Promise<void>;
   clearBarOverride: (barNumber: number) => Promise<void>;
+  clearBarScaleOverride: (barNumber: number) => Promise<void>;
+  clearBarChordOverride: (barNumber: number) => Promise<void>;
   clearAllBarOverrides: () => Promise<void>;
   setDegreeReferenceMode: (mode: DegreeReferenceMode) => void;
   setScoreViewMode: (mode: ScoreViewMode) => void;

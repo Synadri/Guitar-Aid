@@ -194,40 +194,11 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
           return;
         }
 
-        // Si hay una selección de compases, convertirla en bucle
-        if (state.selectedBarRange) {
-          set({ loopRange: state.selectedBarRange, loopEnabled: true });
-          const song = state.activeSong;
-          if (song) void persistAnnotations(song.id);
-          return;
-        }
-
-        // Si no hay selección, activar sobre los compases de la sección actual
+        // Si hay una selección de compases, convertirla en bucle; si no, bucle sobre el compás activo
+        const range: [number, number] =
+          state.selectedBarRange ?? [state.currentBar, state.currentBar];
+        set({ loopRange: range, loopEnabled: true });
         const song = state.activeSong;
-        const track = song?.tracks[state.activeTrackIndex] ?? song?.tracks[0];
-        if (track && track.bars.length > 0) {
-          const currentBar =
-            track.bars.find((b) => b.number === state.currentBar) ??
-            track.bars[state.currentBar - 1] ??
-            track.bars[0];
-          const section = currentBar?.sectionMarker;
-
-          if (section) {
-            const sectionBars = track.bars.filter((b) => b.sectionMarker === section);
-            if (sectionBars.length > 0) {
-              const startBar = sectionBars[0]!.number;
-              const endBar = sectionBars[sectionBars.length - 1]!.number;
-              const newRange: [number, number] = [startBar, endBar];
-              set({ loopRange: newRange, loopEnabled: true });
-              if (song) void persistAnnotations(song.id);
-              return;
-            }
-          }
-        }
-
-        // Fallback: compás actual
-        const fallbackRange: [number, number] = [state.currentBar, state.currentBar];
-        set({ loopRange: fallbackRange, loopEnabled: true });
         if (song) void persistAnnotations(song.id);
       },
 
@@ -248,11 +219,20 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
       setInspectedBar: (barNumber) => set({ inspectedBar: barNumber }),
 
       setBarOverride: async (barNumber, override) => {
-        const current = get().barOverrides[barNumber] ?? {};
-        const updatedOverrides: Record<number, BarOverride> = {
-          ...get().barOverrides,
-          [barNumber]: { ...current, ...override },
-        };
+        const current = { ...(get().barOverrides[barNumber] ?? {}) };
+        for (const [key, val] of Object.entries(override)) {
+          if (val === undefined) {
+            delete (current as Record<string, unknown>)[key];
+          } else {
+            (current as Record<string, unknown>)[key] = val;
+          }
+        }
+        const updatedOverrides: Record<number, BarOverride> = { ...get().barOverrides };
+        if (Object.keys(current).length === 0) {
+          delete updatedOverrides[barNumber];
+        } else {
+          updatedOverrides[barNumber] = current;
+        }
         set({ barOverrides: updatedOverrides });
         const song = get().activeSong;
         if (song) await persistAnnotations(song.id);
@@ -261,6 +241,39 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
       clearBarOverride: async (barNumber) => {
         const updatedOverrides = { ...get().barOverrides };
         delete updatedOverrides[barNumber];
+        set({ barOverrides: updatedOverrides });
+        const song = get().activeSong;
+        if (song) await persistAnnotations(song.id);
+      },
+
+      clearBarScaleOverride: async (barNumber) => {
+        const current = get().barOverrides[barNumber];
+        if (!current) return;
+        const updated = { ...current };
+        delete updated.tonic;
+        delete updated.scaleId;
+        const updatedOverrides = { ...get().barOverrides };
+        if (Object.keys(updated).length === 0) {
+          delete updatedOverrides[barNumber];
+        } else {
+          updatedOverrides[barNumber] = updated;
+        }
+        set({ barOverrides: updatedOverrides });
+        const song = get().activeSong;
+        if (song) await persistAnnotations(song.id);
+      },
+
+      clearBarChordOverride: async (barNumber) => {
+        const current = get().barOverrides[barNumber];
+        if (!current) return;
+        const updated = { ...current };
+        delete updated.chordId;
+        const updatedOverrides = { ...get().barOverrides };
+        if (Object.keys(updated).length === 0) {
+          delete updatedOverrides[barNumber];
+        } else {
+          updatedOverrides[barNumber] = updated;
+        }
         set({ barOverrides: updatedOverrides });
         const song = get().activeSong;
         if (song) await persistAnnotations(song.id);

@@ -99,6 +99,8 @@ export interface SongModel {
   album?: string;
   initialTempoBpm: number;
   tracks: readonly SongTrack[];
+  /** Notación AlphaTex original si está disponible (para síntesis directa con AlphaSynth). */
+  alphaTex?: string;
 }
 
 /** Sobreescritura manual de un compás por el usuario (plan_fase3.md §4.4 y §5.4). */

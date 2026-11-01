@@ -16,6 +16,8 @@ import styles from './Fretboard.module.css';
 export interface FretboardProps {
   tuning: Tuning;
   frets?: number;
+  /** Traste en el que se ubica la cejilla (capo). 0 si no hay. */
+  capoFret?: number;
   /** Rango visible de trastes (por defecto { from: 0, to: frets ?? 24 }). */
   fretRange?: { from: number; to: number };
   /** Subconjunto de cuerdas activas (1..6). Las demás se atenúan y no aceptan clic. */
@@ -99,6 +101,7 @@ function rawFretWireX(
 export function Fretboard({
   tuning,
   frets = DEFAULT_FRETS,
+  capoFret = 0,
   fretRange,
   activeStrings,
   showInlays = true,
@@ -118,6 +121,10 @@ export function Fretboard({
       : new Set<StringNumber>(mutedStrings as readonly StringNumber[]);
   const neckEndWireX = rawFretWireX(toFret, fromFret, toFret);
   const neckSpan = neckEndWireX - (NUT_X + NUT_WIDTH);
+
+  const stringCount =
+    tuning.strings.length > 0 && tuning.strings.length < 6 ? tuning.strings.length : 6;
+  const instrumentStrings = STRINGS.slice(0, stringCount);
 
   // Coordenada horizontal reflejada en modo zurdo
   const mirrorX = (x: number, width = 0): number => (leftHanded ? TOTAL_WIDTH - x - width : x);
@@ -250,8 +257,22 @@ export function Fretboard({
           data-testid="fretboard-nut"
         />
 
+        {/* Cejilla (Capo) si la pista lo define */}
+        {capoFret > 0 && capoFret <= toFret && (
+          <rect
+            className={styles.capoBar}
+            x={fretCenterX(capoFret) - 4}
+            y={BOARD_TOP_Y - 4}
+            width={8}
+            height={BOARD_HEIGHT + 8}
+            rx={3}
+            data-testid="fretboard-capo"
+            data-capo-fret={capoFret}
+          />
+        )}
+
         {/* Cuerdas, nombres de notas al aire y marcadores de cuerda muteada (×) */}
-        {STRINGS.map((string) => {
+        {instrumentStrings.map((string) => {
           const isActive = !activeStrings || activeStrings.has(string);
           const openMidi = positionToMidi(tuning, { string, fret: 0 });
           const openNoteName = pcName(pitchClassOf(openMidi), nameMode);
@@ -331,8 +352,8 @@ export function Fretboard({
           {footerText}
         </text>
 
-        {/* Posiciones interactivas (6 cuerdas × trastes visibles) */}
-        {STRINGS.map((string) => {
+        {/* Posiciones interactivas (cuerdas activas × trastes visibles) */}
+        {instrumentStrings.map((string) => {
           const isActiveString = !activeStrings || activeStrings.has(string);
           return allFrets.map((fret) => {
             const cx = fretCenterX(fret);
@@ -355,6 +376,8 @@ export function Fretboard({
 
             const roleClass = mark ? ROLE_CLASS[mark.role] : undefined;
             const hasRootRing = mark ? mark.role === 'root' || mark.isRoot === true : false;
+            const isBeforeCapo = capoFret > 0 && fret < capoFret;
+            const opacityStyle = !isActiveString ? 0.28 : isBeforeCapo ? 0.28 : undefined;
 
             return (
               <g
@@ -363,7 +386,7 @@ export function Fretboard({
                 role="button"
                 tabIndex={isActiveString ? 0 : -1}
                 aria-disabled={!isActiveString ? 'true' : undefined}
-                style={!isActiveString ? { pointerEvents: 'none', opacity: 0.28 } : undefined}
+                style={opacityStyle !== undefined ? { opacity: opacityStyle, pointerEvents: !isActiveString ? 'none' : undefined } : undefined}
                 aria-label={`Cuerda ${string}, traste ${fret}, ${noteName}`}
                 aria-pressed={mark ? true : false}
                 data-string={string}
