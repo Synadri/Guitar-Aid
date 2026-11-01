@@ -1,4 +1,27 @@
-import type { PitchClass, Tuning } from '../theory';
+import type {
+  Candidate,
+  ChordQualityId,
+  ChordRef,
+  ChordSequenceAnalysis,
+  FragmentScaleFit,
+  KeyRef,
+  NameMode,
+  PitchClass,
+  ScaleRef,
+  ScaleTypeId,
+  Tuning,
+  WeightedPc,
+} from '../theory';
+
+/**
+ * Contexto de menú exportable al Sandbox (acorde o escala con su raíz/tipo).
+ * Estructuralmente compatible con `MenuContext` de `src/state/sandbox/store`.
+ */
+export type SongMenuContext =
+  | { kind: 'chord'; root: PitchClass; quality: ChordQualityId }
+  | { kind: 'scale'; root: PitchClass; type: ScaleTypeId };
+
+export type MenuContext = SongMenuContext;
 
 /**
  * Modelo intermedio puro de canción (docs/Fase-3/plan_fase3.md §3.1).
@@ -91,5 +114,83 @@ export interface UserSongAnnotations {
   barOverrides: Record<number, BarOverride>;
   loopRange?: [number, number];
   updatedAt: string;
+}
+
+// ============================================================================
+// Tipos de análisis armónico de compás y fragmento (Hito C3)
+// ============================================================================
+
+/** Tonalidad/escala local asignada a un compás específico con detección de modulación. */
+export interface SongKeyByBar {
+  barIndex: number;
+  barNumber: number;
+  key: KeyRef;
+  scale: ScaleRef;
+  isModulation: boolean;
+  candidates: Candidate<FragmentScaleFit>[];
+  sectionMarker?: string;
+}
+
+/** Análisis armónico completo de un compás individual. */
+export interface BarChordAnalysis {
+  barIndex: number;
+  barNumber: number;
+  candidates: Candidate<ChordRef>[];
+  primaryChord: ChordRef | null;
+  annotatedChord?: string;
+  hasOverride: boolean;
+  splitChords?: {
+    firstHalf: Candidate<ChordRef>[];
+    secondHalf: Candidate<ChordRef>[];
+  };
+  weightedPcs: WeightedPc[];
+  estimatedRoot?: PitchClass;
+}
+
+/** Análisis integral de un fragmento o rango de compases de la canción. */
+export interface SongFragmentAnalysis {
+  range: {
+    startBarNumber: number;
+    endBarNumber: number;
+    startBarIndex: number;
+    endBarIndex: number;
+  };
+  weightedPcs: WeightedPc[];
+  keysByBar: SongKeyByBar[];
+  primaryKey: KeyRef;
+  primaryScale: ScaleRef;
+  scaleCandidates: Candidate<FragmentScaleFit>[];
+  barChords: BarChordAnalysis[];
+  progression: ChordSequenceAnalysis;
+}
+
+export interface DetectBarChordsOptions {
+  mode?: NameMode;
+  annotatedChord?: string;
+  root?: PitchClass;
+  keyTonic?: PitchClass;
+  minCoverage?: number;
+}
+
+export interface DetectSongKeysOptions {
+  trackIndex?: number;
+  allTracks?: boolean;
+  mode?: NameMode;
+  barOverrides?: Record<number, BarOverride>;
+}
+
+export interface AnalyzeSongFragmentOptions {
+  trackIndex?: number;
+  allTracks?: boolean;
+  barOverrides?: Record<number, BarOverride>;
+  mode?: NameMode;
+}
+
+export interface BridgeDeckOptions {
+  includeChords?: boolean;
+  includeVoicings?: boolean;
+  includeScales?: boolean;
+  includeProgressions?: boolean;
+  includeDegrees?: boolean;
 }
 

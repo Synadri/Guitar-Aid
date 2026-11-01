@@ -127,6 +127,8 @@ export const REASON_FORMATTERS: Record<ReasonCode, ReasonFormatter> = {
     if (params?.kind === 'rotation') return `rotación de la plantilla ${name}`;
     return `coincide con la plantilla ${name}`;
   },
+  annotatedInScore: (params) =>
+    params?.name ? `anotado en la partitura (${params.name})` : 'anotado en la partitura',
 };
 
 /** Traduce una razón estructurada del módulo de teoría a texto en español. */

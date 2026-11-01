@@ -53,7 +53,9 @@ export type ReasonCode =
   | 'secondaryDominant'
   | 'modalBorrowing'
   | 'chromaticChord'
-  | 'matchesProgression';
+  | 'matchesProgression'
+  // — Fase 3: detección de acordes por compás (`detectBarChords`) —
+  | 'annotatedInScore';
 
 export interface Reason {
   code: ReasonCode;

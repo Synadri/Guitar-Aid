@@ -2,3 +2,5 @@
 export * from './types';
 export * from './importer';
 export * from './presets';
+export * from './analyzer';
+export * from './bridges';

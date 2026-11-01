@@ -130,4 +130,36 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
      - `Blues & Rock Riff en E`: 2 pistas (Guitarra Lead y Guitarra Rítmica), secciones `Intro Riff` y `Blues Solo & Chords`, power chords (`E5`, `A5`, `B5`), acordes dominantes (`E7`, `A7`, `B7`), ghost notes y bends expresivos (`{b bend (0 4)}`).
      - `Modulación y Menor Armónica en Am/C`: 1 pista (Guitarra Española), sección A en La menor con cadencia `Am–Dm–E7–Am` (con `G♯`, grado sensible de la escala menor armónica) y modulación en sección B a Do mayor con cadencia completa `C–F–Dm–G7–C`.
 
+---
+
+## 2026-11-01 — Implementación del hito C3 (analizador puro de fragmentos, tonalidad por compás y puentes)
+
+1. **Aislamiento y compatibilidad estructural de `MenuContext` en `src/song/types.ts`:**
+   - **Decisión:** Definir el tipo puro `SongMenuContext` (reexportado como `MenuContext`) en `src/song/types.ts` con la estructura canónica `{ kind: 'chord'; root: PitchClass; quality: ChordQualityId } | { kind: 'scale'; root: PitchClass; type: ScaleTypeId }`.
+   - **Justificación:** La capa `src/song/` tiene prohibido importar `src/state/` por la regla de capas unidireccional (verificada por ESLint y `layers.test.ts`). La compatibilidad estructural de TypeScript permite que los puentes generen contextos de menú consumibles por `sandboxStore.setContext` de forma limpia sin violar la arquitectura ni crear acoplamiento con Zustand.
+
+2. **Detección tolerante de acordes por compás (`detectBarChords` en `src/song/analyzer.ts`):**
+   - **Decisión:** Evaluar las 12 raíces $\times$ 19 calidades del catálogo calculando la cobertura ponderada sobre el peso rítmico/métrico del compás (`coverageRatio = coveredWeight / totalWeight`). Exigir la presencia de la fundamental y de al menos un tono característico (3ª mayor/menor, suspensión sus2/sus4 o díada [0, 7] en acordes de quinta `5`), bonificando la coincidencia con la raíz estimada por `estimateRoot` (+40), inversiones con bajo en el acorde (+20) y cifrados anotados en la partitura (+85 con la nueva razón `annotatedInScore`).
+   - **Comportamiento ante silencios y notas aisladas:** Si el compás está en silencio o solo contiene 1 clase de altura sin cifrado anotado, devuelve `[]` en lugar de inventar un acorde artificial.
+   - **Justificación:** En la música real (arpegios, riffs melódicos), la presencia de notas melódicas de paso en pulsos débiles hacía inviable un detector estricto tipo Sandbox. La ponderación rítmica y métrica permite que `detectBarChords` recupere el acorde principal con precisión (criterio de aceptación c).
+
+3. **Desglose de compases con cambio armónico por mitades (`splitChords`):**
+   - **Decisión:** En compases largos ($\ge 1920$ ticks, como 4/4) con al menos dos pulsos, evaluar de forma independiente la primera y la segunda mitad del compás. Si ambas mitades arrojan acordes principales distintos (p. ej. Do mayor en tiempos 1–2 y Sol mayor en tiempos 3–4), exponer `splitChords: { firstHalf, secondHalf }` en `BarChordAnalysis` y alimentar la secuencia de progresión con ambos acordes.
+   - **Prevalencia del override manual:** Si el usuario fija manualmente un acorde para el compás (`barOverrides`), el override prevalece sobre `splitChords` y unifica el compás, garantizando que los numerales romanos y las marcas de mástil/piano respondan a la decisión explícita del usuario.
+
+4. **Estabilidad tonal y detección de modulación (`detectSongKeysByBar`):**
+   - **Decisión:** Estimar la tonalidad local de cada compás combinando sus pesos con una ventana contextual atenuada de compases vecinos ($[i-1, i+1]$, peso 0.4) acotada estrictamente a la sección activa (`sectionMarker`). Aplicar un bono de continuidad armónica (+18 puntos) a la escala del compás anterior dentro de la misma sección y pasar como `openingRoot` la raíz estimada del compás. Al comenzar una nueva sección, la continuidad se reinicia, lo que permite detectar modulaciones (`isModulation: true`) sin saltos espurios por acordes dominantes transitorios o notas de paso.
+   - **Justificación:** Resuelve con fidelidad el criterio de aceptación (f) en piezas con modulación (como la cadencia en La menor con dominante E7 en la Parte A y modulación a Do mayor en la Parte B de la pieza de ejemplo).
+
+5. **Puentes puros con Sandbox y Aprender (`src/song/bridges.ts`):**
+   - **Decisión:**
+     - **Sandbox:** `songChordToSandboxContext`, `songScaleToSandboxContext`, `songKeyToSandboxContext` y `fragmentToSandboxContext` convierten fragmentos, escalas o acordes detectados al formato `MenuContext`.
+     - **Aprender (Tarjetas SRS):** `fragmentToDeckSources` genera de forma declarativa fuentes `ChordsDeckSource`, `VoicingsDeckSource` (con familias `open`, `barre-E`, `barre-A`), `ScalesDeckSource`, `ProgressionsDeckSource` (si el fragmento encaja con una plantilla) y `DegreesDeckSource`, verificando que `buildDeckCardIds` expanda identificadores de tarjeta válidos sin errores (criterio n).
+     - **Aprender (Ejercicios):** `fragmentToDrillConfig` examina las notas reales ejecutadas en el fragmento y delimita automáticamente el rango de trastes `[minFret, maxFret]`, las cuerdas activas empleadas, la afinación de la pista y las calidades/escala para una práctica delimitada.
+
+6. **Adición de `annotatedInScore` al catálogo de razones:**
+   - **Decisión:** Incorporar el identificador estructurado `'annotatedInScore'` a `ReasonCode` en `src/theory/analysis/types.ts` y su formateador correspondiente en `REASON_FORMATTERS` (`src/ui/panels/texts.ts`).
+   - **Justificación:** Permite que los algoritmos de análisis armónico y la interfaz justifiquen formalmente cuándo un candidato coincide o está respaldado por el cifrado explícito presente en la partitura original.
+
+
 
