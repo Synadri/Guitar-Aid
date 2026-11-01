@@ -161,5 +161,38 @@ Queda cerrada la especificación visual e interactiva en [interfaz_fase3.md](int
    - **Decisión:** Incorporar el identificador estructurado `'annotatedInScore'` a `ReasonCode` en `src/theory/analysis/types.ts` y su formateador correspondiente en `REASON_FORMATTERS` (`src/ui/panels/texts.ts`).
    - **Justificación:** Permite que los algoritmos de análisis armónico y la interfaz justifiquen formalmente cuándo un candidato coincide o está respaldado por el cifrado explícito presente en la partitura original.
 
+---
+
+## 2026-11-01 — Implementación del hito C4 (estado del Modo Canción, marcas e IndexedDB)
+
+1. **Diseño del repositorio de persistencia `IndexedDB` (`guitar-aid-songs-db`, versión 1) con fallback y adaptador en memoria:**
+   - **Decisión:** Implementar la interfaz `SongStorage` con dos almacenes de objetos independientes: `'songs'` (`keyPath: 'id'`) para guardar canciones importadas (`StoredSong` con metadatos de título, artista, formato, tamaño y marcas de tiempo) y `'annotations'` (`keyPath: 'songId'`) para registrar sobreescrituras manuales de compás y rangos de bucle (`UserSongAnnotations`). Implementar `createMemorySongStorage` (con clonado profundo inmutable) y `createIndexedDbSongStorage` (envolviendo el ciclo de vida de transacciones IndexedDB en Promises). Proporcionar la fábrica `resolveDefaultSongStorage()` que detecta la presencia de `globalThis.indexedDB` en tiempo de ejecución.
+   - **Justificación:** Cumple el criterio (j) sin dependencias externas en runtime. Garantiza que las pruebas unitarias y de integración en Vitest (Node.js) se ejecuten en milisegundos de forma aislada y determinista, mientras que en el navegador los archivos binarios de Guitar Pro y las anotaciones sobreviven al recargar sin chocar con el límite de 5 MB de `localStorage`.
+
+2. **Estado reactivo en Zustand (`src/state/song/store.ts`) con precarga de la primera pieza de ejemplo:**
+   - **Decisión:** Conforme a lo acordado en `interfaz_fase3.md` y `plan_fase3.md`, el store inicializa de forma inmediata cargando el modelo de `Pop Diatónico en C/Am` como canción activa por defecto (`activeSong`), con `currentBar: 1` (1-based), `currentBeat: 0`, `degreeReferenceMode: 'chord'`, `scoreViewMode: 'tab'`, `showLyrics: true` y `analysisSource: 'active-track'`.
+   - **Justificación:** Evita estados vacíos rotos al entrar por primera vez al Modo Canción. El usuario y la interfaz encuentran de inmediato una canción estructurada y lista para explorar, practicar e inspeccionar.
+
+3. **Validación defensiva al importar canciones y protección del estado:**
+   - **Decisión:** En `importSong`, validar rigurosamente la integridad de `model` (existencia de `id` y `tracks.length > 0`). Si el archivo o modelo está corrupto o vacío, se registra el mensaje descriptivo en `state.error` sin alterar `activeSong` ni corromper el estado en memoria o almacenamiento.
+   - **Justificación:** Satisface directamente el criterio de aceptación (j): un archivo inválido muestra un aviso accesible al usuario sin degradar la canción que ya estuviera en reproducción o estudio.
+
+4. **Comportamiento musical de `toggleLoop` y sincronización de secciones:**
+   - **Decisión:** Al accionar `toggleLoop`, si el bucle está encendido se apaga. Si está apagado: (1) si hay un rango de compases seleccionado (`selectedBarRange`), se activa sobre él; (2) si no hay selección previa, se activa automáticamente sobre los compases de la sección actual (`sectionMarker`, p. ej. compases 1–4 para "Intro"); (3) si el compás carece de sección, abarca el compás actual. El bucle se persiste de forma asíncrona en las anotaciones de la canción en storage.
+   - **Justificación:** Implementa con exactitud el comportamiento fijado en `interfaz_fase3.md` (§3.3 y §8), haciendo que la tecla <kbd>L</kbd> o el botón `Bucle` funcionen de forma intuitiva tanto sobre selecciones manuales como sobre secciones de la canción.
+
+5. **Generación y resolución de marcas del mástil y piano (`selectSongFretboardMarks` y `selectSongPianoMarks`):**
+   - **Decisión:** Desacoplar la afinación del mástil de la afinación del Sandbox: `selectSongFretboardMarks` lee la afinación directamente de la pista activa (`track.tuning`), adaptando las marcas a bajos de 4 cuerdas o afinaciones alternativas (Drop D, etc.) sin mutar `sandboxStore.tuning` (criterio i). Superponer las capas visuales con la jerarquía de prioridades `ROLE_PRIORITY`: notas del pulso activo (`pinned`, prioridad 6) sobre el fondo de escala (`scale-bg`, prioridad 3) y previsualización (`preview`, prioridad 2).
+   - **Justificación:** Aísla completamente el estado del Modo Canción respecto al Sandbox y asegura que el mástil refleje con fidelidad las posiciones físicas reales de cada instrumento en la tablatura.
+
+6. **Reactividad inmediata a sobreescrituras manuales (`barOverrides`, criterio h):**
+   - **Decisión:** `resolveActiveHarmony` evalúa con máxima prioridad cualquier sobreescritura manual fijada por el usuario en `barOverrides[barNumber]` (acorde o tonalidad). Si el conmutador `degreeReferenceMode` está en `'chord'`, la raíz de referencia es la fundamental del acorde (o del acorde fijado con `chordId`); si está en `'key'`, es la tónica de la tonalidad. Al fijar un override, `selectSongFretboardMarks`, `selectSongPianoMarks` y `selectBarProgression` recalculan al instante las etiquetas de grado (`1`, `♭3`, `5`…) y los numerales romanos (p. ej. `vi` en lugar de `I`), y guardan la anotación en el storage.
+   - **Justificación:** Cumple estrictamente el criterio de aceptación (h) y respeta el principio del «criterio del músico».
+
+7. **Memorización en selectores de análisis (`src/state/song/selectors/analysis.ts`):**
+   - **Decisión:** Memorizar el resultado de `selectActiveFragmentAnalysis` mediante una clave compuesta por el id de la canción, compases de inicio y fin, pista activa, fuente de análisis, hash JSON de `barOverrides` y modo de enarmonía.
+   - **Justificación:** Evita recalcular de forma pesada el análisis armónico y ranking de escalas en cada pulso o avance de tiempo dentro del mismo compás o rango seleccionado, garantizando una respuesta fluida a 60 fps durante la reproducción en vivo.
+
+
 
 
