@@ -11,7 +11,12 @@ import {
   type ScoreViewMode,
   type SongStore,
 } from '../../state/song';
-import { getPresetSong, PRESET_POP_DIATONIC, calculateTickForBarBeat } from '../../song';
+import {
+  getPresetSong,
+  PRESET_POP_DIATONIC,
+  calculateTickForBarBeat,
+  calculatePlaybackRangeForBars,
+} from '../../song';
 import styles from './AlphaTabViewport.module.css';
 
 export interface AlphaTabViewportProps {
@@ -264,6 +269,18 @@ export function AlphaTabViewport({
     }
   }, [activeSong, activeTrackIndex]);
 
+  // 5. Sincronización reactiva del bucle A–B (loopRange y loopEnabled) con el controlador de audio
+  useEffect(() => {
+    if (loopEnabled && loopRange && track?.bars) {
+      const bounds = calculatePlaybackRangeForBars(track.bars, loopRange);
+      controller.setPlaybackRange(bounds);
+      controller.setLoopEnabled(Boolean(bounds));
+    } else {
+      controller.setPlaybackRange(null);
+      controller.setLoopEnabled(false);
+    }
+  }, [loopEnabled, loopRange, track?.bars, controller]);
+
   // Selección de compases con ratón
   const handleBarClick = (barNumber: number, event: React.MouseEvent) => {
     if (event.shiftKey) {
@@ -273,6 +290,12 @@ export function AlphaTabViewport({
       songStore.getState().setSelectedBarRange([start, end]);
       songStore.getState().setInspectedBar(barNumber);
     } else {
+      // Si el bucle está activo y se pulsa fuera de su rango, desactivar bucle para permitir navegar libremente
+      if (loopEnabled && loopRange && (barNumber < loopRange[0] || barNumber > loopRange[1])) {
+        songStore.getState().setLoopEnabled(false);
+        controller.setLoopEnabled(false);
+        controller.setPlaybackRange(null);
+      }
       // Clic simple: fija compás activo y quita rango
       songStore.getState().setCurrentBar(barNumber);
       songStore.getState().setCurrentBeat(0);

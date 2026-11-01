@@ -385,3 +385,21 @@ Tras la implementación de los componentes visuales de Fase 3, se identificó qu
    - Se eliminaron por completo las advertencias de compilación.
 4. **Favicon SVG inline:**
    - Se añadió `<link rel="icon" href="data:image/svg+xml,...">` con el icono 🎸 en [`index.html`](../../index.html) para eliminar la petición 404.
+
+---
+
+## 2026-11-01 — Corrección del bucle de reproducción (playback looping), cálculo de ticks y continuidad de posición al conmutar de pista
+
+1. **Sincronización del rango de compases en la interfaz con los ticks de `AlphaSynth`:**
+   - **Problema:** En `songStore`, el bucle se modelaba en números de compás `[startBar, endBar]` (lo que permitía resaltar visualmente las celdas en el visor), pero nunca se calculaban ni enviaban los ticks MIDI correspondientes (`PlaybackRangeBounds { startTick, endTick }`) a `AlphaSynthController` ni a la instancia de `AlphaTabApi`. Como resultado, `player.playbackRange` permanecía `null` y el sintetizador continuaba reproduciendo los compases posteriores como si no hubiera ningún bucle activo. Además, al completarse cada iteración de un bucle, el evento nativo `finished` de AlphaSynth apagaba `isPlaying = false`, deteniendo erróneamente la reproducción.
+   - **Decisión y solución:**
+     - Se implementó la función pura `calculatePlaybackRangeForBars(bars, loopRange)` en [`src/song/ticks.ts`](../../src/song/ticks.ts), la cual calcula de manera robusta el tick inicial (`calculateTickForBarBeat(bars, startBar, 0)`) y el tick final (`calculateTickForBarBeat(bars, endBar + 1, 0)`), ordenando automáticamente rangos invertidos y soportando métricas variables.
+     - En `AlphaTabViewport.tsx`, se añadió un hook `useEffect` que sincroniza reactivamente `loopRange` y `loopEnabled` con `controller.setPlaybackRange` y `controller.setLoopEnabled`.
+     - En `alphaSynthController.ts`, se modificó `applyLoopToPlayer` para asignar `player.playbackRange = state.isLooping ? state.loopRange : null`, asegurando que al desactivar el bucle el reproductor elimine cualquier restricción de rango. Asimismo, en `emitFinish` se omite pausar la reproducción (`isPlaying = false`) si el bucle está encendido (`state.isLooping && state.loopRange`).
+     - En `SongTopBar.tsx` y `SongView.tsx`, al iniciar la reproducción con Play o <kbd>Espacio</kbd>, si el cursor activo queda fuera de los compases en bucle, se reposiciona automáticamente en el inicio del bucle. Al hacer clic simple fuera del bucle, este se desactiva permitiendo la libre navegación.
+
+2. **Continuidad de reproducción al cambiar de pista en bucle (prevención del reinicio forzado a `startTick`):**
+   - **Problema:** En la librería AlphaTab, el setter nativo `api.playbackRange = value` ejecuta incondicionalmente `if (value) this.tickPosition = value.startTick;`. Al conmutar de pista en el selector de `SongTopBar`, la referencia de `track.bars` cambiaba, disparando el efecto de sincronización y reasignando `player.playbackRange` con los mismos ticks. Esto provocaba que, en medio de la reproducción, el cursor y el audio saltaran inmediatamente al compás inicial del bucle en lugar de continuar reproduciendo de forma fluida.
+   - **Decisión y solución:**
+     - Se implementó la función auxiliar `areRangesEqual(a, b)` en `alphaSynthController.ts`. Si `setPlaybackRange` recibe un rango con ticks idénticos (`startTick` y `endTick`) a los ya presentes, se omite por completo reasignar la propiedad en `player`. De igual forma, en `setLoopEnabled` se omite la reasignación si `state.isLooping` ya coincide.
+     - Si el rango cambia mientras la reproducción está activa (`state.isPlaying === true`), el controlador captura `player.tickPosition` antes de la asignación y, si dicho tick queda comprendido en el nuevo rango, restaura inmediatamente `player.tickPosition = curTick`, garantizando la continuidad ininterrumpida de la reproducción activa al cambiar de pista.

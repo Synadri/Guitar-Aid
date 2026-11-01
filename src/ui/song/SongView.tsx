@@ -22,7 +22,7 @@ import {
   positionToMidi,
   type FretPosition,
 } from '../../theory';
-import { calculateTickForBarBeat } from '../../song';
+import { calculateTickForBarBeat, calculatePlaybackRangeForBars } from '../../song';
 import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
 import { SongContextStrip } from './SongContextStrip';
@@ -88,7 +88,16 @@ export function SongView({
           const state = songStore.getState();
           const curTrack =
             state.activeSong?.tracks[state.activeTrackIndex] ?? state.activeSong?.tracks[0];
-          const tick = calculateTickForBarBeat(curTrack?.bars, state.currentBar, state.currentBeat);
+          let startBar = state.currentBar;
+          let startBeat = state.currentBeat;
+          if (state.loopEnabled && state.loopRange) {
+            if (startBar < state.loopRange[0] || startBar > state.loopRange[1]) {
+              startBar = state.loopRange[0];
+              startBeat = 0;
+              songStore.getState().setCurrentPosition(startBar, 0);
+            }
+          }
+          const tick = calculateTickForBarBeat(curTrack?.bars, startBar, startBeat);
           controller.seekToTick(tick);
         }
         void controller.playPause().then(() => {
@@ -100,7 +109,18 @@ export function SongView({
       if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         songStore.getState().toggleLoop();
-        controller.setLoopEnabled(songStore.getState().loopEnabled);
+        const updated = songStore.getState();
+        const curTrack =
+          updated.activeSong?.tracks[updated.activeTrackIndex] ?? updated.activeSong?.tracks[0];
+        const bars = curTrack?.bars;
+        if (updated.loopEnabled && updated.loopRange && bars) {
+          const bounds = calculatePlaybackRangeForBars(bars, updated.loopRange);
+          controller.setPlaybackRange(bounds);
+          controller.setLoopEnabled(Boolean(bounds));
+        } else {
+          controller.setPlaybackRange(null);
+          controller.setLoopEnabled(false);
+        }
         return;
       }
 

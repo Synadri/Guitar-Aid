@@ -13,7 +13,7 @@ import {
 } from '../../state';
 import { SettingsPopover } from '../toolbar/SettingsPopover';
 import { TrackMixerPopover } from './TrackMixerPopover';
-import { calculateTickForBarBeat } from '../../song';
+import { calculateTickForBarBeat, calculatePlaybackRangeForBars } from '../../song';
 import styles from './SongTopBar.module.css';
 
 export interface SongTopBarProps {
@@ -93,7 +93,16 @@ export function SongTopBar({
   const handlePlayPause = async () => {
     if (!controller.isPlaying()) {
       const state = songStore.getState();
-      const tick = calculateTickForBarBeat(currentTrack?.bars, state.currentBar, state.currentBeat);
+      let startBar = state.currentBar;
+      let startBeat = state.currentBeat;
+      if (state.loopEnabled && state.loopRange) {
+        if (startBar < state.loopRange[0] || startBar > state.loopRange[1]) {
+          startBar = state.loopRange[0];
+          startBeat = 0;
+          songStore.getState().setCurrentPosition(startBar, 0);
+        }
+      }
+      const tick = calculateTickForBarBeat(currentTrack?.bars, startBar, startBeat);
       controller.seekToTick(tick);
     }
     await controller.playPause();
@@ -111,7 +120,15 @@ export function SongTopBar({
   const handleToggleLoop = () => {
     songStore.getState().toggleLoop();
     const updated = songStore.getState();
-    controller.setLoopEnabled(updated.loopEnabled);
+    const bars = currentTrack?.bars;
+    if (updated.loopEnabled && updated.loopRange && bars) {
+      const bounds = calculatePlaybackRangeForBars(bars, updated.loopRange);
+      controller.setPlaybackRange(bounds);
+      controller.setLoopEnabled(Boolean(bounds));
+    } else {
+      controller.setPlaybackRange(null);
+      controller.setLoopEnabled(false);
+    }
   };
 
   // Conmutar metrónomo

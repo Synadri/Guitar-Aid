@@ -346,6 +346,39 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
       fireEvent.keyDown(window, { key: 'l' });
     });
     expect(songStore.getState().loopEnabled).toBe(true);
+    expect(controller.isLooping()).toBe(true);
+    expect(controller.getPlaybackRange()).toEqual({ startTick: 0, endTick: 3840 });
+
+    // L de nuevo: desactiva bucle
+    act(() => {
+      fireEvent.keyDown(window, { key: 'l' });
+    });
+    expect(songStore.getState().loopEnabled).toBe(false);
+    expect(controller.isLooping()).toBe(false);
+    expect(controller.getPlaybackRange()).toBeNull();
+  });
+
+  it('al pulsar Play con bucle activo y cursor fuera de él, reposiciona la reproducción al inicio del bucle', async () => {
+    const { songStore, controller } = setupSongView();
+
+    // Cursor en compás 1
+    expect(songStore.getState().currentBar).toBe(1);
+
+    // Bucle activo en compases 3..5
+    act(() => {
+      songStore.getState().setLoopRange([3, 5]);
+      songStore.getState().setLoopEnabled(true);
+    });
+
+    // Iniciar Play con barra espaciadora
+    await act(async () => {
+      fireEvent.keyDown(window, { key: ' ' });
+    });
+
+    // Debe haberse reposicionado al inicio del bucle (compás 3, pulso 0 = tick 7680)
+    expect(songStore.getState().currentBar).toBe(3);
+    expect(songStore.getState().currentBeat).toBe(0);
+    expect(controller.isPlaying()).toBe(true);
   });
 
   it('Restablecimiento independiente de sobreescrituras (overrides): restablecer tonalidad no borra acorde y viceversa', async () => {
@@ -435,6 +468,40 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
     expect(songStore.getState().isPlaying).toBe(true);
     // El reproductor sigue conectado al controlador
     expect(controller.getPlayer()).toBe(mockPlayer);
+  });
+
+  it('al cambiar de pista durante la reproducción con un bucle activo, no salta al inicio del bucle', async () => {
+    const { songStore, controller, mockPlayer } = setupSongView();
+
+    // Activar bucle en compases 2..5
+    act(() => {
+      songStore.getState().setLoopRange([2, 5]);
+      songStore.getState().setLoopEnabled(true);
+    });
+
+    // Iniciar reproducción
+    await act(async () => {
+      await controller.play();
+      songStore.getState().setIsPlaying(true);
+    });
+
+    // Supongamos que la reproducción avanza por el compás 4 (tick 11520)
+    controller.seekToTick(11520);
+    act(() => {
+      songStore.getState().setCurrentPosition(4, 0);
+    });
+    expect(mockPlayer.tickPosition).toBe(11520);
+
+    // Cambiar de pista a la pista 1 (Bajo)
+    const trackSelect = screen.getByLabelText('Seleccionar pista activa');
+    act(() => {
+      fireEvent.change(trackSelect, { target: { value: '1' } });
+    });
+
+    // La reproducción sigue activa y la posición no se ha reiniciado al compás 2 (3840)
+    expect(controller.isPlaying()).toBe(true);
+    expect(mockPlayer.tickPosition).toBe(11520);
+    expect(songStore.getState().currentBar).toBe(4);
   });
 
   it('al cambiar de pista y pulsar reproducir se continúa desde el compás/pulso actual', async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, act } from '@testing-library/react';
 import { createAlphaSynthController, type AlphaSynthLike } from '../../audio';
 import { createSongStore, createMemorySongStorage } from '../../state/song';
 import { AlphaTabViewport } from './AlphaTabViewport';
@@ -284,5 +284,56 @@ describe('AlphaTabViewport (Hito C5, docs/Fase-3/plan_fase3.md §7 C5)', () => {
     expect(mixer[0]?.muted).toBe(true);
     expect(mixer[0]?.volume).toBe(0.6);
     expect(mixer[1]?.solo).toBe(true);
+  });
+
+  it('sincroniza reactivamente el rango de reproducción en ticks con el controlador al cambiar el bucle', async () => {
+    const { songStore, controller } = setupViewportTest();
+
+    render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+    // Inicialmente sin bucle
+    expect(controller.isLooping()).toBe(false);
+    expect(controller.getPlaybackRange()).toBeNull();
+
+    // Activar bucle en compases 2..4
+    act(() => {
+      songStore.getState().setLoopRange([2, 4]);
+      songStore.getState().setLoopEnabled(true);
+    });
+
+    // Compás 2 inicia en 3840 ticks (4/4) y compás 4 termina en 15360 ticks
+    expect(controller.isLooping()).toBe(true);
+    expect(controller.getPlaybackRange()).toEqual({ startTick: 3840, endTick: 15360 });
+
+    // Desactivar bucle
+    act(() => {
+      songStore.getState().setLoopEnabled(false);
+    });
+
+    expect(controller.isLooping()).toBe(false);
+    expect(controller.getPlaybackRange()).toBeNull();
+  });
+
+  it('al hacer clic simple en un compás fuera del bucle activo, desactiva el bucle y salta al compás pulsado', () => {
+    const { songStore, controller } = setupViewportTest();
+
+    render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+    // Bucle en compases 2..4
+    act(() => {
+      songStore.getState().setLoopRange([2, 4]);
+      songStore.getState().setLoopEnabled(true);
+    });
+
+    expect(songStore.getState().loopEnabled).toBe(true);
+
+    // Clic en compás 6 (fuera del bucle)
+    const bar6 = screen.getByTestId('bar-6');
+    fireEvent.click(bar6);
+
+    expect(songStore.getState().currentBar).toBe(6);
+    expect(songStore.getState().loopEnabled).toBe(false);
+    expect(controller.isLooping()).toBe(false);
+    expect(controller.getPlaybackRange()).toBeNull();
   });
 });

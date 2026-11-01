@@ -221,6 +221,11 @@ export function createAlphaSynthController(
   };
 
   const emitFinish = () => {
+    // Si el bucle está activo con un rango definido, el evento finish de AlphaSynth
+    // indica la finalización de un ciclo de bucle y retorno a startTick; no debe detenerse la reproducción.
+    if (state.isLooping && state.loopRange) {
+      return;
+    }
     state.isPlaying = false;
     emitState();
     for (const listener of finishListeners) {
@@ -256,7 +261,7 @@ export function createAlphaSynthController(
   const applyLoopToPlayer = () => {
     if (!player) return;
     player.isLooping = state.isLooping;
-    player.playbackRange = state.loopRange;
+    player.playbackRange = state.isLooping ? state.loopRange : null;
   };
 
   const applySingleTrackToPlayer = (trackIndex: number, item: TrackMixerItem) => {
@@ -513,8 +518,19 @@ export function createAlphaSynthController(
     emitState();
   };
 
+  const areRangesEqual = (
+    a: PlaybackRangeBounds | null,
+    b: PlaybackRangeBounds | null,
+  ): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return a.startTick === b.startTick && a.endTick === b.endTick;
+  };
+
   const setLoopEnabled = (enabled: boolean) => {
-    state.isLooping = Boolean(enabled);
+    const next = Boolean(enabled);
+    if (state.isLooping === next) return;
+    state.isLooping = next;
     applyLoopToPlayer();
     emitState();
   };
@@ -524,8 +540,25 @@ export function createAlphaSynthController(
   };
 
   const setPlaybackRange = (range: PlaybackRangeBounds | null) => {
+    if (areRangesEqual(state.loopRange, range)) {
+      return;
+    }
+    const curTick = player?.tickPosition;
     state.loopRange = range;
     applyLoopToPlayer();
+    // Si la reproducción está activa y el cursor ya se encontraba dentro del nuevo rango,
+    // preservamos la posición para evitar que AlphaTab reinicie el playback a startTick.
+    if (
+      state.isPlaying &&
+      curTick !== undefined &&
+      range &&
+      curTick >= range.startTick &&
+      curTick <= range.endTick
+    ) {
+      if (player) {
+        player.tickPosition = curTick;
+      }
+    }
     emitState();
   };
 

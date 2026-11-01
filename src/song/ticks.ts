@@ -1,6 +1,14 @@
 import type { SongBar } from './types';
 
 /**
+ * Límites de un rango de reproducción en ticks MIDI absolutos.
+ */
+export interface PlaybackTickBounds {
+  startTick: number;
+  endTick: number;
+}
+
+/**
  * Calcula el tick MIDI absoluto (base 960 ticks/negra) correspondiente al compás y pulso dados.
  *
  * @param bars Lista de compases de la pista.
@@ -33,4 +41,30 @@ export function calculateTickForBarBeat(
   }
 
   return totalTick;
+}
+
+/**
+ * Calcula los límites en ticks MIDI para un bucle entre compases dados [startBar, endBar] (1-based, inclusive).
+ *
+ * El bucle abarca desde el primer tick del compás de inicio hasta el último tick del compás final
+ * (es decir, el tick de inicio del compás inmediatamente posterior).
+ *
+ * @param bars Lista ordenada de compases de la pista.
+ * @param loopRange Tupla [compasInicio, compasFin] (1-based).
+ * @returns Objeto { startTick, endTick } o null si no hay compases o rango válido.
+ */
+export function calculatePlaybackRangeForBars(
+  bars: readonly SongBar[] | undefined,
+  loopRange: readonly [number, number] | [number, number] | null | undefined,
+): PlaybackTickBounds | null {
+  if (!bars || bars.length === 0 || !loopRange) return null;
+  const [start, end] = loopRange;
+  const clampedStart = Math.max(1, Math.min(start, end));
+  const clampedEnd = Math.max(1, Math.max(start, end));
+
+  const startTick = calculateTickForBarBeat(bars, clampedStart, 0);
+  const endTick = calculateTickForBarBeat(bars, clampedEnd + 1, 0);
+
+  if (endTick <= startTick) return null;
+  return { startTick, endTick };
 }

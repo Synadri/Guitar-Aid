@@ -319,6 +319,61 @@ describe('AlphaSynthController (Hito C5, docs/Fase-3/plan_fase3.md §7 C5)', () 
     expect(mockPlayer.isLooping).toBe(false);
   });
 
+  it('setPlaybackRange no reasigna al reproductor si el rango de ticks es idéntico, y preserva tickPosition en reproducción activa', async () => {
+    let playbackRangeAssignments = 0;
+    let currentPlaybackRange: { startTick: number; endTick: number } | null = null;
+    let currentTickPosition = 0;
+
+    const customPlayer: AlphaSynthLike = {
+      isReadyForPlayback: true,
+      get playbackRange() {
+        return currentPlaybackRange;
+      },
+      set playbackRange(val) {
+        playbackRangeAssignments++;
+        currentPlaybackRange = val as { startTick: number; endTick: number } | null;
+        // Simular comportamiento nativo de AlphaTab: al asignar playbackRange, resetea a startTick
+        if (val) currentTickPosition = val.startTick;
+      },
+      get tickPosition() {
+        return currentTickPosition;
+      },
+      set tickPosition(val) {
+        currentTickPosition = val ?? 0;
+      },
+      play: () => true,
+      pause: () => {},
+    };
+
+    const controller = createAlphaSynthController({ player: customPlayer });
+    controller.setLoopEnabled(true);
+
+    const initialAssignments = playbackRangeAssignments;
+
+    // 1. Asignar primer rango
+    controller.setPlaybackRange({ startTick: 1920, endTick: 5760 });
+    expect(playbackRangeAssignments).toBe(initialAssignments + 1);
+    expect(currentTickPosition).toBe(1920);
+
+    // 2. Avanzar cursor a 3840 ticks e iniciar reproducción
+    controller.seekToTick(3840);
+    expect(currentTickPosition).toBe(3840);
+    await controller.play();
+    expect(controller.isPlaying()).toBe(true);
+
+    // 3. Volver a llamar setPlaybackRange con el mismo rango (ej. al cambiar de pista en la misma partitura)
+    controller.setPlaybackRange({ startTick: 1920, endTick: 5760 });
+    // No debe haber ninguna nueva reasignación al reproductor
+    expect(playbackRangeAssignments).toBe(initialAssignments + 1);
+    expect(currentTickPosition).toBe(3840);
+
+    // 4. Cambiar rango mientras se reproduce (ej. expandir bucle a 1920..7680)
+    controller.setPlaybackRange({ startTick: 1920, endTick: 7680 });
+    expect(playbackRangeAssignments).toBe(initialAssignments + 2);
+    // Aunque el setter nativo de AlphaTab hubiera intentado saltar a 1920, la posición se preserva
+    expect(currentTickPosition).toBe(3840);
+  });
+
   it('mezclador multipista independiente: Mute, Solo y Volumen por pista', () => {
     const mockPlayer = createMockPlayer();
     const controller = createAlphaSynthController({ player: mockPlayer });
@@ -394,6 +449,27 @@ describe('AlphaSynthController (Hito C5, docs/Fase-3/plan_fase3.md §7 C5)', () 
     mockPlayer.triggerFinish();
     expect(finished).toBe(true);
     expect(controller.isPlaying()).toBe(false);
+  });
+
+  it('en bucle activo, la señal finish de AlphaSynth no detiene la reproducción', () => {
+    const mockPlayer = createMockPlayer();
+    const controller = createAlphaSynthController({ player: mockPlayer });
+
+    mockPlayer.triggerPlayerState(1);
+    expect(controller.isPlaying()).toBe(true);
+
+    controller.setLoopEnabled(true);
+    controller.setPlaybackRange({ startTick: 960, endTick: 3840 });
+
+    let finishedCalls = 0;
+    controller.on('finish', () => {
+      finishedCalls++;
+    });
+
+    // En bucle, finish indica reinicio de ciclo
+    mockPlayer.triggerFinish();
+    expect(finishedCalls).toBe(0);
+    expect(controller.isPlaying()).toBe(true);
   });
 
   it('seekToTick posiciona el cursor en el tick indicado', () => {
