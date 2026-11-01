@@ -19,6 +19,7 @@
     "voicings:print": "node scripts/print-voicings.mjs"
   },
   "dependencies": {
+    "@coderline/alphatab": "^1.8.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zustand": "^5.0.16"

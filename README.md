@@ -5,7 +5,7 @@
 - **Modo Sandbox (Explorar):** selección libre de notas en mástil y piano, navegador de acordes con digitaciones adaptadas a cada afinación, explorador de escalas, armonía diatónica y progresiones, sugerencias teóricas razonadas y síntesis Web Audio.
 - **Modo Aprender (Entrenar y memorizar):**
   - **Ejercicios (`A1`–`C2`):** práctica intensiva con corrección automática visual y sonora y selección adaptativa de puntos débiles (notas en el mástil, intervalos en una cuerda y entre cuerdas, mapas de intervalos, etiquetado de formas, construcción de acordes y escalas en una cuerda).
-  - **Tarjetas (SRS):** memoria a largo plazo con repetición espaciada (variante Anki SM-2), 3 mazos predefinidos (*Principiante*, *Intermedio*, *Avanzado*) y constructor declarativo con los 11 bloques de contenido del catálogo.
+  - **Tarjetas (SRS):** memoria a largo plazo con repetición espaciada (variante Anki SM-2), 3 mazos predefinidos (_Principiante_, _Intermedio_, _Avanzado_) y constructor declarativo con los 11 bloques de contenido del catálogo.
   - **Fórmulas:** traductor bidireccional entre nombre (`Acorde` / `Escala` → grados, intervalos, semitonos y regla cromática) y fórmula (`Grados` → coincidencias exactas, rotaciones con otra raíz y acordes/escalas cercanos).
   - **Progreso:** mapa de aciertos del mástil (`0–12` y `0–24`), evolución de las últimas 10 sesiones, métricas globales de tarjetas, intervalos débiles con práctica directa y copia de seguridad completa (exportar e importar en JSON).
 
@@ -82,5 +82,8 @@ npx serve dist
 - [Plan de la Fase 2 (modo Aprender)](docs/Fase-2/plan_fase2.md)
 - [Especificación de interfaz (modo Aprender, Fase 2)](docs/Fase-2/interfaz_fase2.md)
 - [Registro de decisiones de la Fase 2](docs/Fase-2/decisiones.md)
-- [Registro de decisiones de la Fase 1](docs/decisiones.md)
+- [Plan de la Fase 3 (modo Canción)](docs/Fase-3/plan_fase3.md)
+- [Especificación de interfaz (modo Canción, Fase 3)](docs/Fase-3/interfaz_fase3.md)
+- [Registro de decisiones de la Fase 3](docs/Fase-3/decisiones.md)
+- [Registro de decisiones general](docs/decisiones.md)
 - [Catálogo de digitaciones (voicings)](docs/voicings.md)
