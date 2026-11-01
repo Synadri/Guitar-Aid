@@ -1,4 +1,4 @@
-/* AlphaTabViewport.module.css — Estilos del visor de partitura y tablatura (docs/Fase-3/interfaz_fase3.md §5.2) */
+/* AlphaTabViewport.module.css — Estilos del visor de partitura y tablatura en sistemas continuos (docs/Fase-3/decisiones.md Hito C6b) */
 
 .scoreCard {
   flex: 1;
@@ -79,7 +79,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
-  padding: 14px 16px;
+  padding: 16px 20px;
   position: relative;
   background: var(--surface-1);
 }
@@ -89,7 +89,7 @@
   outline-offset: -2px;
 }
 
-/* Contenedor específico para la librería AlphaTab cuando se monta (aislado fuera de pantalla para no alterar el layout) */
+/* Contenedor específico para la librería AlphaTab cuando se monta (aislado fuera de pantalla) */
 .alphaTabContainer {
   position: fixed !important;
   top: -99999px !important;
@@ -102,101 +102,112 @@
   z-index: -100 !important;
 }
 
-/* Representación estructurada y reactiva de compases */
+/* ==========================================================================
+   Contenedor de Sistemas Continuos (Hito C6b)
+   ========================================================================== */
 .systemsContainer {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
   width: 100%;
 }
 
-.systemRow {
-  display: contents;
-}
-
-.barCell {
-  position: relative;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 6px 8px;
-  background: rgba(15, 23, 42, 0.45);
+.scoreSystem {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
-  user-select: none;
-  min-width: 0;
+  width: 100%;
+  position: relative;
   box-sizing: border-box;
 }
 
-.barCell:hover {
-  border-color: #475569;
-  background: rgba(30, 41, 59, 0.55);
+/* Carril superior del sistema: Números de compás, Secciones, Cifrados y Bucle */
+.systemTopLane {
+  display: flex;
+  width: 100%;
+  height: 46px;
+  margin-bottom: 8px;
+  position: relative;
+  box-sizing: border-box;
 }
 
-.barCell:focus-visible {
-  outline: 2px solid #14b8a6;
-  outline-offset: 1px;
+.systemHeaderSpacer {
+  width: 38px;
+  flex-shrink: 0;
 }
 
-/* Resaltado del compás activo (cálido ambarino) */
-.barCellActive {
-  background: rgba(245, 158, 11, 0.10) !important;
-  border-color: rgba(245, 158, 11, 0.6) !important;
-}
-
-/* Resaltado de compases en rango seleccionado (turquesa translúcido) */
-.barCellSelected {
-  background: rgba(20, 184, 166, 0.08) !important;
-  border-color: rgba(20, 184, 166, 0.5) !important;
-}
-
-/* Resaltado de compases dentro del bucle activo (ámbar cálido y contorno nítido) */
-.barCellInLoop {
-  background: rgba(245, 158, 11, 0.08) !important;
-  border-color: rgba(245, 158, 11, 0.55) !important;
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.25);
-}
-
-.loopBadge {
-  font-size: 11px;
-  font-weight: 700;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.2);
-  padding: 1px 4px;
-  border-radius: 3px;
-  line-height: 1;
-}
-
-/* Coincidencia: activo y en rango */
-.barCellActive.barCellSelected {
-  background: rgba(245, 158, 11, 0.14) !important;
-  border-color: #f59e0b !important;
+.systemBarsTop {
+  display: flex;
+  flex: 1;
+  width: calc(100% - 38px);
+  position: relative;
+  height: 100%;
 }
 
 .barTopMeta {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.metaTopRow {
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 18px;
+  padding: 0 4px;
+  position: relative;
+  user-select: none;
 }
 
-.metaLeft {
+.metaTopLeft {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.metaTopRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.barNumber {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+  user-select: none;
+  line-height: 1;
+}
+
+.metaBottomRow {
+  height: 24px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .sectionBadge {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   color: #2dd4bf;
   background: rgba(45, 212, 191, 0.15);
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 3px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  user-select: none;
+  line-height: 1.2;
 }
 
 .sectionBadgeEstribillo {
@@ -209,55 +220,269 @@
   background: rgba(148, 163, 184, 0.15);
 }
 
-.barNumber {
-  font-family: var(--font-mono, monospace);
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.metaRight {
-  display: flex;
+.loopBadge,
+.loopMarker {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  user-select: none;
 }
 
+/* Cifrado armónico flotante en su pulso real */
 .chordName {
-  font-size: 12.5px;
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 13px;
   font-weight: 700;
   color: #cbd5e1;
+  user-select: none;
+  transition: color 0.1s ease, background-color 0.1s ease;
+  white-space: nowrap;
+  line-height: 1;
+  padding: 1px 4px;
 }
 
 .chordNameActive {
   color: #fbbf24;
+  background: rgba(245, 158, 11, 0.2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  font-weight: 800;
 }
 
-.loopMarker {
-  font-size: 12px;
-  color: #fbbf24;
-  line-height: 1;
-}
-
-/* Notación pentagrama / partitura */
-.staffContainer {
+/* ==========================================================================
+   Carril de Pautas (Staves) y Sistemas Continuos
+   ========================================================================== */
+.systemStaveRow {
+  display: flex;
+  width: 100%;
   position: relative;
-  min-height: 48px;
-  padding: 4px 0;
+  box-sizing: border-box;
+}
+
+/* Cabecera TAB al inicio del sistema */
+.systemTabHeader {
+  width: 38px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  border-right: 1.5px solid #334155;
+  user-select: none;
+  background: rgba(15, 23, 42, 0.45);
+  box-sizing: border-box;
+}
+
+.tabLetter {
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+
+/* Cabecera de clave para modo Partitura */
+.systemClefHeader {
+  width: 38px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-right: 1.5px solid #334155;
+  user-select: none;
+  background: rgba(15, 23, 42, 0.45);
+  box-sizing: border-box;
 }
 
 .clefSymbol {
-  position: absolute;
-  left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
   font-size: 26px;
   color: #94a3b8;
-  opacity: 0.6;
+  opacity: 0.75;
   pointer-events: none;
   line-height: 1;
+}
+
+/* Contenedor horizontal continuo de compases del sistema */
+.systemBarsContainer {
+  display: flex;
+  flex: 1;
+  width: calc(100% - 38px);
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Segmento de compás dentro del sistema continuo */
+.barSection,
+.barCell {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  user-select: none;
+  border-right: 1px solid #334155;
+  transition: background 0.12s ease;
+  box-sizing: border-box;
+}
+
+.barSection:hover {
+  background: rgba(30, 41, 59, 0.35);
+}
+
+.barCell:focus-visible {
+  outline: 2px solid #14b8a6;
+  outline-offset: -1px;
+}
+
+/* Resaltado del compás activo (cálido ambarino suave) */
+.barCellActive {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Resaltado de compases en rango seleccionado (turquesa translúcido) */
+.barCellSelected {
+  background: rgba(20, 184, 166, 0.09) !important;
+}
+
+/* Resaltado de compases dentro del bucle activo */
+.barCellInLoop {
+  background: rgba(245, 158, 11, 0.05) !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3);
+}
+
+.barCellActive.barCellSelected {
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Barra divisoria vertical de compás */
+.barDividerLine {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #334155;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ==========================================================================
+   Tablatura Continua (Tab)
+   ========================================================================== */
+.tabContainer {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.tabLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #334155;
+  pointer-events: none;
   z-index: 1;
+}
+
+.tabBeatsRow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+}
+
+/* Columna interactiva de pulso/nota */
+.tabBeatColumn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 3px;
+  z-index: 3;
+  transition: background 0.1s ease;
+}
+
+.tabBeatColumn:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.tabBeatColumnActive {
+  background: rgba(20, 184, 166, 0.1);
+}
+
+/* Cursor vertical translúcido turquesa */
+.tabBeatCursor,
+.beatCursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  background: rgba(20, 184, 166, 0.22);
+  border-left: 1.5px solid #14b8a6;
+  border-right: 1.5px solid #14b8a6;
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
+  pointer-events: none;
+  z-index: 4;
+  border-radius: 2px;
+}
+
+/* Número de traste con máscara opaca de fondo para ocluir la cuerda */
+.fretBadge,
+.fretNumber {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  line-height: 1;
+  padding: 0 3px;
+  background: var(--surface-1, #0f172a);
+  border-radius: 2px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.fretBadgeActive,
+.fretNumberActive {
+  color: #042f2e;
+  background: #2dd4bf;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.9);
+  font-weight: 800;
+}
+
+/* ==========================================================================
+   Partitura (Score)
+   ========================================================================== */
+.staffContainer {
+  position: relative;
+  min-height: 48px;
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .staffLines {
@@ -270,6 +495,7 @@
   flex-direction: column;
   justify-content: space-between;
   pointer-events: none;
+  z-index: 1;
 }
 
 .staffLine {
@@ -279,27 +505,31 @@
 }
 
 .staffBeatsRow {
-  position: relative;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  width: 100%;
-  height: 48px;
-  padding-left: 22px;
-  box-sizing: border-box;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
 }
 
 .staffBeatColumn {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-width: 28px;
-  padding: 0 2px;
-  border-radius: 4px;
-  transition: background 0.1s ease;
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.staffBeatColumn:hover {
+  background: rgba(56, 189, 248, 0.08);
 }
 
 .staffNoteHead {
@@ -310,109 +540,57 @@
   transform: translateY(50%);
   pointer-events: none;
   text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  z-index: 5;
 }
 
 .staffNoteHeadActive {
   color: #2dd4bf;
-  text-shadow: 0 0 6px rgba(45, 212, 191, 0.8);
+  text-shadow: 0 0 6px rgba(45, 212, 191, 0.9);
 }
 
-/* Tablatura */
-.tabContainer {
-  position: relative;
+/* ==========================================================================
+   Carril de Letras
+   ========================================================================== */
+.systemLyricsLane {
+  display: flex;
   width: 100%;
-  box-sizing: border-box;
-  margin: 2px 0;
+  min-height: 20px;
+  margin-top: 4px;
 }
 
-.tabLine {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #334155;
-  pointer-events: none;
-}
-
-.tabBeatsRow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
+.systemBarsLyrics {
   display: flex;
-  justify-content: space-evenly;
-  align-items: stretch;
-  padding: 0 4px;
-  box-sizing: border-box;
+  flex: 1;
+  width: calc(100% - 38px);
 }
 
-.tabBeatColumn {
+.barLyricsContainer {
+  flex: 1;
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 18px;
-  height: 100%;
-  border-radius: 3px;
-  transition: background 0.1s ease;
+  min-height: 18px;
+  border-right: 1px solid transparent;
 }
 
-.tabBeatColumnActive {
-  background: rgba(20, 184, 166, 0.12);
-}
-
-/* Cursor de pulso activo */
-.tabBeatCursor,
-.beatCursor {
+.beatLyric {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
   transform: translateX(-50%);
-  width: 2px;
-  background: #14b8a6;
-  box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 1px;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+  white-space: nowrap;
+  user-select: none;
 }
 
-.fretBadge,
-.fretNumber {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-  font-size: 11px;
-  font-weight: 700;
-  color: #f8fafc;
-  line-height: 1;
-  padding: 0 2px;
-  background: #0f172a;
-  border-radius: 2px;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.fretBadgeActive,
-.fretNumberActive {
-  color: #042f2e;
-  background: #2dd4bf;
-  box-shadow: 0 0 6px rgba(45, 212, 191, 0.8);
-}
-
-/* Fila de letras */
 .lyricsRow {
   font-style: italic;
   font-size: 12px;
   color: var(--app-muted, #94a3b8);
   min-height: 18px;
   padding: 3px 2px 0;
-  border-top: 1px dashed rgba(51, 65, 85, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: none;
 }
 
 .emptyState {

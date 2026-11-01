@@ -336,4 +336,81 @@ describe('AlphaTabViewport (Hito C5, docs/Fase-3/plan_fase3.md §7 C5)', () => {
     expect(controller.isLooping()).toBe(false);
     expect(controller.getPlaybackRange()).toBeNull();
   });
+
+  describe('Hito C6b: Sistemas Continuos e Interactividad Nota a Nota (Criterio o)', () => {
+    it('agrupa los compases en sistemas continuos de 4 compases con cabecera T A B única por sistema', () => {
+      const { songStore, controller } = setupViewportTest();
+
+      render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+      // En la pieza de 8 compases, hay 2 sistemas continuos
+      const system0 = screen.getByTestId('system-0');
+      const system1 = screen.getByTestId('system-1');
+      expect(system0).not.toBeNull();
+      expect(system1).not.toBeNull();
+
+      // Cabeceras TAB presentes (una por sistema)
+      const tabLettersT = screen.getAllByText('T');
+      const tabLettersA = screen.getAllByText('A');
+      const tabLettersB = screen.getAllByText('B');
+      expect(tabLettersT.length).toBe(2);
+      expect(tabLettersA.length).toBe(2);
+      expect(tabLettersB.length).toBe(2);
+    });
+
+    it('permite mover el cursor directamente a una nota o pulso específico al hacer clic sobre él', () => {
+      const { songStore, controller } = setupViewportTest();
+      const seekSpy = vi.spyOn(controller, 'seekToTick');
+
+      render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+      // Buscar pulso 2 del compás 3
+      const bar3 = screen.getByTestId('bar-3');
+      const beat2 = bar3.querySelector('[data-beat-index="2"]');
+      expect(beat2).not.toBeNull();
+
+      fireEvent.click(beat2!);
+
+      // Se actualiza la posición exacta a compás 3, pulso 2
+      expect(songStore.getState().currentBar).toBe(3);
+      expect(songStore.getState().currentBeat).toBe(2);
+      expect(songStore.getState().inspectedBar).toBe(3);
+
+      // Se llamó a seekToTick con el tick exacto correspondiente a compás 3, pulso 2
+      expect(seekSpy).toHaveBeenCalledWith(expect.any(Number));
+      const lastCall = seekSpy.mock.calls[seekSpy.mock.calls.length - 1];
+      // Compás 1 (3840 ticks) + Compás 2 (3840 ticks) + pulso 2 de compás 3 (1440 ticks) = 9120 ticks
+      expect(lastCall?.[0]).toBe(9120);
+    });
+
+    it('renderiza cifrados armónicos en su coordenada temporal y soporta sobreescritura manual', () => {
+      const { songStore, controller } = setupViewportTest();
+
+      render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+      // Compás 1 tiene acorde 'C' anotado
+      const chord1 = screen.getByTestId('chord-1');
+      expect(chord1.textContent).toBe('C');
+
+      // Fijar override manual en compás 1 a 'Cmaj7'
+      act(() => {
+        songStore.getState().setBarOverride(1, { chordId: 'Cmaj7' });
+      });
+
+      expect(screen.getByTestId('chord-1').textContent).toBe('Cmaj7');
+    });
+
+    it('resalta visualmente el traste y el cursor vertical sobre la nota activa', () => {
+      const { songStore, controller } = setupViewportTest();
+
+      const { rerender } = render(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+      // Activar compás 1, pulso 0
+      songStore.getState().setCurrentPosition(1, 0);
+      rerender(<AlphaTabViewport songStore={songStore} controller={controller} />);
+
+      const cursor = screen.getByTestId('beat-cursor');
+      expect(cursor).not.toBeNull();
+    });
+  });
 });

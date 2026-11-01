@@ -403,3 +403,125 @@ Tras la implementación de los componentes visuales de Fase 3, se identificó qu
    - **Decisión y solución:**
      - Se implementó la función auxiliar `areRangesEqual(a, b)` en `alphaSynthController.ts`. Si `setPlaybackRange` recibe un rango con ticks idénticos (`startTick` y `endTick`) a los ya presentes, se omite por completo reasignar la propiedad en `player`. De igual forma, en `setLoopEnabled` se omite la reasignación si `state.isLooping` ya coincide.
      - Si el rango cambia mientras la reproducción está activa (`state.isPlaying === true`), el controlador captura `player.tickPosition` antes de la asignación y, si dicho tick queda comprendido en el nuevo rango, restaura inmediatamente `player.tickPosition = curTick`, garantizando la continuidad ininterrumpida de la reproducción activa al cambiar de pista.
+
+
+---
+
+## 2026-11-01 — Especificación de reimplementación del visor musical en sistemas continuos (Tablatura, Partitura y Tab+Partitura) [Hito C6b]
+
+### 1. Diagnóstico de los problemas del visor actual
+Tras la primera versión visual desarrollada en C6, se identificaron limitaciones arquitectónicas y estéticas que no cumplían con el diseño original ni con las reglas estándar de notación musical:
+1. **Troceado en tarjetas/cajas por compás (`.barCell` en CSS Grid):**
+   - Los compases se maquetaban como tarjetas rectangulares aisladas con borde, margen y relleno propio. Esto generaba un aspecto fragmentado y fatigante a nivel visual, en vez de la lectura horizontal fluida propia de una partitura o tablatura real.
+2. **Imposibilidad de navegar el cursor a notas o pulsos concretos:**
+   - El control de navegación e interactividad estaba restringido a nivel de compás: hacer clic sobre un compás situaba la reproducción en el compás completo con `currentBeat = 0`. No era posible hacer clic sobre una nota o pulso específico para examinarlo o pausar sobre él.
+3. **Suposición rígida de un único acorde por compás en la esquina superior:**
+   - El componente forzaba la visualización del cifrado armónico en la esquina superior derecha (`.metaRight`) de cada caja, asumiendo implícitamente que solo hay un acorde por compás y que coincide con el inicio del mismo. En canciones reales, los cambios armónicos ocurren frecuentemente en subdivisiones o tiempos secundarios (p. ej. Do en tiempo 1 y Sol en tiempo 3), quedando invisibles o mal representados.
+4. **Violación de las reglas de grabado musical en el modo Partitura:**
+   - Cada tarjeta de compás intentaba dibujar su propio símbolo de clave (`𝄞`) y sus 5 líneas aisladas. En la notación musical académica, la clave, la armadura de tonalidad y la fórmula de compás se dibujan **exclusivamente al inicio de cada sistema**, repitiéndose únicamente cuando ocurre un cambio explícito de tonalidad (modulación) o de métrica.
+5. **Partitura rota y rudimentaria:**
+   - Las notas del pentagrama se representaban como caracteres Unicode `●` flotantes sin plicas (stems), sin barras de unión rítmica (beams), sin alteraciones accidentales ni silencios.
+6. **Dificultad de sincronización en el modo Tablatura + Partitura:**
+   - Al estar troceado por columnas, apilar partitura y tablatura duplicaba la fragmentación y desalineaba las alturas melódicas respecto a las digitaciones.
+
+---
+
+### 2. Arquitectura del Modelo de Sistemas Continuos
+Se adopta el modelo de **Sistemas Continuos** estándar en la edición musical profesional (similar a Guitar Pro, TuxGuitar y Soundslice):
+
+1. **Sistemas horizontales continuos (`ScoreSystem`):**
+   - La pista se divide en una secuencia de sistemas (filas horizontales) que agrupan típicamente 4 compases contiguos (o adaptables al ancho del contenedor).
+   - Cada sistema tiene pautas horizontales continuas que atraviesan todos sus compases de izquierda a derecha.
+   - Los compases se delimitan únicamente por **barras divisorias verticales finas** (`|`), líneas de inicio/fin de sección o barras de repetición (`|:`, `:|`), sin cajas cerradas ni márgenes entre compases.
+
+2. **Cabecera única de sistema (margen izquierdo):**
+   - **Tablatura:** un único rótulo vertical «T A B» al inicio del sistema.
+   - **Partitura:** clave (sol 8vb `𝄞₈` para guitarra o fa `𝄢` para bajo) + armadura (número de sostenidos o bemoles de la tonalidad activa) + fórmula de compás (p. ej. 4/4) dibujadas únicamente al inicio del sistema. En compases intermedios, solo se dibujan si hay un cambio real de tonalidad o métrica.
+   - **Tablatura + Partitura:** pentagrama superior con clave/armadura/métrica y tablatura inferior con «T A B», acoplados verticalmente.
+
+3. **Posicionamiento temporal y métrico proporcional ($x$ continuo):**
+   - Dentro de cada compás, los pulsos y notas se distribuyen horizontalmente en función de su posición temporal relativa (`startTick / totalBarTicks`).
+   - Cada nota posee una coordenada horizontal precisa, garantizando alineación vertical en acordes plaqué y coherencia rítmica.
+
+4. **Posicionamiento libre y múltiple de acordes:**
+   - Los cifrados de acordes se sitúan flotando sobre el sistema en la **coordenada $x$ exacta del pulso** donde comienzan a sonar.
+   - Si un compás tiene cambios en varios tiempos (p. ej. pulso 1 y pulso 3), cada acorde se dibuja sobre su pulso correspondiente.
+   - El acorde activo en el pulso en reproducción se resalta con brillo ámbar (`#fbbf24`), y los overrides manuales se identifican con un punto ámbar sutil.
+
+5. **Cursor de pulso y nota interactivo:**
+   - El cursor de reproducción es una barra vertical turquesa (`#14b8a6`, ~14px con halo translúcido y línea central nítida) que viaja nota a nota.
+   - **Navegación interactiva:** hacer clic directamente en cualquier nota o pulso específico sitúa el cursor en esa nota (`currentBar`, `currentBeat`), calcula el tick con `calculateTickForBarBeat` y sincroniza el audio con `controller.seekToTick(tick)`. Arrastrar entre pulsos/compases establece la selección de rango (`selectedBarRange`).
+
+6. **Letra musical sincronizada:**
+   - Las sílabas de letra (`lyrics`) se sitúan debajo de la pauta centradas exactamente en el pulso donde se cantan.
+
+---
+
+### 3. Especificación detallada por modo de visualización
+
+#### 3.1. Modo Tablatura (`tab`)
+- **Pauta:** $S$ líneas horizontales continuas en `#334155` (6 para guitarra, 4 para bajo eléctrico).
+- **Encabezado:** bloque «T A B» vertical fijado en la cabecera izquierda de cada sistema.
+- **Números de traste:** dígitos monoespaciados legibles (`IBM Plex Mono` bold, blanco `#f8fafc`) centrados verticalmente sobre su cuerda, con un recuadro de oclusión opaco del color de fondo (`var(--surface-1)`) que enmascara la línea de cuerda subyacente.
+- **Metadatos del compás:**
+  - Número de compás en monoespaciada gris (`#64748b`) situado en la esquina superior izquierda de cada barra divisoria.
+  - Insignia de sección (`Intro`, `Estribillo`) en turquesa `#2dd4bf` sobre el primer compás de la sección.
+  - Icono de bucle `🔁` e inicio/fin de bucle mediante corchetes luminosos `[ 🔁` y `🔁 ]`.
+- **Cursor:** barra vertical turquesa que abarca la altura total de las cuerdas en la coordenada $x$ del pulso activo.
+
+#### 3.2. Modo Partitura (`score`)
+- **Pauta:** pentagrama clásico de 5 líneas continuas con separación uniforme (≈8px entre líneas).
+- **Clave musical:** clave de sol octavada inferior (8vb, indicando que la guitarra suena una octava por debajo de lo escrito) para pistas de guitarra; clave de fa para bajo eléctrico. Ubicada únicamente al inicio del sistema.
+- **Armadura:** alteraciones de sostenidos o bemoles correspondientes a la tonalidad activa al inicio del sistema o tras una modulación.
+- **Fórmula de compás:** dígitos de compás (p. ej. `4/4`) en notación musical al inicio del primer sistema o ante cambios de métrica.
+- **Notación musical:** cabezas de nota elípticas en líneas y espacios según altura MIDI real; plicas hacia arriba (para notas por debajo de la 3ª línea Si3) o hacia abajo (en la 3ª línea o superior); barras de unión (beams) horizontales para agrupar corcheas y semicorcheas; líneas adicionales (ledger lines) para notas graves (Mi/Re bajo el pentagrama) o agudas.
+- **Cifrados:** ubicados por encima del pentagrama en el pulso correspondiente.
+
+#### 3.3. Modo Tablatura + Partitura (`score-tab`)
+- **Cabecera técnica:** título `PARTITURA + TAB · {NOMBRE_PISTA}` y subtítulo en monoespaciada a la derecha: `Clave, compás y TAB: solo al inicio y en los cambios · compás {N} de {Total}` (conforme a la maqueta oficial).
+- **Sistema dual acoplado:** cada sistema horizontal contiene el pentagrama estándar en la parte superior y la tablatura en la inferior.
+- **Unión vertical continua de compases:** las barras de compás divisorias verticales descienden atravesando continuamente ambas pautas y el espacio intermedio (desde la 1ª línea superior del pentagrama hasta la última línea inferior de la tablatura), vinculando cada compás visual y temporalmente de punta a punta.
+- **Cabecera de sistema:** clave de sol (`𝄞₈`) o fa (`𝄢`), armadura y compás en el pentagrama superior; bloque vertical «T A B» en la tablatura inferior. Solo se dibujan al inicio de cada sistema o ante modulaciones/cambios métricos.
+- **Sincronización $x$ estricta:** las notas en el pentagrama y los números de traste en la tablatura comparten rigurosamente la misma coordenada horizontal $x$.
+- **Cifrados de acordes:** situados por encima del pentagrama superior en la coordenada horizontal exacta del pulso donde ocurren, con resaltado ámbar (`#fbbf24`) en el acorde del compás/pulso activo.
+- **Marcadores de sección y bucle:** situados en la parte superior derecha del compás correspondiente (p. ej. `Estribillo · bucle A–B` en verde turquesa `#2dd4bf` sobre el compás 8, `Estrofa` sobre el compás 12).
+- **Cursor unificado:** una sola columna vertical turquesa continua (`#14b8a6` con halo translúcido de ~14px) que atraviesa el pentagrama y la tablatura al unísono en el pulso activo, iluminando la nota en el solfeo y el número de traste en la tablatura simultáneamente.
+- **Letra musical:** situada debajo de la tablatura al pie del sistema, centrada bajo el pulso correspondiente.
+
+---
+
+### 4. Plan de ejecución por etapas (Nuevo Hito C6b)
+Para mantener entregas incrementales verificadas:
+1. **Paso 1 (Inmediato - C6b): Reimplementación de la Vista Tablatura Continua:**
+   - Eliminar el maquetado de tarjetas `.barCell`.
+   - Construir el renderizado de sistemas continuos en `AlphaTabViewport.tsx`.
+   - Implementar el posicionamiento temporal proporcional de notas y múltiples acordes por compás.
+   - Habilitar el cursor interactivo con clic directo a nivel de nota y pulso (`seekToTick`).
+   - Adaptar los tests automatizados y verificar `pnpm test`, `pnpm lint` y `pnpm build`.
+2. **Paso 2 (Posterior): Implementación de la Vista Partitura y Vista Dual:**
+   - Renderizado de clave, armadura en cambios y grabado de figuras musicales (cabezas, plicas, barras).
+   - Emparejamiento del sistema dual pentagrama + tablatura.
+
+---
+
+## 2026-11-01 — Decisiones de diseño e implementación del Hito C6b (Vista Tablatura Continua)
+
+1. **Estructura y separación estricta de carriles verticales en la cabecera del compás (`systemTopLane`):**
+   - **Problema detectado:** Al eliminar las tarjetas cerradas, los números de compás, insignias de sección y cifrados armónicos compartían espacio, provocando que las etiquetas se colaran dentro de las cuerdas de la tablatura y que los acordes en el primer tiempo (p. ej. `Am` en compás 5) se solaparan horizontalmente con la numeración del compás.
+   - **Decisión:** Establecer una jerarquía vertical de dos filas con altura acotada (`height: 46px; margin-bottom: 8px`):
+     - **Fila superior (`metaTopRow`, 18px):** Aloja en el extremo izquierdo (`metaTopLeft`) el número de compás (`bar.number`) y la insignia de sección (`sectionBadge`), y en el extremo derecho (`metaTopRight`) los marcadores de bucle (`loopBadge` y `loopMarker`).
+     - **Fila inferior (`metaBottomRow`, 24px):** Reservada **exclusivamente para los cifrados armónicos** (`chordName`), alineados con precisión temporal sobre el centro de cada pulso (`left: percent%`). Esto garantiza que los acordes se ubiquen con claridad musical sobre sus notas sin colisionar jamás con los números de compás ni con las etiquetas.
+
+2. **Propagación y visibilidad controlada de etiquetas de sección (`isSectionHeader`):**
+   - **Decisión:** Aunque el importador propaga `sectionMarker` a cada compás individual para fines de análisis tonal y bucles, en la vista del visor la insignia de sección solo se renderiza visualmente si:
+     - Es el compás donde inicia una nueva sección (`track.bars[bar.index - 1]?.sectionMarker !== bar.sectionMarker`).
+     - O es el primer compás de un nuevo sistema horizontal (`bar.index % 4 === 0`).
+   - **Justificación:** Evita la polución visual y redundancia de repetir «INTRO» o «ESTRIBILLO» compás a compás, manteniendo la claridad de lectura conforme al diseño original.
+
+3. **Interactividad y navegación a nivel de pulso (`calculateTickForBarBeat` y `seekToTick`):**
+   - **Decisión:** Cada pulso dentro de un compás se mapea a un contenedor interactivo (`tabBeatColumn`) con un ancho ergonómico de 28px centrado en su coordenada horizontal relativa.
+   - **Comportamiento:** Al pulsar sobre una nota/pulso, se calcula la posición absoluta en ticks (`calculateTickForBarBeat = sum(barTicks[0..n-1]) + beat.startTick`), actualizando la posición en el estado global (`setCurrentPosition`) y disparando `controller.seekToTick(tick)`. El cursor de reproducción vertical (halo turquesa de 16px con bordes nítidos) viaja nota a nota con resaltado luminoso sobre los números de traste activos.
+
+4. **Máscaras de oclusión de fondo en números de traste (`fretBadge`):**
+   - **Decisión:** En lugar de dejar que las líneas de las cuerdas atraviesen los números de traste, cada dígito de traste cuenta con un fondo opaco del color de la superficie (`var(--surface-1)`), padding horizontal de 3px y `z-index: 5`.
+   - **Justificación:** Ocluye limpiamente la cuerda subyacente y ofrece una legibilidad nítida e instantánea de las digitaciones, idéntica al estándar editorial de Guitar Pro y tablaturas comerciales.
