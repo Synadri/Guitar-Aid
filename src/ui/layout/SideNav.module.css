@@ -63,22 +63,10 @@
 .logoIcon {
   width: 32px;
   height: 32px;
-  background-color: #0d9488;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 3.5px;
-  color: #ffffff;
+  border-radius: 6px;
+  object-fit: contain;
   flex-shrink: 0;
-}
-
-.logoBar {
-  width: 16px;
-  height: 2px;
-  background-color: #ffffff;
-  border-radius: 1px;
+  display: block;
 }
 
 .brandName {
@@ -185,21 +173,6 @@
 .collapsed .modeItem[aria-current='page'] .modeIconWrap,
 .collapsed .modeItem[aria-current='page'] .modeLabel {
   color: #ffffff;
-}
-
-.collapsedBadge {
-  position: absolute;
-  top: -2px;
-  right: -6px;
-  background-color: #1e293b;
-  border: 1px solid #334155;
-  color: #94a3b8;
-  font-size: 9px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  padding: 1px 4px;
-  border-radius: 4px;
-  line-height: 1;
 }
 
 /* Expanded mode button */

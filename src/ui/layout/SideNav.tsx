@@ -19,11 +19,13 @@ export function SideNav({ currentMode, onSelectMode, expanded, onToggleExpand }:
         {/* Cabecera / Logo */}
         <div className={styles.header}>
           <div className={styles.brandGroup}>
-            <div className={styles.logoIcon} aria-hidden="true">
-              <span className={styles.logoBar} />
-              <span className={styles.logoBar} />
-              <span className={styles.logoBar} />
-            </div>
+            <img
+              src={`${import.meta.env.BASE_URL}Logos/Logo%20peque%C3%B1o@1x.png`}
+              alt="Guitar Aid"
+              className={styles.logoIcon}
+              width={32}
+              height={32}
+            />
             {expanded && <span className={styles.brandName}>Guitar Aid</span>}
           </div>
           {expanded && (
@@ -114,7 +116,6 @@ export function SideNav({ currentMode, onSelectMode, expanded, onToggleExpand }:
                 <circle cx="12" cy="12" r="6" />
                 <circle cx="12" cy="12" r="2" />
               </svg>
-              {!expanded && <span className={styles.collapsedBadge}>F2</span>}
             </div>
             {expanded ? (
               <div className={styles.modeTextCol}>
@@ -152,7 +153,6 @@ export function SideNav({ currentMode, onSelectMode, expanded, onToggleExpand }:
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="18" cy="16" r="3" />
               </svg>
-              {!expanded && <span className={styles.collapsedBadge}>F3</span>}
             </div>
             {expanded ? (
               <div className={styles.modeTextCol}>
