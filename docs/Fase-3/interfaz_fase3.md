@@ -27,7 +27,7 @@ Si este documento y la maqueta difieren en un detalle menor o en un estado diná
 |---|---|---|
 | **Menú lateral (`SideNav`)** | `76 px` colapsado (`240 px` expandido), `100vh` | Logo, `Sandbox`, `Aprender`, **`Canción`** (icono de corchea doble, activo con barra lateral e iluminación `#162032`), colapsar/expandir y versión |
 | **1. Barra superior (`SongTopBar`)** | `48 px` / `54 px` / `44 px` de alto · margen `8px 12px 0` | `📂 Canciones`, título/subtítulo de canción, grupo `PISTA` + `Mezclador`, grupo de transporte (`⏮`, `⏸ Pausa`, `Bucle`, `VEL.`, `Metrónomo`), grupo `VISTA` (`Tab` \| `Partitura + Tab` \| `Partitura` + `Letra`), `Sonido M` y `Ajustes` |
-| **2. Tarjeta de Instrumentos (`SongInstrumentsCard`)** | `348 px` / `426 px` / `312 px` de alto · margen `8px 12px 0` | `SongContextStrip` (`38 px`) + `Fretboard` (`196–240 px`) + `Piano` (`96–124 px`) |
+| **2. Tarjeta de Instrumentos (`SongInstrumentsCard`)** | `300 px` / `378 px` / `264 px` de alto · margen `8px 12px 0` | `SongContextStrip` (`38 px`) + `Fretboard` (`236 px`) + `Piano` compacto (`72 px`). Control de visibilidad en Ajustes para ocultar Piano (+116 px) o ambos (+350 px). |
 | **3. Área inferior (2 columnas)** | Resto del alto (`≈ 652 px` en `1080p` / `≈ 920 px` en `1440p`) · padding `8px 12px 12px` | `grid-template-columns: minmax(0, 1.62fr) minmax(420px, 1fr); gap: 12px;` — Izquierda: `SongTimelineBar` + `AlphaTabViewport`; Derecha: `SongAnalysisPanel` |
 
 - **Carga inicial sin estado vacío roto:** al entrar por primera vez al Modo Canción (si no hay ninguna canción activa en la sesión), se carga automáticamente la primera canción de ejemplo integrada (**`Pop Diatónico en C/Am`**) para que la pantalla sea inmediatamente explorable y funcional tal como muestra la maqueta.
@@ -101,7 +101,7 @@ Diseñada con anchos estables para que ningún control salte mientras avanza la 
 
 ### 5.1. Cinta armónica de secciones y compases (`SongTimelineBar`)
 
-Tarjeta superior (`.timelineCard`, `padding: 10px 12px`, `border-radius: 10px`, `background: var(--surface-1)`, `border: 1px solid var(--border)`) organizada en dos filas sincronizadas horizontalmente:
+Tarjeta superior (`.timelineCard`, `padding: 8px 12px`, `border-radius: 10px`, `background: var(--surface-1)`, `border: 1px solid var(--border)`) organizada en dos filas sincronizadas horizontalmente, con botón de colapso rápido para liberar espacio a la partitura:
 
 1. **Fila 1 — Bloques de Sección con su Tonalidad:**
    - Cada sección abarca el ancho correspondiente a sus compases (`grid-column: span K`) y muestra `{NombreSección} · {Tonalidad}` (`11.5 px`, `font-weight: 600`, `padding: 3px 10px`, `border-radius: 5px`):
@@ -109,19 +109,25 @@ Tarjeta superior (`.timelineCard`, `padding: 10px 12px`, `border-radius: 10px`, 
      - **Sección activa / seleccionada (`Estribillo · C mayor`):** fondo `rgba(20, 184, 166, 0.16)`, borde `#14b8a6`, texto `#2dd4bf`.
      - **Sección con modulación detectada (`Puente · A menor (modulación)`):** fondo `rgba(168, 85, 247, 0.16)`, borde `#a855f7`, texto `#c084fc`.
    - **Interacción:** hacer clic en una cabecera de sección selecciona automáticamente todos los compases de esa sección (actualizando el análisis del fragmento a la derecha) y desplaza la vista hacia ella.
-2. **Fila 2 — Celdas de Compases (`1 .. N`):**
-   - Cada celda (`.barCell`, `min-width: 52px`, `height: 46px`, `border-radius: 7px`, `position: relative`) muestra:
-     - Arriba a la izquierda: número del compás (`1`..`16`, `10.5 px`, `--app-muted`).
-     - En el centro: cifrado del acorde principal del compás (`C`, `G`, `Am`, `F`, `Dm`, `E7`, `13 px`, `font-weight: 700`).
-     - Arriba a la derecha (solo si el compás tiene un override manual fijado por el usuario, como el compás `15 · E7` en la maqueta): **punto ámbar `●`** (`width: 6px; height: 6px; border-radius: 50%; background: #f59e0b`).
-   - **Estados visuales de cada celda:**
+   - **Botón de colapso/expansión:** en el extremo superior derecho, un botón discreto `[−]` / `[+]` permite colapsar la cinta armónica a una línea compacta para maximizar la tablatura.
+
+2. **Fila 2 — Celdas de Compases (`1 .. N`) y Segmentos Armónicos Intra-compás:**
+   - Cada celda (`.barCell`, ancho fijo/confortable de `120 px`, `height: 42 px`, `border-radius: 6px`, `position: relative`) muestra:
+     - Arriba a la izquierda: número del compás (`1`..`N`, `9.5 px`, `--app-muted`).
+     - Arriba a la derecha (solo si el compás tiene un override manual fijado por el usuario): **punto ámbar `●`** (`width: 5px; height: 5px; border-radius: 50%; background: #f59e0b`).
+     - **Cuerpo de acordes con subdivisión proporcional (`BarChordSegment[]`):**
+       - Si el compás tiene **1 acorde**: un único bloque centrado (`C`, `Am`, `12 px`, `font-weight: 700`).
+       - Si el compás tiene **2 o más acordes** (cambios en mitades, tiempos asimétricos o cadencias de 3–4 acordes): la celda se divide en sub-slots proporcionales según la duración relativa de cada acorde (`durationRatio`), con ancho suficiente (~55–60 px por acorde en divisiones de 2) para evitar truncar acordes compuestos como `Dsus4` o `Dm/F#`.
+   - **Estados visuales e iluminación en vivo:**
      - **Por defecto:** fondo `var(--surface-2)`, borde `1px solid var(--border)`.
      - **Dentro del rango seleccionado / bucle (`compases 5–8`):** borde turquesa `#14b8a6` (`1.25 px`) y fondo `rgba(20, 184, 166, 0.08)`.
-     - **Compás en foco / reproducción actual (`compás 7 · Am`):** borde ámbar `#f59e0b` (`1.5 px`), fondo `rgba(245, 158, 11, 0.18)` y texto del acorde en ámbar claro `#fbbf24`.
-   - **Comportamiento en canciones largas (`> 16 compases`):**
-     - El contenedor de la cinta tiene desplazamiento horizontal suave (`overflow-x: auto; scrollbar-width: thin`) conservando el ancho mínimo de `52 px` por celda para que todos los acordes sean siempre legibles, y ejecuta **auto-scroll horizontal automático** (`scrollIntoView({ behavior: 'smooth', inline: 'center' })`) siguiendo al compás activo durante la reproducción.
+     - **Compás y sub-slot activo en reproducción:** el sub-slot que está sonando en el pulso actual se ilumina con fondo ámbar `rgba(245, 158, 11, 0.28)`, borde ámbar `#f59e0b` y texto `#fbbf24`, sincronizado con el tiempo exacto de cambio armónico.
+   - **Escalado ergonómico y auto-scroll (4 a 6 compases visibles):**
+     - En lugar de comprimir 15 compases en anchos ilegibles, la cinta presenta de 4 a 6 compases simultáneos a tamaño confortable (`120 px/celda`).
+     - El contenedor de la cinta tiene desplazamiento horizontal suave (`overflow-x: auto; scrollbar-width: thin`) y ejecuta **auto-scroll horizontal automático** siguiendo al compás activo durante la reproducción.
+     - En la fila 1, el título de cada sección se mantiene visible con `position: sticky; left: 8px` mientras se navega por sus compases.
    - **Interacción con ratón:**
-     - **Clic simple en una celda:** sitúa el cursor en ese compás y lo fija como compás inspeccionado.
+     - **Clic simple en el compás (o en un sub-slot):** sitúa el cursor en ese compás y lo enfoca en el panel de análisis.
      - **`Shift + Clic` (o arrastrar entre celdas):** selecciona el rango de compases `[startBar, endBar]`.
 
 ### 5.2. Visor de Partitura / Tablatura (`AlphaTabViewport`)
@@ -130,15 +136,10 @@ Tarjeta inferior (`.scoreCard`, `flex: 1; min-height: 0; display: flex; flex-dir
 
 1. **Cabecera interna fija (`36 px`, `padding: 0 14px`, `border-bottom: 1px solid var(--border)`):**
    - **Izquierda:** insignia del modo de vista activo (`TABLATURA`, `PARTITURA + TAB` o `PARTITURA`) · separador · nombre de la pista activa en mayúsculas (`11 px`, `--app-muted`, `letter-spacing: 0.06em`, p. ej. `TABLATURA · GUITARRA 1`).
-   - **Derecha:** resumen técnico en fuente monoespaciada (`11.5 px`, `--app-muted`, p. ej. `Drop D · Capo 0 · compás 7 de 16`).
+   - **Derecha:** botón **`[🔒 Seguir] / [🔓 Libre]`** (conmutador de vista guiada vs vista libre) + resumen técnico en fuente monoespaciada (`Drop D · Capo 0 · compás 7 de 16`).
+   - *Nota:* Se elimina la barra intermedia redundante `contextOverlayBar` (+34 px liberados netos para el lienzo musical).
 
-2. **Barra contextual superior de Guitar Aid (`34 px`, `padding: 0 14px`, `background: var(--surface-2)`, `border-bottom: 1px solid var(--border)`):**
-   - Situada fija encima del lienzo de AlphaTab, visible de forma permanente sin importar el scroll vertical:
-     - **Acordes analizados por Guitar Aid:** muestra el acorde y grado armónico del compás activo (p. ej. `Am (vi)`) en ámbar cálido (`#fbbf24`, fondo `rgba(245, 158, 11, 0.12)`, borde `#f59e0b`). Si tiene sobreescritura manual, incluye el indicador `●`.
-     - **Sección activa:** insignia de sección (`Intro`, `Estrofa`, `Estribillo`, `Solo`, o `Puente · Modulación` en violeta `#a855f7`).
-     - **Control de bucle y selección:** indicador del rango de bucle activo (`[🔁 5–8]`), compases seleccionados y botón para activar/desactivar o ajustar el fragmento de estudio.
-
-3. **Lienzo nativo de AlphaTab con tema oscuro integrado (`flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px`):**
+2. **Lienzo nativo de AlphaTab con tema oscuro integrado (`flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px`):**
    - El renderizado de partituras y tablaturas está **100 % delegado a `@coderline/alphatab`** en un contenedor DOM visible (`.alphaTabHost`), eliminando cualquier motor de grabado artesanal o SVG manual:
      - **Técnicas de guitarra y articulaciones nativas:** AlphaTab renderiza de forma automática y matemáticamente exacta todas las articulaciones complejas (*bends*, *pre-bends*, *release*, *slides*, *hammer-on / pull-off*, *vibrato*, *palm mute*, *armónicos*, ligaduras de prolongación, tresillos y compases perfectos).
      - **Configuración de Tema Oscuro de alto contraste:**

@@ -1,0 +1,241 @@
+.timelineContainer {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 10px);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.timelineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 20px;
+  font-size: 11px;
+}
+
+.timelineTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.timelineBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-muted, #64748b);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+}
+
+.collapseBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.collapseBtn:hover {
+  background: var(--surface-3, #222938);
+  color: var(--text-primary, #f8fafc);
+  border-color: #475569;
+}
+
+.collapsedView {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11.5px;
+}
+
+.collapsedSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scrollArea {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.timelineGrid {
+  display: grid;
+  gap: 5px;
+  align-items: start;
+}
+
+/* Fila 1: Bloques de Sección */
+.sectionBlock {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary, #94a3b8);
+  box-sizing: border-box;
+  position: relative;
+}
+
+.sectionTitle {
+  position: sticky;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionBlock:hover {
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+.sectionActive {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: #14b8a6;
+  color: #2dd4bf;
+}
+
+.sectionModulation {
+  background: rgba(168, 85, 247, 0.16);
+  border-color: #a855f7;
+  color: #c084fc;
+}
+
+/* Fila 2: Celdas de Compás */
+.barCell {
+  display: flex;
+  flex-direction: column;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  height: 42px;
+  border-radius: 6px;
+  padding: 3px 6px 3px;
+  position: relative;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.barCell:hover {
+  border-color: #475569;
+  background: rgba(30, 41, 59, 0.7);
+}
+
+.barSelected {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.08);
+}
+
+.barCurrent {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+}
+
+.barCellHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 11px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  color: #64748b;
+  line-height: 1;
+}
+
+.barNumber {
+  font-weight: 500;
+}
+
+.overrideDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+  box-shadow: 0 0 3px rgba(245, 158, 11, 0.8);
+}
+
+.segmentsContainer {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  gap: 2px;
+  align-items: stretch;
+  margin-top: 2px;
+}
+
+.segmentSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+  transition: background 0.12s ease, color 0.12s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+.segmentActive {
+  background: rgba(245, 158, 11, 0.28);
+  color: #fbbf24;
+  font-weight: 800;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+}
+
+.emptyBarText {
+  color: var(--text-muted, #64748b);
+  font-size: 11px;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}

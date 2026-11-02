@@ -170,77 +170,10 @@ describe('AlphaTabViewport (Hito C5 / C6b — Delegación en AlphaTab y Barra Co
 
     render(<AlphaTabViewport songStore={songStore} controller={controller} />);
 
-    expect(screen.getByTestId('context-overlay-bar')).not.toBeNull();
-    // Compás 1
-    const barBadge = screen.getByTestId('active-bar-badge');
-    expect(barBadge.textContent).toContain('Compás 1');
-
-    // Marcador de sección (Intro en compás 1 de Pop Diatónico)
-    const sectionBadge = screen.getByTestId('section-badge');
-    expect(sectionBadge.textContent).toBe('Intro');
-
-    // Acorde analizado por Guitar Aid (Do mayor: C, grado I)
-    const chordChip = screen.getByTestId('analyzed-chord-chip');
-    expect(chordChip.textContent).toContain('C');
-    expect(chordChip.textContent).toContain('(I)');
-  });
-
-  it('actualiza dinámicamente la barra contextual al cambiar de compás o fijar una sobreescritura manual', () => {
-    const { songStore, controller } = setupViewportTest();
-
-    const { rerender } = render(
-      <AlphaTabViewport songStore={songStore} controller={controller} />,
-    );
-
-    // Avanzar a compás 5 (Estribillo, Am)
-    act(() => {
-      songStore.getState().setCurrentPosition(5, 0);
-    });
-    rerender(<AlphaTabViewport songStore={songStore} controller={controller} />);
-
-    expect(screen.getByTestId('active-bar-badge').textContent).toContain('Compás 5');
-    expect(screen.getByTestId('section-badge').textContent).toBe('Estribillo');
-
-    const chordChip = screen.getByTestId('analyzed-chord-chip');
-    expect(chordChip.textContent).toContain('Am');
-    expect(chordChip.textContent).toContain('(i)');
-    expect(chordChip.textContent).not.toContain('●');
-
-    // Fijar override manual en compás 5 a 'A7'
-    act(() => {
-      songStore.getState().setBarOverride(5, { chordId: 'A7' });
-    });
-    rerender(<AlphaTabViewport songStore={songStore} controller={controller} />);
-
-    const updatedChordChip = screen.getByTestId('analyzed-chord-chip');
-    expect(updatedChordChip.textContent).toContain('A7');
-    // Indicador de punto ámbar de sobreescritura manual
-    expect(updatedChordChip.textContent).toContain('●');
-  });
-
-  it('muestra los marcadores de bucle activo y de rango seleccionado con botón de quitar selección', () => {
-    const { songStore, controller } = setupViewportTest();
-
-    act(() => {
-      songStore.getState().setSelectedBarRange([2, 4]);
-      songStore.getState().setLoopRange([1, 4]);
-      songStore.getState().setLoopEnabled(true);
-    });
-
-    render(<AlphaTabViewport songStore={songStore} controller={controller} />);
-
-    // Insignia de selección activa
-    const rangeBadge = screen.getByTestId('selected-range-badge');
-    expect(rangeBadge.textContent).toContain('Selección: c.2–4');
-
-    // Insignia de bucle activo
-    const loopBadge = screen.getByTestId('loop-active-badge');
-    expect(loopBadge.textContent).toContain('🔁 Bucle c.1–4');
-
-    // Botón para quitar selección
-    const clearBtn = screen.getByTitle('Quitar selección');
-    fireEvent.click(clearBtn);
-    expect(songStore.getState().selectedBarRange).toBeNull();
+    // La cabecera fija de AlphaTab contiene el botón de seguimiento, nombre de pista y resumen técnico
+    expect(screen.getByTestId('viewport-toggle-follow-btn')).not.toBeNull();
+    expect(screen.getByText('GUITARRA RÍTMICA')).not.toBeNull();
+    expect(screen.getByText(/compases/)).not.toBeNull();
   });
 
   it('alterna reactivamente entre los 3 modos nativos de vista (Tab, Partitura + Tab, Partitura)', () => {
@@ -393,7 +326,6 @@ describe('AlphaTabViewport (Hito C5 / C6b — Delegación en AlphaTab y Barra Co
     });
 
     expect(songStore.getState().selectedBarRange).toEqual([2, 5]);
-    expect(screen.getByTestId('selected-range-badge').textContent).toContain('Selección: c.2–5');
     expect(screen.getByTestId('alphatab-container').getAttribute('data-highlight-mode')).toBe('selection');
     // El cursor de reproducción no se desplaza con Shift + Clic (permanece en compás 2)
     expect(songStore.getState().currentBar).toBe(2);
@@ -428,7 +360,6 @@ describe('AlphaTabViewport (Hito C5 / C6b — Delegación en AlphaTab y Barra Co
     });
 
     expect(songStore.getState().selectedBarRange).toEqual([1, 3]);
-    expect(screen.getByTestId('selected-range-badge').textContent).toContain('Selección: c.1–3');
     expect(screen.getByTestId('alphatab-container').getAttribute('data-highlight-mode')).toBe('selection');
 
     // Soltar ratón
@@ -469,33 +400,6 @@ describe('AlphaTabViewport (Hito C5 / C6b — Delegación en AlphaTab y Barra Co
     expect(controller.isLooping()).toBe(false);
     expect(songStore.getState().currentBar).toBe(6);
     expect(controller.getPlayer()?.tickPosition).toBe(19200);
-  });
-
-  it('analyzed-chord-chip actualiza dinámicamente el acorde según el pulso activo dentro del compás', () => {
-    const { songStore, controller } = setupViewportTest();
-
-    const { rerender } = render(
-      <AlphaTabViewport songStore={songStore} controller={controller} />,
-    );
-
-    // En compás 1, pulso 0 de Pop Diatónico hay un acorde C (I)
-    act(() => {
-      songStore.getState().setCurrentPosition(1, 0);
-    });
-    rerender(<AlphaTabViewport songStore={songStore} controller={controller} />);
-
-    const chip = screen.getByTestId('analyzed-chord-chip');
-    expect(chip.textContent).toContain('C');
-    expect(chip.textContent).toContain('(I)');
-
-    // En compás 1, pulso 3 cambia a G (V)
-    act(() => {
-      songStore.getState().setCurrentPosition(1, 3);
-    });
-    rerender(<AlphaTabViewport songStore={songStore} controller={controller} />);
-
-    expect(screen.getByTestId('analyzed-chord-chip').textContent).toContain('G');
-    expect(screen.getByTestId('analyzed-chord-chip').textContent).toContain('(V)');
   });
 
   it('la pista de bajo (4 cuerdas) en modo partitura muestra Clave de fa', () => {

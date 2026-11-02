@@ -432,10 +432,7 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
     // Botón de bucle en SongTopBar activado
     const loopBtn = screen.getByRole('button', { name: /Bucle 2–4/i });
     expect(loopBtn.getAttribute('aria-pressed')).toBe('true');
-
-    // Distintivo de bucle en la barra contextual de AlphaTabViewport
-    const loopBadge = screen.getByTestId('loop-active-badge');
-    expect(loopBadge.textContent).toContain('🔁 Bucle c.2–4');
+    expect(songStore.getState().loopEnabled).toBe(true);
 
     // Controlador sincronizado en modo bucle
     expect(controller.isLooping()).toBe(true);

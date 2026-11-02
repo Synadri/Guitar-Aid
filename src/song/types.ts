@@ -135,6 +135,26 @@ export interface SongKeyByBar {
   sectionMarker?: string;
 }
 
+/** Segmento armónico cronológico dentro de un compás con duración y posición en ticks. */
+export interface BarChordSegment {
+  /** Posición de inicio en ticks relativa al inicio del compás (ej. 0, 960, 1920...). */
+  startTick: number;
+  /** Duración en ticks del segmento dentro del compás. */
+  durationTicks: number;
+  /** Fracción relativa de duración respecto a la duración total del compás (0..1]. */
+  durationRatio: number;
+  /** Índice del primer beat del compás perteneciente a este segmento. */
+  startBeatIndex: number;
+  /** Acorde activo resuelto para este segmento. */
+  chord: ChordRef;
+  /** Candidatos alternativos ordenados con sus razones para este segmento. */
+  candidates: Candidate<ChordRef>[];
+  /** Indica si proviene de un cifrado anotado explícitamente en la partitura. */
+  isAnnotated?: boolean;
+  /** Indica si ha sido fijado manualmente por un override de usuario. */
+  hasOverride?: boolean;
+}
+
 /** Análisis armónico completo de un compás individual. */
 export interface BarChordAnalysis {
   barIndex: number;
@@ -143,6 +163,9 @@ export interface BarChordAnalysis {
   primaryChord: ChordRef | null;
   annotatedChord?: string;
   hasOverride: boolean;
+  /** Segmentos armónicos proporcionales dentro del compás (1 a N acordes reales). */
+  segments?: readonly BarChordSegment[];
+  /** @deprecated Conservado por retrocompatibilidad con tests existentes. */
   splitChords?: {
     firstHalf: Candidate<ChordRef>[];
     secondHalf: Candidate<ChordRef>[];

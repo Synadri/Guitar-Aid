@@ -503,6 +503,7 @@ export function SongTopBar({
         </button>
 
         <SettingsPopover
+          context="song"
           open={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           tuning={tuning}

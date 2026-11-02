@@ -84,121 +84,11 @@
   font-weight: 500;
 }
 
-/* 2. Barra contextual superior de Guitar Aid (34 px) */
-.contextOverlayBar {
-  height: 34px;
-  padding: 0 14px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  user-select: none;
-  gap: 12px;
-}
-
-.contextLeft {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11.5px;
-}
-
-.contextRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-}
-
-.contextBarIndicator {
-  font-weight: 600;
-  color: #f8fafc;
-  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-}
-
-.contextSectionBadge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 5px;
-  background: rgba(20, 184, 166, 0.16);
-  border: 1px solid #0d9488;
-  color: #2dd4bf;
-}
-
-.contextChordChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
-  background: rgba(245, 158, 11, 0.14);
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
-}
-
-.overrideChip {
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
-}
-
-.chordSymbol {
-  font-weight: 700;
-}
-
-.chordDegree {
-  font-size: 10.5px;
-  opacity: 0.9;
-}
-
-.overrideDot {
-  font-size: 8px;
-  color: #f59e0b;
-}
-
-.selectedRangeBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: 5px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
-}
-
-.clearSelectionButton {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 14px;
-  cursor: pointer;
-  line-height: 1;
-  padding: 0 2px;
-}
-
-.clearSelectionButton:hover {
-  color: #f8fafc;
-}
-
-.loopBadge {
-  padding: 2px 8px;
-  border-radius: 5px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbbf24;
-  font-weight: 600;
-}
-
 .followPlaybackBtn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
+  height: 22px;
   padding: 0 8px;
   border-radius: 4px;
   background: rgba(30, 41, 59, 0.7);
@@ -209,6 +99,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  margin-right: 6px;
 }
 
 .followPlaybackBtn:hover {
@@ -218,8 +109,8 @@
 }
 
 .followActive {
-  background: rgba(20, 184, 166, 0.14);
-  border-color: rgba(20, 184, 166, 0.4);
+  background: rgba(20, 184, 166, 0.16);
+  border-color: #14b8a6;
   color: #2dd4bf;
 }
 

@@ -8,7 +8,6 @@ import {
 } from '../../audio';
 import {
   songStore as defaultSongStore,
-  resolveActiveHarmony,
   type ScoreViewMode,
   type SongStore,
 } from '../../state/song';
@@ -17,14 +16,8 @@ import {
   PRESET_POP_DIATONIC,
   resolvePlaybackRangeForBars,
   resolvePlaybackTickForBarBeat,
-  type SongBar,
   type SongModel,
 } from '../../song';
-import {
-  getChordQuality,
-  pcName,
-  romanNumeral,
-} from '../../theory';
 import styles from './AlphaTabViewport.module.css';
 
 export interface AlphaTabViewportProps {
@@ -159,15 +152,12 @@ export function AlphaTabViewport({
   // Estado del store de canción
   const activeSong = useStore(songStore, (s) => s.activeSong);
   const activeTrackIndex = useStore(songStore, (s) => s.activeTrackIndex);
-  const currentBar = useStore(songStore, (s) => s.currentBar);
-  const currentBeat = useStore(songStore, (s) => s.currentBeat);
   const scoreViewMode = useStore(songStore, (s) => s.scoreViewMode);
   const followPlayback = useStore(songStore, (s) => s.followPlayback);
   const showLyrics = useStore(songStore, (s) => s.showLyrics);
   const loopRange = useStore(songStore, (s) => s.loopRange);
   const loopEnabled = useStore(songStore, (s) => s.loopEnabled);
   const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
-  const barOverrides = useStore(songStore, (s) => s.barOverrides);
 
   // Control de scroll y seguimiento de reproducción ("Bloquear vista")
   const isUserScrollingRef = useRef(false);
@@ -250,42 +240,6 @@ export function AlphaTabViewport({
   const totalBars = track?.bars.length ?? 0;
   const tuningName = track?.tuning.name ?? 'Estándar';
   const capoFret = track?.capoFret ?? 0;
-
-  // Compás activo y marcador de sección
-  const activeBar: SongBar | undefined = useMemo(() => {
-    if (!track) return undefined;
-    return (
-      track.bars.find((b) => b.number === currentBar) ??
-      track.bars[currentBar - 1] ??
-      track.bars[0]
-    );
-  }, [track, currentBar]);
-
-  const sectionName = activeBar?.sectionMarker;
-
-  // Armonía activa calculada para el compás y pulso actual
-  const harmony = useMemo(() => {
-    return resolveActiveHarmony(songStore.getState());
-  }, [songStore, currentBar, currentBeat, activeTrackIndex, activeSong, barOverrides]);
-
-  const chordInfo = useMemo(() => {
-    if (!harmony || harmony.chordRoot === undefined || !harmony.chordQuality) {
-      return null;
-    }
-    const cRootName = pcName(harmony.chordRoot, 'sharps');
-    const quality = getChordQuality(harmony.chordQuality);
-    const chordNameStr = `${cRootName}${quality.symbol}`;
-    const roman = romanNumeral(harmony.scaleTonic, harmony.chordRoot, quality);
-    return {
-      name: chordNameStr,
-      roman,
-      hasOverride: harmony.hasChordOverride,
-    };
-  }, [harmony]);
-
-  const chordDisplay = chordInfo?.name;
-  const chordRoman = chordInfo?.roman;
-  const hasOverride = chordInfo?.hasOverride ?? false;
 
   // 1. Inicialización de AlphaTab (montaje en contenedor DOM visible)
   useEffect(() => {
@@ -828,6 +782,20 @@ export function AlphaTabViewport({
           <span className={styles.trackName}>{(track?.name ?? 'Pista 1').toUpperCase()}</span>
         </div>
         <div className={styles.headerRight}>
+          <button
+            type="button"
+            className={`${styles.followPlaybackBtn} ${followPlayback ? styles.followActive : ''}`}
+            onClick={() => songStore.getState().toggleFollowPlayback()}
+            title={
+              followPlayback
+                ? 'Bloqueo de vista activo: la partitura sigue la reproducción automáticamente. Haz clic para cambiar a Vista libre.'
+                : 'Vista libre activa: puedes desplazarte libremente por la partitura. Haz clic para activar Bloquear vista.'
+            }
+            aria-pressed={followPlayback}
+            data-testid="viewport-toggle-follow-btn"
+          >
+            {followPlayback ? '🔒 Seguir' : '🔓 Libre'}
+          </button>
           {scoreViewMode === 'score' ? (
             <span className={styles.scoreTechnicalSubtitle}>
               {track?.isPercussion
@@ -848,81 +816,7 @@ export function AlphaTabViewport({
         </div>
       </header>
 
-      {/* 2. Barra contextual superior de Guitar Aid (acordes analizados, secciones y bucle) */}
-      <div className={styles.contextOverlayBar} data-testid="context-overlay-bar">
-        <div className={styles.contextLeft}>
-          <span className={styles.contextBarIndicator} data-testid="active-bar-badge">
-            Compás {currentBar}
-            {currentBeat > 0 ? ` · Pulso ${currentBeat + 1}` : ''}
-          </span>
-          {sectionName && (
-            <span className={styles.contextSectionBadge} data-testid="section-badge">
-              {sectionName}
-            </span>
-          )}
-          {chordDisplay && (
-            <span
-              className={`${styles.contextChordChip} ${hasOverride ? styles.overrideChip : ''}`}
-              data-testid="analyzed-chord-chip"
-              title={
-                hasOverride
-                  ? 'Acorde fijado manualmente por el usuario'
-                  : 'Acorde analizado por Guitar Aid'
-              }
-            >
-              <span className={styles.chordSymbol}>{chordDisplay}</span>
-              {chordRoman && <span className={styles.chordDegree}>({chordRoman})</span>}
-              {hasOverride && <span className={styles.overrideDot}>●</span>}
-            </span>
-          )}
-        </div>
-        <div className={styles.contextRight}>
-          <button
-            type="button"
-            className={`${styles.followPlaybackBtn} ${followPlayback ? styles.followActive : ''}`}
-            onClick={() => songStore.getState().toggleFollowPlayback()}
-            title={
-              followPlayback
-                ? 'Bloqueo de vista activo: la partitura sigue la reproducción automáticamente. Haz clic para cambiar a Vista libre.'
-                : 'Vista libre activa: puedes desplazarte libremente por la partitura. Haz clic para activar Bloquear vista.'
-            }
-            aria-pressed={followPlayback}
-            data-testid="viewport-toggle-follow-btn"
-          >
-            {followPlayback ? '🔒 Seguir' : '🔓 Libre'}
-          </button>
-          {selectedBarRange && (
-            <span className={styles.selectedRangeBadge} data-testid="selected-range-badge">
-              Selección: c.{selectedBarRange[0]}–{selectedBarRange[1]}
-              <button
-                type="button"
-                className={styles.clearSelectionButton}
-                onClick={() => {
-                  songStore.getState().setSelectedBarRange(null);
-                  if (alphaTabHostRef.current) {
-                    alphaTabHostRef.current.removeAttribute('data-highlight-mode');
-                  }
-                  const rawApi = apiRef.current as unknown as {
-                    _updateSelectionCursor?: (range: null) => void;
-                  };
-                  rawApi?._updateSelectionCursor?.(null);
-                }}
-                title="Quitar selección"
-                aria-label="Quitar selección"
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {loopEnabled && loopRange && (
-            <span className={styles.loopBadge} data-testid="loop-active-badge">
-              🔁 Bucle c.{loopRange[0]}–{loopRange[1]}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Contenedor nativo y visible de AlphaTab (con tema oscuro integrado) */}
+      {/* 2. Contenedor nativo y visible de AlphaTab (con tema oscuro integrado) */}
       <div
         ref={alphaTabHostRef}
         className={styles.alphaTabContainer}

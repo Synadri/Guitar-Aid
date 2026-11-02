@@ -26,6 +26,7 @@ import { parseChordSymbol } from '../theory/voicings/dictionary';
 import type {
   AnalyzeSongFragmentOptions,
   BarChordAnalysis,
+  BarChordSegment,
   BarOverride,
   DetectBarChordsOptions,
   DetectSongKeysOptions,
@@ -525,6 +526,138 @@ export function analyzeBarChords(
     }
   }
 
+  // Segmentos armónicos proporcionales dentro del compás (plan_fase3.md §7 C8)
+  const segments: BarChordSegment[] = [];
+
+  if (hasOverride && primaryChord) {
+    segments.push({
+      startTick: 0,
+      durationTicks: totalTicks,
+      durationRatio: 1,
+      startBeatIndex: 0,
+      chord: primaryChord,
+      candidates,
+      hasOverride: true,
+    });
+  } else {
+    // 1. Detectar si el compás contiene anotaciones explícitas de acordes en los pulsos
+    interface AnnotationGroup {
+      text: string;
+      startTick: number;
+      durationTicks: number;
+      startBeatIndex: number;
+      beats: SongBeat[];
+    }
+    const annotationGroups: AnnotationGroup[] = [];
+    let currentGroup: AnnotationGroup | null = null;
+
+    for (let bi = 0; bi < bar.beats.length; bi++) {
+      const b = bar.beats[bi]!;
+      if (b.chordAnnotation) {
+        if (!currentGroup || currentGroup.text !== b.chordAnnotation) {
+          if (currentGroup) {
+            annotationGroups.push(currentGroup);
+          }
+          currentGroup = {
+            text: b.chordAnnotation,
+            startTick: b.startTick,
+            durationTicks: b.durationTicks,
+            startBeatIndex: bi,
+            beats: [b],
+          };
+        } else {
+          currentGroup.durationTicks += b.durationTicks;
+          currentGroup.beats.push(b);
+        }
+      } else if (currentGroup) {
+        currentGroup.durationTicks += b.durationTicks;
+        currentGroup.beats.push(b);
+      }
+    }
+    if (currentGroup) {
+      annotationGroups.push(currentGroup);
+    }
+
+    if (annotationGroups.length > 0 && totalTicks > 0) {
+      for (const grp of annotationGroups) {
+        const parsed = parseChordSymbol(grp.text);
+        let segmentChord: ChordRef;
+        let segmentCandidates: Candidate<ChordRef>[];
+
+        if (parsed) {
+          segmentChord = {
+            root: parsed.root,
+            quality: parsed.quality,
+            name: chordDisplayName(parsed, mode),
+          };
+          segmentCandidates = [
+            {
+              value: segmentChord,
+              score: 100,
+              reasons: [{ code: 'annotatedInScore', params: { text: grp.text } }],
+            },
+          ];
+        } else {
+          const subBar: SongBar = { ...bar, beats: grp.beats };
+          const subCands = detectBarChords(subBar, options);
+          segmentCandidates = subCands;
+          segmentChord = subCands[0]?.value ?? primaryChord ?? {
+            root: 0 as PitchClass,
+            quality: 'maj',
+            name: grp.text,
+          };
+        }
+
+        segments.push({
+          startTick: grp.startTick,
+          durationTicks: grp.durationTicks,
+          durationRatio: totalTicks > 0 ? grp.durationTicks / totalTicks : 1,
+          startBeatIndex: grp.startBeatIndex,
+          chord: segmentChord,
+          candidates: segmentCandidates,
+          isAnnotated: true,
+        });
+      }
+    } else if (splitChords) {
+      // 2. Si no hay anotaciones pero se detectaron 2 mitades claramente diferenciadas
+      const midTick = totalTicks / 2;
+      const firstBeats = bar.beats.filter((b) => b.startTick < midTick);
+      const secondBeats = bar.beats.filter((b) => b.startTick >= midTick);
+      const firstTicks = firstBeats.reduce((acc, b) => acc + b.durationTicks, 0);
+      const secondTicks = secondBeats.reduce((acc, b) => acc + b.durationTicks, 0);
+      const secondStartTick = secondBeats[0]?.startTick ?? midTick;
+      const secondStartBeatIdx = bar.beats.findIndex((b) => b.startTick >= midTick);
+
+      segments.push({
+        startTick: 0,
+        durationTicks: firstTicks,
+        durationRatio: totalTicks > 0 ? firstTicks / totalTicks : 0.5,
+        startBeatIndex: 0,
+        chord: splitChords.firstHalf[0]!.value,
+        candidates: splitChords.firstHalf,
+      });
+
+      segments.push({
+        startTick: secondStartTick,
+        durationTicks: secondTicks,
+        durationRatio: totalTicks > 0 ? secondTicks / totalTicks : 0.5,
+        startBeatIndex: secondStartBeatIdx >= 0 ? secondStartBeatIdx : 1,
+        chord: splitChords.secondHalf[0]!.value,
+        candidates: splitChords.secondHalf,
+      });
+    } else if (primaryChord) {
+      // 3. Un único acorde que abarca todo el compás
+      segments.push({
+        startTick: 0,
+        durationTicks: totalTicks,
+        durationRatio: 1,
+        startBeatIndex: 0,
+        chord: primaryChord,
+        candidates,
+      });
+    }
+  }
+
   return {
     barIndex: bar.index,
     barNumber: bar.number,
@@ -532,6 +665,7 @@ export function analyzeBarChords(
     primaryChord,
     annotatedChord,
     hasOverride,
+    segments,
     splitChords,
     weightedPcs,
     estimatedRoot,
@@ -822,7 +956,11 @@ export function analyzeSongFragment(
   // Análisis de progresión de acordes en números romanos
   const chordSequence: ({ root: PitchClass; quality: ChordQualityId } | null)[] = [];
   for (const bc of barChords) {
-    if (
+    if (!bc.hasOverride && bc.segments && bc.segments.length > 0) {
+      for (const seg of bc.segments) {
+        chordSequence.push({ root: seg.chord.root, quality: seg.chord.quality });
+      }
+    } else if (
       !bc.hasOverride &&
       bc.splitChords &&
       bc.splitChords.firstHalf.length > 0 &&

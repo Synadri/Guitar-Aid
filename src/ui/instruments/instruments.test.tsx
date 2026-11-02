@@ -334,6 +334,31 @@ describe('Piano (componente puro)', () => {
     expect(pKey52.textContent).toContain('✓');
   });
 
+  it('Hito C8: Piano soporta compact recortando verticalmente sin reducir tamaño de marcas ni mezclar tags de octava', () => {
+    const marks: KeyMark[] = [
+      { midi: 60, role: 'root', label: 'C' }, // C4 activo con marca de raíz
+    ];
+    const { container } = render(<Piano compact={true} marks={marks} />);
+    const pianoEl = container.querySelector('[data-testid="piano"]')!;
+    expect(pianoEl.getAttribute('data-compact')).toBe('true');
+
+    const svg = pianoEl.querySelector('svg')!;
+    expect(svg.getAttribute('viewBox')).toBe('0 0 1316 56');
+
+    // Comprobar que todas las etiquetas de octava C2..C7 siguen presentes
+    for (const cLabel of ['C2', 'C3', 'C4', 'C5', 'C6', 'C7']) {
+      const labelEl = container.querySelector(`[data-octave-label="${cLabel}"]`);
+      expect(labelEl?.textContent).toBe(cLabel);
+      // En modo compacto se sitúan arriba (y = 10) para no mezclarse con las marcas de nota (y = 41)
+      expect(Number(labelEl?.getAttribute('y'))).toBe(10);
+    }
+
+    // La marca de C4 está a y = 41, separada por más de 30 px de la tag de octava (y = 10)
+    const c4Key = container.querySelector('[data-midi="60"]')!;
+    const markCircle = c4Key.querySelector('circle')!;
+    expect(Number(markCircle.getAttribute('cy'))).toBe(41);
+  });
+
   it('Hito A6: Fretboard soporta fretRange recortando y escalando los trastes visibles', () => {
     const { container } = render(
       <Fretboard tuning={STANDARD_TUNING} fretRange={{ from: 0, to: 12 }} />,

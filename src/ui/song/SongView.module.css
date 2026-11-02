@@ -23,6 +23,10 @@
   padding: 0 12px;
 }
 
+.songPianoWrapper {
+  width: 100%;
+}
+
 .bottomArea {
   display: grid;
   grid-template-columns: minmax(0, 1.62fr) minmax(400px, 1fr);

@@ -30,6 +30,17 @@
   box-sizing: border-box;
 }
 
+.compact {
+  height: var(--piano-compact-height, 58px);
+  padding: 1px 12px;
+}
+
+.compact .octaveLabel {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #64748b;
+}
+
 .svg {
   width: 100%;
   min-width: 760px;

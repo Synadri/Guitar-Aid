@@ -13,6 +13,7 @@ export interface PianoProps {
   marks?: readonly KeyMark[];
   nameMode?: NameMode;
   onKeyClick?: (midi: number) => void;
+  compact?: boolean;
 }
 
 const BLACK_PCS = new Set<PitchClass>([1, 3, 6, 8, 10]);
@@ -31,12 +32,8 @@ const ROLE_CLASS: Record<MarkRole, string | undefined> = {
 };
 
 const TOTAL_WIDTH = 1316;
-const TOTAL_HEIGHT = 108;
 const WHITE_WIDTH = 36;
-const WHITE_HEIGHT = 84;
 const BLACK_WIDTH = 22;
-const BLACK_HEIGHT = 52;
-const PAD_Y = 4;
 
 interface KeyLayout {
   midi: number;
@@ -49,11 +46,14 @@ interface KeyLayout {
   markX: number;
   markY: number;
   cLabel?: string;
+  cLabelX?: number;
+  cLabelY?: number;
 }
 
 function buildKeyLayouts(
   from: number,
   to: number,
+  compact = false,
 ): {
   whiteKeys: KeyLayout[];
   blackKeys: KeyLayout[];
@@ -63,6 +63,14 @@ function buildKeyLayouts(
   const whiteKeys: KeyLayout[] = [];
   const blackKeys: KeyLayout[] = [];
   let whiteCount = 0;
+
+  // En modo compacto se recortan las partes superiores vacías de las teclas
+  const totalHeight = compact ? 56 : 108;
+  const whiteHeight = compact ? 52 : 84;
+  const blackHeight = compact ? 28 : 52;
+  const padY = compact ? 2 : 4;
+  const whiteMarkY = compact ? 41 : padY + whiteHeight - 16;
+  const blackMarkY = compact ? 15 : padY + blackHeight - 18;
 
   // Primero calculamos cuántas teclas blancas hay en el rango
   for (let midi = from; midi <= to; midi++) {
@@ -84,21 +92,26 @@ function buildKeyLayouts(
     if (!isBlack) {
       const x = padX + currentWhiteIndex * WHITE_WIDTH;
       const markX = x + WHITE_WIDTH / 2;
-      const markY = PAD_Y + WHITE_HEIGHT - 16;
       const octave = Math.floor(midi / 12) - 1;
       const cLabel = pc === 0 ? `C${octave}` : undefined;
+      // En modo compacto, la etiqueta de octava se sitúa en la muesca superior libre de la tecla Do (x + 13, y = 10)
+      // para que nunca colisione ni se mezcle con las marcas de nota en la parte inferior (y = 41)
+      const cLabelX = compact ? x + 13 : markX;
+      const cLabelY = compact ? 10 : totalHeight - 10;
 
       whiteKeys.push({
         midi,
         pc,
         isBlack: false,
         x,
-        y: PAD_Y,
+        y: padY,
         width: WHITE_WIDTH,
-        height: WHITE_HEIGHT,
+        height: whiteHeight,
         markX,
-        markY,
+        markY: whiteMarkY,
         cLabel,
+        cLabelX,
+        cLabelY,
       });
 
       currentWhiteIndex++;
@@ -107,23 +120,22 @@ function buildKeyLayouts(
       const dividingLineX = padX + currentWhiteIndex * WHITE_WIDTH;
       const x = dividingLineX - BLACK_WIDTH / 2;
       const markX = dividingLineX;
-      const markY = PAD_Y + BLACK_HEIGHT - 18;
 
       blackKeys.push({
         midi,
         pc,
         isBlack: true,
         x,
-        y: PAD_Y,
+        y: padY,
         width: BLACK_WIDTH,
-        height: BLACK_HEIGHT,
+        height: blackHeight,
         markX,
-        markY,
+        markY: blackMarkY,
       });
     }
   }
 
-  return { whiteKeys, blackKeys, totalWidth: TOTAL_WIDTH, totalHeight: TOTAL_HEIGHT };
+  return { whiteKeys, blackKeys, totalWidth: TOTAL_WIDTH, totalHeight };
 }
 
 export function Piano({
@@ -131,9 +143,14 @@ export function Piano({
   marks = [],
   nameMode = 'sharps',
   onKeyClick,
+  compact = false,
 }: PianoProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { whiteKeys, blackKeys, totalWidth, totalHeight } = buildKeyLayouts(range.from, range.to);
+  const { whiteKeys, blackKeys, totalWidth, totalHeight } = buildKeyLayouts(
+    range.from,
+    range.to,
+    compact,
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -204,8 +221,8 @@ export function Piano({
         {layout.cLabel && (
           <text
             className={styles.octaveLabel}
-            x={layout.markX}
-            y={TOTAL_HEIGHT - 10}
+            x={layout.cLabelX ?? layout.markX}
+            y={layout.cLabelY ?? totalHeight - 10}
             textAnchor="middle"
             dominantBaseline="central"
             data-octave-label={layout.cLabel}
@@ -223,11 +240,11 @@ export function Piano({
             {mark.role === 'wrong' ? (
               <rect
                 className={styles.markSquare}
-                x={layout.markX - 11}
-                y={layout.markY - 11}
-                width={22}
-                height={22}
-                rx={5}
+                x={layout.markX - (compact ? 10 : 11)}
+                y={layout.markY - (compact ? 10 : 11)}
+                width={compact ? 20 : 22}
+                height={compact ? 20 : 22}
+                rx={compact ? 4 : 5}
               />
             ) : (
               <circle
@@ -235,13 +252,17 @@ export function Piano({
                 cx={layout.markX}
                 cy={layout.markY}
                 r={
-                  mark.role === 'question'
-                    ? 11
-                    : mark.role === 'scale-bg'
-                      ? 9
-                      : mark.role === 'root' || mark.role === 'pinned'
-                        ? 11
-                        : 10
+                  compact
+                    ? mark.role === 'scale-bg'
+                      ? 8.5
+                      : 10
+                    : mark.role === 'question'
+                      ? 11
+                      : mark.role === 'scale-bg'
+                        ? 9
+                        : mark.role === 'root' || mark.role === 'pinned'
+                          ? 11
+                          : 10
                 }
                 strokeDasharray={
                   mark.role === 'missed'
@@ -259,7 +280,7 @@ export function Piano({
                 className={styles.rootInnerRing}
                 cx={layout.markX}
                 cy={layout.markY}
-                r={8.5}
+                r={compact ? 7.5 : 8.5}
                 data-testid="root-inner-ring"
               />
             )}
@@ -285,7 +306,12 @@ export function Piano({
   };
 
   return (
-    <div ref={containerRef} className={styles.container} data-testid="piano">
+    <div
+      ref={containerRef}
+      className={`${styles.container} ${compact ? styles.compact : ''}`}
+      data-testid="piano"
+      data-compact={compact ? 'true' : undefined}
+    >
       <svg
         className={styles.svg}
         viewBox={`0 0 ${totalWidth} ${totalHeight}`}

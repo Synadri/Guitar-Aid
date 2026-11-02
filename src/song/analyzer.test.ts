@@ -440,4 +440,57 @@ describe('src/song/analyzer — análisis de fragmento y overrides manuales (`an
 
     expect(chordRoots.includes(4) || chordRoots.includes(9) || chordRoots.includes(11)).toBe(true);
   });
+
+  it('calcula segmentos armónicos cronológicos (BarChordSegment) para compases con anotaciones asimétricas', () => {
+    // Compás 4/4 con anotación "C" en tiempo 1 (dura 1 negra = 960 ticks) y "G" en tiempos 2-4 (dura 3 negras = 2880 ticks)
+    const asymmetricBar: SongBar = {
+      index: 0,
+      number: 1,
+      timeSignature: { numerator: 4, denominator: 4 },
+      tempoBpm: 120,
+      beats: [
+        {
+          index: 0,
+          startTick: 0,
+          durationTicks: 960,
+          metricWeight: 1.5,
+          chordAnnotation: 'C',
+          notes: [{ string: 5, fret: 3, midi: 48, pc: 0, durationTicks: 960, isTied: false, isGhost: false }],
+        },
+        {
+          index: 1,
+          startTick: 960,
+          durationTicks: 960,
+          metricWeight: 1.0,
+          chordAnnotation: 'G',
+          notes: [{ string: 6, fret: 3, midi: 43, pc: 7, durationTicks: 960, isTied: false, isGhost: false }],
+        },
+        {
+          index: 2,
+          startTick: 1920,
+          durationTicks: 1920,
+          metricWeight: 1.2,
+          notes: [{ string: 6, fret: 3, midi: 43, pc: 7, durationTicks: 1920, isTied: false, isGhost: false }],
+        },
+      ],
+    };
+
+    const analysis = analyzeBarChords(asymmetricBar);
+    expect(analysis.segments).toBeDefined();
+    expect(analysis.segments?.length).toBe(2);
+
+    const seg1 = analysis.segments![0]!;
+    expect(seg1.chord.root).toBe(0); // C
+    expect(seg1.startTick).toBe(0);
+    expect(seg1.durationTicks).toBe(960);
+    expect(seg1.durationRatio).toBeCloseTo(0.25);
+    expect(seg1.isAnnotated).toBe(true);
+
+    const seg2 = analysis.segments![1]!;
+    expect(seg2.chord.root).toBe(7); // G
+    expect(seg2.startTick).toBe(960);
+    expect(seg2.durationTicks).toBe(2880);
+    expect(seg2.durationRatio).toBeCloseTo(0.75);
+    expect(seg2.isAnnotated).toBe(true);
+  });
 });

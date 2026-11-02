@@ -6,6 +6,7 @@ import styles from './SettingsPopover.module.css';
 export const SINGLE_INSTRUMENT_NOTICE = 'Siempre queda un instrumento visible';
 
 export interface SettingsPopoverProps {
+  context?: 'sandbox' | 'song';
   open: boolean;
   onClose: () => void;
   tuning: Tuning;
@@ -25,6 +26,7 @@ export interface SettingsPopoverProps {
 }
 
 export function SettingsPopover({
+  context = 'sandbox',
   open,
   onClose,
   tuning,
@@ -69,8 +71,10 @@ export function SettingsPopover({
     };
   }, [open, onClose]);
 
-  const isFretboardSwitchDisabled = visibleInstruments.fretboard && !visibleInstruments.piano;
-  const isPianoSwitchDisabled = visibleInstruments.piano && !visibleInstruments.fretboard;
+  const isFretboardSwitchDisabled =
+    context === 'song' ? false : visibleInstruments.fretboard && !visibleInstruments.piano;
+  const isPianoSwitchDisabled =
+    context === 'song' ? false : visibleInstruments.piano && !visibleInstruments.fretboard;
 
   // Las 6 notas de afinación de la cuerda 6 a la 1
   const stringNotesReversed = [...tuning.strings]
@@ -114,34 +118,36 @@ export function SettingsPopover({
         </button>
       </div>
 
-      {/* 1. AFINACIÓN */}
-      <div className={styles.section}>
-        <label className={styles.sectionLabel} htmlFor="settings-tuning-select">
-          Afinación
-        </label>
-        <select
-          id="settings-tuning-select"
-          className={styles.selectInput}
-          aria-label="Afinación"
-          value={tuning.id}
-          onChange={(e: ChangeEvent<HTMLSelectElement>) => onTuningChange(e.target.value)}
-        >
-          {TUNINGS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+      {/* 1. AFINACIÓN (solo Sandbox/Aprender, en Canción se hereda de la pista) */}
+      {context !== 'song' && (
+        <div className={styles.section}>
+          <label className={styles.sectionLabel} htmlFor="settings-tuning-select">
+            Afinación
+          </label>
+          <select
+            id="settings-tuning-select"
+            className={styles.selectInput}
+            aria-label="Afinación"
+            value={tuning.id}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => onTuningChange(e.target.value)}
+          >
+            {TUNINGS.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
 
-        <div className={styles.stringPillsRow} aria-label="Notas de las cuerdas de grave a aguda">
-          {stringNotesReversed.map((note, idx) => (
-            <span key={idx} className={styles.stringPill}>
-              {note}
-            </span>
-          ))}
-          <span className={styles.stringsNote}>cuerdas 6 → 1</span>
+          <div className={styles.stringPillsRow} aria-label="Notas de las cuerdas de grave a aguda">
+            {stringNotesReversed.map((note, idx) => (
+              <span key={idx} className={styles.stringPill}>
+                {note}
+              </span>
+            ))}
+            <span className={styles.stringsNote}>cuerdas 6 → 1</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. NOMBRES DE NOTAS */}
       <div className={styles.section}>
@@ -183,25 +189,27 @@ export function SettingsPopover({
       <div className={styles.section}>
         <div className={styles.sectionLabel}>Vista</div>
 
-        {/* Mostrar todas las posiciones */}
-        <label className={styles.switchRow}>
-          <div className={styles.switchTextCol}>
-            <span className={styles.switchTitle}>Mostrar todas las posiciones</span>
-            <span className={styles.switchDesc}>Cada lugar del mástil donde suena la nota</span>
-          </div>
-          <div className={styles.switchToggle}>
-            <input
-              type="checkbox"
-              role="switch"
-              aria-label="Mostrar todas las posiciones"
-              aria-checked={showAllPositions}
-              checked={showAllPositions}
-              onChange={(e) => onShowAllPositionsChange(e.target.checked)}
-              className={styles.switchInput}
-            />
-            <span className={styles.switchSlider} />
-          </div>
-        </label>
+        {/* Mostrar todas las posiciones (inaplicable en Modo Canción) */}
+        {context !== 'song' && (
+          <label className={styles.switchRow}>
+            <div className={styles.switchTextCol}>
+              <span className={styles.switchTitle}>Mostrar todas las posiciones</span>
+              <span className={styles.switchDesc}>Cada lugar del mástil donde suena la nota</span>
+            </div>
+            <div className={styles.switchToggle}>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Mostrar todas las posiciones"
+                aria-checked={showAllPositions}
+                checked={showAllPositions}
+                onChange={(e) => onShowAllPositionsChange(e.target.checked)}
+                className={styles.switchInput}
+              />
+              <span className={styles.switchSlider} />
+            </div>
+          </label>
+        )}
 
         {/* Modo zurdo */}
         <label className={styles.switchRow}>
@@ -290,23 +298,25 @@ export function SettingsPopover({
         </label>
       </div>
 
-      {/* 4. VOLUMEN */}
-      <div className={styles.section}>
-        <div className={styles.sectionLabelRow}>
-          <span className={styles.sectionLabel}>Volumen</span>
-          <span className={styles.volumePercent}>{Math.round(volume * 100)}%</span>
+      {/* 4. VOLUMEN (en Canción rige el mezclador multipista) */}
+      {context !== 'song' && (
+        <div className={styles.section}>
+          <div className={styles.sectionLabelRow}>
+            <span className={styles.sectionLabel}>Volumen</span>
+            <span className={styles.volumePercent}>{Math.round(volume * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            className={styles.sliderInput}
+            aria-label="Volumen"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={(e) => onVolumeChange(Number(e.target.value))}
+          />
         </div>
-        <input
-          type="range"
-          className={styles.sliderInput}
-          aria-label="Volumen"
-          min={0}
-          max={1}
-          step={0.05}
-          value={volume}
-          onChange={(e) => onVolumeChange(Number(e.target.value))}
-        />
-      </div>
+      )}
 
       {/* Selector de etiquetas oculto para tests existentes */}
       <label className={styles.visuallyHidden}>

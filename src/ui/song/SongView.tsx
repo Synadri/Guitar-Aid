@@ -33,6 +33,7 @@ import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
 import { SongContextStrip } from './SongContextStrip';
 import { SongLibraryModal } from './SongLibraryModal';
+import { SongTimelineBar } from './SongTimelineBar';
 import { SongTopBar } from './SongTopBar';
 import styles from './SongView.module.css';
 
@@ -160,7 +161,7 @@ export function SongView({
 
   // Estado de ajustes
   const settings = useStore(settingsStore, (s) => s);
-  const { nameMode, labels, leftHanded, soundEnabled } = settings;
+  const { nameMode, labels, leftHanded, soundEnabled, visibleInstruments } = settings;
 
   // Pista activa
   const track = activeSong?.tracks[activeTrackIndex] ?? activeSong?.tracks[0];
@@ -337,37 +338,37 @@ export function SongView({
       <section className={styles.instrumentsCard} aria-label="Instrumentos sincronizados">
         <SongContextStrip songStore={songStore} settingsStore={settingsStore} />
 
-        <div className={styles.instrumentsRow}>
-          <Fretboard
-            tuning={tuning}
-            capoFret={capoFret}
-            marks={fretboardMarks}
-            nameMode={nameMode}
-            leftHanded={leftHanded}
-            onPositionClick={handleFretboardClick}
-          />
-          <Piano
-            marks={pianoMarks}
-            nameMode={nameMode}
-            onKeyClick={handlePianoClick}
-          />
-        </div>
+        {(!visibleInstruments || visibleInstruments.fretboard || visibleInstruments.piano) && (
+          <div className={styles.instrumentsRow}>
+            {(!visibleInstruments || visibleInstruments.fretboard) && (
+              <Fretboard
+                tuning={tuning}
+                capoFret={capoFret}
+                marks={fretboardMarks}
+                nameMode={nameMode}
+                leftHanded={leftHanded}
+                onPositionClick={handleFretboardClick}
+              />
+            )}
+            {(!visibleInstruments || visibleInstruments.piano) && (
+              <div className={styles.songPianoWrapper}>
+                <Piano
+                  compact={true}
+                  marks={pianoMarks}
+                  nameMode={nameMode}
+                  onKeyClick={handlePianoClick}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 3. Área inferior (2 columnas: Partitura/Tablatura + Análisis) */}
       <main className={styles.bottomArea}>
         <div className={styles.leftColumn}>
-          {/* Tira horizontal de compases / secciones (Hito C8) */}
-          <div
-            className={styles.timelinePlaceholder}
-            data-testid="song-timeline-bar"
-            aria-label="Cinta de compases"
-          >
-            <span>
-              Compás {songState.currentBar} · {track?.bars[songState.currentBar - 1]?.sectionMarker ?? 'Sección'}
-            </span>
-            <small>Cinta armónica (Hito C8)</small>
-          </div>
+          {/* Tira horizontal armónica de compases y secciones (Hito C8 Parte 1) */}
+          <SongTimelineBar songStore={songStore} controller={controller} />
 
           {/* Visor interactivo de tablatura y partitura (Hito C5) */}
           <AlphaTabViewport

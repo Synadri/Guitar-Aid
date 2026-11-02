@@ -731,5 +731,44 @@ Se implementa el Hito C7 del Modo Canción conforme a las especificaciones de `/
     - **Diagnóstico:** La inclusión del botón `[🔒 Bloquear vista] / [🔓 Vista libre]` en el grupo de vistas de `SongTopBar` provocaba que la barra hiciera overflow horizontal por la derecha en anchos de pantalla habituales, resultando redundante con el botón de seguimiento ya integrado en la barra contextual de `AlphaTabViewport`.
     - **Decisión:** Se retiró dicho botón de `SongTopBar.tsx`, dejando el control de seguimiento exclusivamente en el botón de la barra contextual del visor (`[🔒 Seguir] / [🔓 Libre]`), eliminando el desbordamiento visual de la cabecera sin perder la funcionalidad.
 
+---
+
+## 2026-11-02 — Hito C8 (Parte 1): Optimización de espacio vertical, cinta armónica (`SongTimelineBar`) y segmentos intra-compás
+
+Se cierran los acuerdos de diseño y arquitectura para el Hito C8 Parte 1 antes de su implementación:
+
+### 1. Optimización del espacio vertical y ergonomía visual
+1. **Retirada de la barra flotante redundante `contextOverlayBar` en `AlphaTabViewport` (+34 px netos para la tablatura):**
+   - La información de compás, sección, acorde, bucle y selección queda unificada en el `SongTimelineBar` y en el `SongContextStrip`.
+   - El botón de seguimiento de vista (`[🔒 Seguir / 🔓 Libre]`) se traslada directamente a la cabecera fija del visor (`styles.scoreHeader`), a la derecha junto a afinación, capo y total de compases.
+2. **Adaptación contextual del menú de Ajustes (`SettingsPopover`) en Modo Canción:**
+   - Se conectan reactivamente los selectores de visibilidad `visibleInstruments.fretboard` y `visibleInstruments.piano` en `SongView`.
+   - Ocultar el piano libera instantáneamente **116 px** para la partitura. Ocultar ambos instrumentos colapsa la tarjeta superior para un modo de práctica/lectura completa con más de **350 px** adicionales para la tablatura.
+   - En Modo Canción se ocultan del popover de ajustes: selector de afinación (se toma de la pista), visualización de todas las posiciones (inaplicable en canciones) y deslizador de volumen general (delegado en el mezclador multipista).
+3. **Mástil a altura completa y Piano compacto en Modo Canción:**
+   - El mástil conserva su altura completa (`236 px`) para asegurar máxima claridad de notas de apoyo y digitaciones durante la reproducción.
+   - El piano se compacta verticalmente recortando la parte superior vacía de las teclas (reduciendo el viewBox a `1316 × 56` y la altura del contenedor a `58 px`, ahorrando **58 px** netos para la partitura).
+   - **Prevención de colisión de tags de octava:** Las etiquetas de octava (`C2`, `C3`… `C7`) se reubican en la muesca superior libre de la tecla Do (`x + 13, y = 10`), donde no existe tecla negra a la izquierda, mientras las marcas de notas activas (`pinned`, `root`, `scale-bg`) se sitúan en la mitad inferior (`y = 41`). Con una separación vertical de más de 30 px, las etiquetas de octava y las marcas de acordes/escalas jamás colisionan ni se mezclan.
+4. **Cinta `SongTimelineBar` de dos filas con capacidad de colapso y escalado de 4–6 compases:**
+   - La cinta se dibuja completa con sus 2 filas (Secciones arriba + Compases abajo) para máxima riqueza teórica.
+   - **Escalado ergonómico de compases:** en lugar de forzar decenas de compases comprimidos en pantalla, las celdas de compás tienen un ancho confortable de `120 px`, garantizando que siempre se visualicen cómodamente entre 4 y 6 compases simultáneos con nombres completos de acordes (incluyendo tensiones y barras de bajo como `Dsus4` o `Dm/F#`), complementado con scroll horizontal automático suave hacia el compás activo.
+   - **Títulos de sección adhesivos (*sticky*):** dentro de la fila de secciones, el título de la sección y su tonalidad utilizan `position: sticky; left: 8px` para permanecer visibles y legibles a la izquierda mientras el usuario navega a través de compases intermedios.
+   - Se incorpora un control rápido de colapso/expansión para poder ocultar la cinta horizontal si el usuario prefiere dedicar el 100 % de la columna a la tablatura.
+
+### 2. Tratamiento de acordes intra-compás: «Segmentos Armónicos Proporcionales» (`BarChordSegment`)
+1. **Superación del corte rígido al 50 %:**
+   - En canciones reales existen cambios asimétricos (acordes que duran 3 tiempos con acorde de paso en el tiempo 4, cambios en tiempos 1 y 2 con prolongación en tiempos 3 y 4, compases ternarios 3/4 o cadencias de 3 o 4 acordes por compás).
+   - Se sustituye el modelo rígido `splitChords?: { firstHalf, secondHalf }` por una lista ordenada de **segmentos armónicos reales** `segments: readonly BarChordSegment[]`.
+2. **Modelo temporal por ticks y ratios relativos:**
+   - Cada segmento define `startTick`, `durationTicks`, `durationRatio` (fracción del compás), `chord` y `candidates`.
+   - Si la partitura incluye `chordAnnotation` en los pulsos, los segmentos nacen de los instantes exactos en que cambia el cifrado.
+   - Si no hay anotaciones, el analizador agrupa los pulsos métricos por coherencia armónica.
+3. **Visualización y comportamiento interactivo en `SongTimelineBar`:**
+   - Cada celda de compás se subdivide internamente de forma proporcional según `segment.durationRatio`.
+   - **Iluminación reactiva pulso a pulso:** el sub-slot que está sonando en el pulso actual se ilumina en ámbar (`#f59e0b`), reflejando el ritmo armónico (*harmonic rhythm*) con sincronización exacta.
+   - **Celdas elásticas:** compases con 1 o 2 acordes mantienen ancho estándar (`52–60 px`); compases con 3 o 4 acordes se ensanchan suavemente (`88–100 px`) dentro del contenedor con desplazamiento horizontal.
+   - **Interacción:** clic en el compás selecciona el compás completo; clic en un sub-slot enfoca e inspecciona ese acorde concreto en el panel de análisis.
+
+
 
 
