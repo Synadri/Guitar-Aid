@@ -605,3 +605,45 @@ Esta estrategia generó graves inconvenientes arquitectónicos y de producto:
    - **Guitar Aid → AlphaTab:**
      - Cambios en el transporte, tempo, pista activa o selección de compás reposicionan o re-renderizan AlphaTab a través de `alphaSynthController` y `AlphaTabApi`.
 
+---
+
+## 2026-11-02 — Refinamiento del control de interacción, visualización y ergonomía de AlphaTab en Modo Canción
+
+Tras la delegación del renderizado a AlphaTab, se identificaron y solucionaron diversos desajustes en la interacción del ratón, el sombreado de bucles/selecciones y la notación de instrumentos. Se adoptan las siguientes decisiones técnicas:
+
+1. **Desactivación de `settings.player.enableUserInteraction` y soberanía del control en Guitar Aid:**
+   - **Diagnóstico:** AlphaTab por defecto (`enableUserInteraction: true`) gestiona internamente los clics del ratón ejecutando `applyPlaybackRangeFromHighlight()` en el evento `mouseUp`. Si el usuario hacía un clic simple (sin arrastrar), esta rutina forzaba el cabezal de lectura (`tickPosition`) a la nota clicada y ejecutaba `_cursorSelectRange(void 0, void 0)`, borrando instantáneamente cualquier sombreado de compases y provocando que el cursor se desplazara incluso al mantener pulsado Shift.
+   - **Decisión:** Fijar `settings.player.enableUserInteraction = false` en la inicialización de AlphaTab. Con ello, AlphaTab no interfiere en el ciclo de vida del cursor ni en la selección al soltar el ratón.
+   - **Flujo de interacción implementado:**
+     - **`Shift + Clic`:** Detectado tanto por teclado como por evento de ratón. Calcula el rango `[minBar, maxBar]`, actualiza `selectedBarRange`, activa el sombreado visual y efectúa un `return` temprano sin alterar `currentPosition`, sin realizar `seekToTick` y manteniendo el cursor de lectura en su posición ancla original.
+     - **Clic simple sin Shift:** Sitúa la posición en el compás y pulso pulsados, busca el tick en `alphaSynthController`, actualiza el cursor y limpia la selección previa (o desactiva el bucle si se hace clic fuera del rango activo).
+     - **Arrastre con ratón (`beatMouseMove`):** Si el usuario hace clic y arrastra a través de varios compases, se activa el modo de arrastre y se actualiza reactivamente `selectedBarRange` en compases enteros, sincronizando el badge contextual y el visor en tiempo real.
+
+2. **Resolución del bug de engrosamiento de bordes en `.at-selection div`:**
+   - **Diagnóstico:** AlphaTab representa los bloques de selección aplicando matrices CSS `transform: translate(x, y) scale(w / 100, h / 100)`. Si se definen propiedades `border-left`, `border-right` u `outline` en píxeles en el CSS, el motor del navegador multiplica el grosor horizontal por el factor de escala `scale(w / 100)`. Cuanto más compases abarcaba la selección (mayor anchura `w`), más descomunales y gruesos se volvían los bordes laterales.
+   - **Decisión:** Eliminar por completo `border-left`, `border-right` y `box-shadow` en `.at-selection div`. Se utiliza un relleno suave translúcido con `border: none !important; box-shadow: none !important;`, idéntico a la técnica de renderizado plano que AlphaTab emplea en `.at-cursor-bar`.
+
+3. **Separación semántica de colores: Ámbar para Bucles y Turquesa para Selección:**
+   - **Decisión:** Diferenciar visualmente los dos tipos de regiones mediante el atributo HTML `data-highlight-mode` en el contenedor de AlphaTab:
+     - **Bucle activo (`data-highlight-mode="loop"`):** Relleno translúcido en **ámbar cálido** (`rgba(245, 158, 11, 0.22)`), reservado estrictamente para los compases en bucle de reproducción.
+     - **Selección de compases (`data-highlight-mode="selection"`):** Relleno translúcido en **turquesa suave** (`rgba(20, 184, 166, 0.16)`), homogéneo y coherente con el resalte del compás actual de Guitar Aid (`.at-cursor-bar`).
+     - **Flujo integrado con transporte:** Cuando el usuario selecciona compases y pulsa la tecla <kbd>L</kbd> o el botón de bucle en `SongTopBar`, la acción `toggleLoop()` convierte la selección en bucle y el sombreado conmuta de forma reactiva de turquesa a ámbar.
+
+4. **Corrección de límites de compás en ticks (`endTick - 10`):**
+   - **Decisión:** Al enviar el rango a `rawApi._updateSelectionCursor`, restar un offset de 10 ticks a `endTick` (`Math.max(startTick, endTick - 10)`).
+   - **Justificación:** AlphaTab utiliza su caché de ticks para resolver el beat final (`this._tickCache.findBeat(endTick)`). Si `endTick` coincide exactamente con el tick inicial del compás siguiente, `findBeat` devolvía el pulso 0 de dicho compás, expandiendo erróneamente el sombreado un compás más allá. Al restar 10 ticks, la búsqueda resuelve con precisión el último pulso del compás de fin, ciñendo el rectángulo exactamente a la barra divisoria.
+
+5. **Inhibición de selección de texto nativa del navegador en la partitura/tablatura:**
+   - **Diagnóstico:** Al desactivar `enableUserInteraction`, el navegador intentaba seleccionar texto nativo (cajas azules sobre letras de acordes, números de traste y letras de la canción) al arrastrar o hacer clic sobre elementos SVG/HTML de la partitura.
+   - **Decisión:**
+     - Aplicar `user-select: none !important;` y `-webkit-user-select: none !important;` a `.alphaTabContainer` y a todos sus descendientes (`text`, `svg`, etc.) en `AlphaTabViewport.module.css`.
+     - Añadir `onMouseDown={(e) => { if (e.button === 0) { e.preventDefault(); window.getSelection()?.removeAllRanges(); } }}` en el contenedor de AlphaTab, garantizando que el cursor de ratón interactúe fluidamente con la música sin disparar selecciones de texto parásitas.
+
+6. **Notación rítmica en modo solo Tablatura y Clave de Fa en bajo eléctrico:**
+   - **Decisión en Tablatura:** Configurar `settings.notation.rhythmMode = at.TabRhythmMode.ShowWithBars` en modo `tab` (tanto en la inicialización como en los cambios reactivos de `scoreViewMode`), asegurando que las plicas y barras de unión rítmica se muestren sobre las líneas de la tablatura para facilitar la lectura del tempo y figuras de nota.
+   - **Decisión en Pistas de Bajo:** Añadir `\clef bass` en la pista de bajo en `src/song/presets.ts` (`POP_DIATONICO_ALPHATEX`) para que AlphaTab grabe la Clave de Fa en modo partitura y partitura + tablatura en lugar de la clave de sol de guitarra.
+
+7. **Reactividad pulso a pulso en el chip de acordes analizados (`analyzed-chord-chip`):**
+   - **Decisión:** Incluir `currentBeat` en las dependencias de cálculo de `resolveActiveHarmony` y evaluar las notas del pulso y el desglose armónico por mitades de compás (`splitChords`).
+   - **Justificación:** Garantiza que si un compás contiene cambios de acorde en subdivisiones intermedias (por ejemplo Do en tiempos 1–2 y Sol en tiempo 3), el chip superior refleje con exactitud matemática el acorde que suena en ese instante.
+

@@ -148,15 +148,16 @@ Tarjeta inferior (`.scoreCard`, `flex: 1; min-height: 0; display: flex; flex-dir
        - `display.resources.secondaryGlyphColor`: `#94a3b8` (indicaciones dinámicas y técnicas auxiliares).
        - `display.resources.barNumberColor`: `#64748b` (numeración de compases en gris legible).
        - Tipografía musical SMuFL: fuente `Bravura` local (`public/font/`, 100 % offline).
-       - Estilos CSS de cursores nativos: cursor de compás y pulso activo con estilos turquesa (`#14b8a6` / `#2dd4bf`) y halo translúcido.
+       - Estilos CSS de cursores nativos: cursor de compás y pulso activo con estilos turquesa (`#14b8a6` / `#2dd4bf`) y halo translúcido. Sombreado de bucle en ámbar cálido (`data-highlight-mode="loop"`, `rgba(245, 158, 11, 0.22)`) y selección de compases en turquesa suave sin bordes distorsionados (`data-highlight-mode="selection"`, `rgba(20, 184, 166, 0.16)`).
      - **Modos nativos conmutables (`settings.display.staveProfile`):**
-       - **Tablatura (`Tab`):** modo de tablatura pura (`at.StaveProfile.Tab`) con digitaciones sobre las cuerdas y articulaciones de guitarra completas.
-       - **Partitura (`Score`):** pentagrama clásico (`at.StaveProfile.Score`) con clave (sol 8vb para guitarra, fa para bajo), armadura, compás, plicas calculadas, figuras rítmicas y líneas adicionales.
+       - **Tablatura (`Tab`):** modo de tablatura pura (`at.StaveProfile.Tab`) con digitaciones sobre las cuerdas, articulaciones de guitarra completas y plicas rítmicas (`TabRhythmMode.ShowWithBars`).
+       - **Partitura (`Score`):** pentagrama clásico (`at.StaveProfile.Score`) con clave (sol 8vb para guitarra, clave de fa `\clef bass` para bajo), armadura, compás, plicas calculadas, figuras rítmicas y líneas adicionales.
        - **Partitura + Tablatura (`ScoreTab`):** sistema dual acoplado (`at.StaveProfile.ScoreTab`) con barras de compás continuas y alineación temporal exacta entre notas de solfeo y trastes.
        - **Letra:** conmutación nativa de la fila de lírica bajo los compases mediante `settings.notation.elements.set(at.NotationElement.EffectLyrics, showLyrics)`.
    - **Interacción y sincronización con el ecosistema Guitar Aid:**
-     - Hacer clic sobre cualquier nota, pulso o compás en AlphaTab dispara la navegación inmediata (`seekToTick`), actualizando en tiempo real `currentBar` y `currentBeat` en `songStore`.
-     - Esto sincroniza de inmediato las notas sonando en el `Fretboard` y `Piano` (marcas `pinned` y `root` sobre `scale-bg`), y actualiza la celda enfocada en la cinta `SongTimelineBar` y la barra contextual.
+     - Control de interacción delegado en Guitar Aid (`enableUserInteraction: false`): `Shift + Clic` selecciona compases sin desplazar el cursor de reproducción ni seekear; arrastrar con el ratón (`beatMouseMove`) selecciona rangos continuos; clic sin Shift posiciona inmediatamente (`seekToTick`) actualizando en tiempo real `currentBar` y `currentBeat` en `songStore`.
+     - Inhibición de selección de texto nativa del navegador mediante `user-select: none` y prevención de evento por defecto en `onMouseDown`.
+     - Esto sincroniza de inmediato las notas sonando en el `Fretboard` y `Piano` (marcas `pinned` y `root` sobre `scale-bg`), y actualiza la celda enfocada en la cinta `SongTimelineBar` y la barra contextual (con actualización dinámica pulso a pulso del chip de acorde).
 
 ---
 
