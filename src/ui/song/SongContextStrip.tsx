@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -9,6 +9,7 @@ import {
   type LabelMode,
   type SandboxStore,
   type SettingsStore,
+  type SongState,
   type SongStore,
 } from '../../state';
 import {
@@ -37,7 +38,7 @@ export interface SongContextStripProps {
   onNavigateToSandbox?: () => void;
 }
 
-export function SongContextStrip({
+export const SongContextStrip = memo(function SongContextStrip({
   songStore = defaultSongStore,
   settingsStore = defaultSettingsStore,
   sandboxStore,
@@ -58,7 +59,7 @@ export function SongContextStrip({
   const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
   const degreeReferenceMode = useStore(songStore, (s) => s.degreeReferenceMode);
   const barOverrides = useStore(songStore, (s) => s.barOverrides);
-  const songState = useStore(songStore, (s) => s);
+  const analysisSource = useStore(songStore, (s) => s.analysisSource);
 
   const nameMode = useStore(settingsStore, (s) => s.nameMode);
   const labels = useStore(settingsStore, (s) => s.labels);
@@ -102,7 +103,29 @@ export function SongContextStrip({
   const sectionName = activeBar?.sectionMarker;
 
   // Armonía activa
-  const harmony = resolveActiveHarmony(songState, { nameMode });
+  const currentContextState = useMemo(
+    () =>
+      ({
+        activeSong,
+        activeTrackIndex,
+        currentBar,
+        currentBeat,
+        degreeReferenceMode,
+        barOverrides,
+        analysisSource,
+      }) as SongState,
+    [
+      activeSong,
+      activeTrackIndex,
+      currentBar,
+      currentBeat,
+      degreeReferenceMode,
+      barOverrides,
+      analysisSource,
+    ],
+  );
+
+  const harmony = resolveActiveHarmony(currentContextState, { nameMode });
 
   // Tonalidad / Escala activa
   const scaleTonicName = harmony ? pcName(harmony.scaleTonic, nameMode) : 'C';
@@ -135,7 +158,7 @@ export function SongContextStrip({
   const keyMatches = activeSong
     ? detectSongKeysByBar(activeSong, {
         trackIndex: activeTrackIndex,
-        allTracks: songState.analysisSource === 'all-tracks',
+        allTracks: analysisSource === 'all-tracks',
         barOverrides,
         mode: nameMode,
       })
@@ -424,4 +447,4 @@ export function SongContextStrip({
       </div>
     </div>
   );
-}
+});

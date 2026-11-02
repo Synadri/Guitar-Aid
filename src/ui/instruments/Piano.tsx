@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { memo, useEffect, useRef, type KeyboardEvent } from 'react';
 import { midiToName, pitchClassOf, type NameMode, type PitchClass } from '../../theory';
 import { DEFAULT_PIANO_RANGE, type KeyMark, type MarkRole } from '../../state';
 import styles from './Piano.module.css';
@@ -138,7 +138,7 @@ function buildKeyLayouts(
   return { whiteKeys, blackKeys, totalWidth: TOTAL_WIDTH, totalHeight };
 }
 
-export function Piano({
+export const Piano = memo(function Piano({
   range = DEFAULT_PIANO_RANGE,
   marks = [],
   nameMode = 'sharps',
@@ -325,4 +325,4 @@ export function Piano({
       </svg>
     </div>
   );
-}
+});

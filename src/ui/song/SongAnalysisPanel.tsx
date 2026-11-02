@@ -23,6 +23,7 @@ import {
   songStore as defaultSongStore,
   type SandboxStore,
   type SettingsStore,
+  type SongState,
   type SongStore,
 } from '../../state';
 import {
@@ -82,7 +83,7 @@ function formatScaleDisplayName(scale: ScaleRef, nameMode: NameMode): string {
   return scale.name;
 }
 
-export function SongAnalysisPanel({
+export const SongAnalysisPanel = React.memo(function SongAnalysisPanel({
   songStore = defaultSongStore,
   settingsStore = defaultSettingsStore,
   sandboxStore,
@@ -94,20 +95,15 @@ export function SongAnalysisPanel({
   onCreateSrsDeck,
   onPracticeInDrills,
 }: SongAnalysisPanelProps) {
-  const songState = useStore(songStore, (s) => s);
-  const settingsState = useStore(settingsStore, (s) => s);
+  const activeSong = useStore(songStore, (s) => s.activeSong);
+  const activeTrackIndex = useStore(songStore, (s) => s.activeTrackIndex);
+  const currentBar = useStore(songStore, (s) => s.currentBar);
+  const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
+  const inspectedBar = useStore(songStore, (s) => s.inspectedBar);
+  const analysisSource = useStore(songStore, (s) => s.analysisSource);
+  const barOverrides = useStore(songStore, (s) => s.barOverrides);
 
-  const {
-    activeSong,
-    activeTrackIndex,
-    currentBar,
-    selectedBarRange,
-    inspectedBar,
-    analysisSource,
-    barOverrides,
-  } = songState;
-
-  const nameMode: NameMode = settingsState.nameMode ?? 'sharps';
+  const nameMode: NameMode = useStore(settingsStore, (s) => s.nameMode ?? 'sharps');
 
   // Limpiar cualquier previsualización activa al desmontar
   useEffect(() => {
@@ -121,8 +117,18 @@ export function SongAnalysisPanel({
 
   // 1. Análisis integral del fragmento activo (memorizado en selectors/analysis.ts)
   const fragmentAnalysis = useMemo(() => {
-    return selectActiveFragmentAnalysis(songState, { mode: nameMode });
-  }, [songState, nameMode]);
+    return selectActiveFragmentAnalysis(
+      {
+        activeSong,
+        activeTrackIndex,
+        currentBar,
+        selectedBarRange,
+        analysisSource,
+        barOverrides,
+      } as SongState,
+      { mode: nameMode },
+    );
+  }, [activeSong, activeTrackIndex, currentBar, selectedBarRange, analysisSource, barOverrides, nameMode]);
 
   // 2. Compás bajo foco de inspección para acordes
   const inspectedBarNumber = useMemo(() => {
@@ -139,10 +145,17 @@ export function SongAnalysisPanel({
   // 3. Análisis armónico detallado del compás inspeccionado
   const barAnalysis = useMemo(() => {
     return selectActiveBarAnalysis(
-      { ...songState, inspectedBar: inspectedBarNumber },
+      {
+        activeSong,
+        activeTrackIndex,
+        currentBar,
+        inspectedBar: inspectedBarNumber,
+        analysisSource,
+        barOverrides,
+      } as SongState,
       { mode: nameMode },
     );
-  }, [songState, inspectedBarNumber, nameMode]);
+  }, [activeSong, activeTrackIndex, currentBar, inspectedBarNumber, analysisSource, barOverrides, nameMode]);
 
   // Subtítulo dinámico de la cabecera
   const analysisSubtitle = useMemo(() => {
@@ -725,4 +738,4 @@ export function SongAnalysisPanel({
       </footer>
     </aside>
   );
-}
+});

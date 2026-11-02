@@ -106,7 +106,7 @@ export function loadSongIntoAlphaTab(
   }
 }
 
-export function AlphaTabViewport({
+export const AlphaTabViewport = React.memo(function AlphaTabViewport({
   songStore = defaultSongStore,
   controller = defaultController,
   createApi,
@@ -119,6 +119,7 @@ export function AlphaTabViewport({
   const dragStartBarRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastLoadedSongIdRef = useRef<string | null>(null);
+  const lastScrolledBarRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -251,6 +252,9 @@ export function AlphaTabViewport({
         api.playerStateChanged.on((args) => {
           if (!isMounted) return;
           const playing = args.state === 1;
+          if (playing) {
+            lastScrolledBarRef.current = null;
+          }
           songStore.getState().setIsPlaying(playing);
         });
       }
@@ -263,7 +267,14 @@ export function AlphaTabViewport({
           const beatIdx = b.index ?? 0;
           songStore.getState().setCurrentPosition(barNum, beatIdx);
 
-          if (songStore.getState().followPlayback && !isUserScrollingRef.current) {
+          // Optimización de scroll: Solo verificar scroll cuando cambia el compás
+          // Evita 31 comprobaciones de layout síncronas innecesarias en compases de 32 pulsos
+          if (
+            songStore.getState().followPlayback &&
+            !isUserScrollingRef.current &&
+            lastScrolledBarRef.current !== barNum
+          ) {
+            lastScrolledBarRef.current = barNum;
             scrollToActiveBar(true);
           }
         });
@@ -420,6 +431,7 @@ export function AlphaTabViewport({
               rawApi._cursorUpdateTick(tick, false, 1, false, true);
             }
             if (store.followPlayback && !isUserScrollingRef.current) {
+              lastScrolledBarRef.current = barNum;
               scrollToActiveBar(true);
             }
           }
@@ -835,4 +847,4 @@ export function AlphaTabViewport({
       </div>
     </div>
   );
-}
+});

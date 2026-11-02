@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from 'react';
+import { memo, type KeyboardEvent, type MouseEvent } from 'react';
 import {
   DEFAULT_FRETS,
   midiToName,
@@ -98,7 +98,7 @@ function rawFretWireX(
   }
 }
 
-export function Fretboard({
+export const Fretboard = memo(function Fretboard({
   tuning,
   frets = DEFAULT_FRETS,
   capoFret = 0,
@@ -479,4 +479,4 @@ export function Fretboard({
       </svg>
     </div>
   );
-}
+});

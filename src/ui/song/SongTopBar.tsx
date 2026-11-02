@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, memo } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -28,7 +28,7 @@ export interface SongTopBarProps {
 
 const SPEED_STEPS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
-export function SongTopBar({
+export const SongTopBar = memo(function SongTopBar({
   songStore = defaultSongStore,
   settingsStore = defaultSettingsStore,
   controller = defaultController,
@@ -527,4 +527,4 @@ export function SongTopBar({
       </div>
     </header>
   );
-}
+});

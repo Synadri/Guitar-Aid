@@ -368,6 +368,13 @@ describe('src/song/analyzer — tonalidad por compás y modulación (`detectSong
       expect(barKey.scale.tonic === 0 || barKey.scale.tonic === 9).toBe(true);
     }
   });
+
+  it('memoriza el análisis de tonalidad para un mismo SongModel evitando recálculos redundantes', () => {
+    const song = loadPresetSongModel(PRESET_MODULATION.id);
+    const keys1 = detectSongKeysByBar(song);
+    const keys2 = detectSongKeysByBar(song);
+    expect(keys1).toBe(keys2);
+  });
 });
 
 describe('src/song/analyzer — análisis de fragmento y overrides manuales (`analyzeSongFragment`)', () => {

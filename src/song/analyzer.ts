@@ -692,6 +692,13 @@ function scaleToKeyRef(scale: ScaleRef, mode: NameMode = 'sharps'): KeyRef {
   };
 }
 
+/** Caché débil de análisis de tonalidades por compás para evitar recálculos en reproducción. */
+const songKeysCache = new WeakMap<object, Map<string, SongKeyByBar[]>>();
+
+export function clearSongKeysCache(): void {
+  // Al usar WeakMap, el recolector de basura limpia automáticamente cuando se liberan las canciones.
+}
+
 /**
  * Asigna la tonalidad/escala local de cada compás de la canción con suavizado
  * contextual dentro de la sección y detección de modulaciones.
@@ -701,6 +708,22 @@ export function detectSongKeysByBar(
   options?: DetectSongKeysOptions,
 ): SongKeyByBar[] {
   const mode = options?.mode ?? 'sharps';
+
+  const targetObj =
+    typeof songOrTracks === 'object' && songOrTracks !== null ? songOrTracks : null;
+  let cacheKey = '';
+  if (targetObj) {
+    const overridesKey =
+      options?.barOverrides && Object.keys(options.barOverrides).length > 0
+        ? JSON.stringify(options.barOverrides)
+        : '';
+    cacheKey = `${options?.trackIndex ?? 'all'}|${options?.allTracks ? '1' : '0'}|${mode}|${overridesKey}`;
+    const objCache = songKeysCache.get(targetObj);
+    const cached = objCache?.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
 
   // Obtener lista unificada de compases
   let bars: SongBar[] = [];
@@ -838,6 +861,15 @@ export function detectSongKeysByBar(
       candidates,
       sectionMarker: bar.sectionMarker,
     });
+  }
+
+  if (targetObj && cacheKey) {
+    let objCache = songKeysCache.get(targetObj);
+    if (!objCache) {
+      objCache = new Map();
+      songKeysCache.set(targetObj, objCache);
+    }
+    objCache.set(cacheKey, result);
   }
 
   return result;

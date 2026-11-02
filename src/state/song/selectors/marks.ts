@@ -215,6 +215,18 @@ export function resolveActiveHarmony(
   };
 }
 
+interface FretBgCache {
+  key: string;
+  marks: Map<string, FretMark>;
+}
+let lastFretBgCache: FretBgCache | null = null;
+
+interface PianoBgCache {
+  key: string;
+  marks: Map<number, KeyMark>;
+}
+let lastPianoBgCache: PianoBgCache | null = null;
+
 /**
  * Genera las marcas para el Fretboard en el Modo Canción (plan_fase3.md §7 C4).
  * Incluye fondo de escala (`scale-bg`), notas del pulso activo (`pinned`) y previsualización.
@@ -237,28 +249,38 @@ export function selectSongFretboardMarks(
     labels: options?.labels ?? 'note',
   } as const;
 
-  const into = new Map<string, FretMark>();
   const tuning: Tuning = track.tuning;
 
-  // 1. Capa Fondo de escala ('scale-bg')
-  const scaleMask = harmony.scalePcs;
-  for (let s = track.stringCount; s >= 1; s--) {
-    for (let fret = 0; fret <= DEFAULT_FRETS; fret++) {
-      const midi = positionToMidi(tuning, { string: s as StringNumber, fret });
-      const pc = pitchClassOf(midi);
-      if (scaleMask.includes(pc)) {
-        const isRoot = pc === harmony.referenceRoot;
-        const label = makeLabel(pc, harmony.referenceRoot, opts.labels, opts.nameMode);
-        pushFret(into, {
-          string: s as StringNumber,
-          fret,
-          role: 'scale-bg',
-          isRoot,
-          label,
-        });
+  // 1. Capa Fondo de escala ('scale-bg') memorizada para evitar 150 cálculos en cada pulso
+  const bgKey = `${tuning.id ?? tuning.name}|${tuning.strings?.join(',') ?? ''}|${track.stringCount}|${harmony.referenceRoot}|${harmony.scalePcs.join(',')}|${opts.labels}|${opts.nameMode}`;
+  let baseMarks: Map<string, FretMark>;
+
+  if (lastFretBgCache && lastFretBgCache.key === bgKey) {
+    baseMarks = lastFretBgCache.marks;
+  } else {
+    baseMarks = new Map<string, FretMark>();
+    const scaleMask = harmony.scalePcs;
+    for (let s = track.stringCount; s >= 1; s--) {
+      for (let fret = 0; fret <= DEFAULT_FRETS; fret++) {
+        const midi = positionToMidi(tuning, { string: s as StringNumber, fret });
+        const pc = pitchClassOf(midi);
+        if (scaleMask.includes(pc)) {
+          const isRoot = pc === harmony.referenceRoot;
+          const label = makeLabel(pc, harmony.referenceRoot, opts.labels, opts.nameMode);
+          pushFret(baseMarks, {
+            string: s as StringNumber,
+            fret,
+            role: 'scale-bg',
+            isRoot,
+            label,
+          });
+        }
       }
     }
+    lastFretBgCache = { key: bgKey, marks: baseMarks };
   }
+
+  const into = new Map<string, FretMark>(baseMarks);
 
   // 2. Capa Notas activas del pulso ('pinned')
   const activeBar: SongBar | undefined =
@@ -338,23 +360,33 @@ export function selectSongPianoMarks(
     pianoRange: options?.pianoRange ?? DEFAULT_PIANO_RANGE,
   } as const;
 
-  const into = new Map<number, KeyMark>();
   const { from, to } = opts.pianoRange;
 
-  // 1. Capa Fondo de escala ('scale-bg')
-  for (let midi = from; midi <= to; midi++) {
-    const pc = pitchClassOf(midi);
-    if (harmony.scalePcs.includes(pc)) {
-      const isRoot = pc === harmony.referenceRoot;
-      const label = makeLabel(pc, harmony.referenceRoot, opts.labels, opts.nameMode);
-      pushKey(into, {
-        midi,
-        role: 'scale-bg',
-        isRoot,
-        label,
-      });
+  // 1. Capa Fondo de escala ('scale-bg') memorizada para evitar 40+ cálculos en cada pulso
+  const bgKey = `${from}|${to}|${harmony.referenceRoot}|${harmony.scalePcs.join(',')}|${opts.labels}|${opts.nameMode}`;
+  let baseMarks: Map<number, KeyMark>;
+
+  if (lastPianoBgCache && lastPianoBgCache.key === bgKey) {
+    baseMarks = lastPianoBgCache.marks;
+  } else {
+    baseMarks = new Map<number, KeyMark>();
+    for (let midi = from; midi <= to; midi++) {
+      const pc = pitchClassOf(midi);
+      if (harmony.scalePcs.includes(pc)) {
+        const isRoot = pc === harmony.referenceRoot;
+        const label = makeLabel(pc, harmony.referenceRoot, opts.labels, opts.nameMode);
+        pushKey(baseMarks, {
+          midi,
+          role: 'scale-bg',
+          isRoot,
+          label,
+        });
+      }
     }
+    lastPianoBgCache = { key: bgKey, marks: baseMarks };
   }
+
+  const into = new Map<number, KeyMark>(baseMarks);
 
   // 2. Capa Notas activas del pulso ('pinned')
   const activeBar =

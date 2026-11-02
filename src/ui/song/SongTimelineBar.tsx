@@ -37,23 +37,20 @@ export interface TimelineSectionGroup {
 
 const BAR_CELL_WIDTH = 120;
 
-export function SongTimelineBar({
+export const SongTimelineBar = React.memo(function SongTimelineBar({
   songStore = defaultSongStore,
   controller = defaultController,
   className,
   style,
 }: SongTimelineBarProps) {
-  const songState = useStore(songStore, (s) => s);
-  const {
-    activeSong,
-    activeTrackIndex,
-    currentBar,
-    currentBeat,
-    selectedBarRange,
-    loopRange,
-    loopEnabled,
-    barOverrides,
-  } = songState;
+  const activeSong = useStore(songStore, (s) => s.activeSong);
+  const activeTrackIndex = useStore(songStore, (s) => s.activeTrackIndex);
+  const currentBar = useStore(songStore, (s) => s.currentBar);
+  const currentBeat = useStore(songStore, (s) => s.currentBeat);
+  const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
+  const loopRange = useStore(songStore, (s) => s.loopRange);
+  const loopEnabled = useStore(songStore, (s) => s.loopEnabled);
+  const barOverrides = useStore(songStore, (s) => s.barOverrides);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -429,4 +426,4 @@ export function SongTimelineBar({
       </div>
     </div>
   );
-}
+});

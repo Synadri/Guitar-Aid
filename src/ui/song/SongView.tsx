@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -18,6 +18,7 @@ import {
   type DrillsStore,
   type SandboxStore,
   type SettingsStore,
+  type SongState,
   type SongStorage,
   type SongStore,
 } from '../../state';
@@ -25,6 +26,7 @@ import {
   STANDARD_TUNING,
   positionToMidi,
   type FretPosition,
+  type Tuning,
 } from '../../theory';
 import {
   fragmentToDrillConfig,
@@ -63,6 +65,99 @@ export interface SongViewProps {
   onNavigateToSandbox?: () => void;
   onNavigateToLearn?: (tab?: 'drills' | 'cards') => void;
 }
+
+interface SongLiveInstrumentsRowProps {
+  songStore: StoreApi<SongStore>;
+  settingsStore: StoreApi<SettingsStore>;
+  tuning: Tuning;
+  capoFret: number;
+  onFretboardClick: (pos: FretPosition) => void;
+  onPianoClick: (midi: number) => void;
+}
+
+/**
+ * Fila de instrumentos en vivo (Fretboard + Piano).
+ * Aislada reactivamente para que las actualizaciones por pulso (currentBeat)
+ * no provoquen el re-renderizado de toda la vista de canción ni de AlphaTab/Paneles.
+ */
+const SongLiveInstrumentsRow = memo(function SongLiveInstrumentsRow({
+  songStore,
+  settingsStore,
+  tuning,
+  capoFret,
+  onFretboardClick,
+  onPianoClick,
+}: SongLiveInstrumentsRowProps) {
+  const activeSong = useStore(songStore, (s) => s.activeSong);
+  const activeTrackIndex = useStore(songStore, (s) => s.activeTrackIndex);
+  const currentBar = useStore(songStore, (s) => s.currentBar);
+  const currentBeat = useStore(songStore, (s) => s.currentBeat);
+  const previewContext = useStore(songStore, (s) => s.previewContext);
+  const barOverrides = useStore(songStore, (s) => s.barOverrides);
+  const degreeReferenceMode = useStore(songStore, (s) => s.degreeReferenceMode);
+  const analysisSource = useStore(songStore, (s) => s.analysisSource);
+
+  const nameMode = useStore(settingsStore, (s) => s.nameMode);
+  const labels = useStore(settingsStore, (s) => s.labels);
+  const leftHanded = useStore(settingsStore, (s) => s.leftHanded);
+  const visibleInstruments = useStore(settingsStore, (s) => s.visibleInstruments);
+
+  const contextState = useMemo(
+    () =>
+      ({
+        activeSong,
+        activeTrackIndex,
+        currentBar,
+        currentBeat,
+        previewContext,
+        barOverrides,
+        degreeReferenceMode,
+        analysisSource,
+      }) as SongState,
+    [
+      activeSong,
+      activeTrackIndex,
+      currentBar,
+      currentBeat,
+      previewContext,
+      barOverrides,
+      degreeReferenceMode,
+      analysisSource,
+    ],
+  );
+
+  const fretboardMarks = selectSongFretboardMarks(contextState, { nameMode, labels });
+  const pianoMarks = selectSongPianoMarks(contextState, { nameMode, labels });
+
+  if (visibleInstruments && !visibleInstruments.fretboard && !visibleInstruments.piano) {
+    return null;
+  }
+
+  return (
+    <div className={styles.instrumentsRow}>
+      {(!visibleInstruments || visibleInstruments.fretboard) && (
+        <Fretboard
+          tuning={tuning}
+          capoFret={capoFret}
+          marks={fretboardMarks}
+          nameMode={nameMode}
+          leftHanded={leftHanded}
+          onPositionClick={onFretboardClick}
+        />
+      )}
+      {(!visibleInstruments || visibleInstruments.piano) && (
+        <div className={styles.songPianoWrapper}>
+          <Piano
+            compact={true}
+            marks={pianoMarks}
+            nameMode={nameMode}
+            onKeyClick={onPianoClick}
+          />
+        </div>
+      )}
+    </div>
+  );
+});
 
 export function SongView({
   songStore = defaultSongStore,
@@ -174,14 +269,13 @@ export function SongView({
     }
   };
 
-  // Estado reactivo del store de canción
-  const songState = useStore(songStore, (s) => s);
-  const activeSong = songState.activeSong;
-  const activeTrackIndex = songState.activeTrackIndex;
+  // Estado reactivo del store de canción (solo datos generales, no pulsos individuales)
+  const activeSong = useStore(songStore, (s) => s.activeSong);
+  const activeTrackIndex = useStore(songStore, (s) => s.activeTrackIndex);
 
   // Estado de ajustes
   const settings = useStore(settingsStore, (s) => s);
-  const { nameMode, labels, leftHanded, soundEnabled, visibleInstruments } = settings;
+  const { soundEnabled } = settings;
 
   // Sincronizar ajustes de sonido y volumen con AlphaSynthController
   useEffect(() => {
@@ -192,13 +286,16 @@ export function SongView({
   // Modal para exportar a mazo SRS
   const [internalExportDeckOpen, setInternalExportDeckOpen] = useState(false);
 
+  // Análisis del fragmento activo bajo demanda (solo cuando el modal de exportación está abierto)
+  const fragmentAnalysis = useMemo(() => {
+    if (!internalExportDeckOpen) return null;
+    return selectActiveFragmentAnalysis(songStore.getState(), { mode: settings.nameMode });
+  }, [internalExportDeckOpen, settings.nameMode, songStore]);
+
   // Pista activa
   const track = activeSong?.tracks[activeTrackIndex] ?? activeSong?.tracks[0];
   const tuning = track?.tuning ?? STANDARD_TUNING;
   const capoFret = track?.capoFret ?? 0;
-
-  // Análisis del fragmento activo para puentes
-  const fragmentAnalysis = selectActiveFragmentAnalysis(songState, { mode: nameMode });
 
   // Manejadores de puentes
   const handleOpenInSandbox = (context: SongMenuContext) => {
@@ -215,9 +312,10 @@ export function SongView({
   };
 
   const handlePracticeInDrills = () => {
-    if (fragmentAnalysis) {
+    const analysis = selectActiveFragmentAnalysis(songStore.getState(), { mode: settings.nameMode });
+    if (analysis) {
       const drillConfig = fragmentToDrillConfig(
-        fragmentAnalysis,
+        analysis,
         activeSong ?? undefined,
         activeTrackIndex,
       );
@@ -226,10 +324,6 @@ export function SongView({
     onPracticeInDrills?.();
     onNavigateToLearn?.('drills');
   };
-
-  // Marcas reactivas en vivo para Fretboard y Piano (pulso + scale-bg + etiquetas)
-  const fretboardMarks = selectSongFretboardMarks(songState, { nameMode, labels });
-  const pianoMarks = selectSongPianoMarks(songState, { nameMode, labels });
 
   // Manejo de atajos de teclado específicos del Modo Canción
   useEffect(() => {
@@ -420,30 +514,14 @@ export function SongView({
           onNavigateToSandbox={onNavigateToSandbox}
         />
 
-        {(!visibleInstruments || visibleInstruments.fretboard || visibleInstruments.piano) && (
-          <div className={styles.instrumentsRow}>
-            {(!visibleInstruments || visibleInstruments.fretboard) && (
-              <Fretboard
-                tuning={tuning}
-                capoFret={capoFret}
-                marks={fretboardMarks}
-                nameMode={nameMode}
-                leftHanded={leftHanded}
-                onPositionClick={handleFretboardClick}
-              />
-            )}
-            {(!visibleInstruments || visibleInstruments.piano) && (
-              <div className={styles.songPianoWrapper}>
-                <Piano
-                  compact={true}
-                  marks={pianoMarks}
-                  nameMode={nameMode}
-                  onKeyClick={handlePianoClick}
-                />
-              </div>
-            )}
-          </div>
-        )}
+        <SongLiveInstrumentsRow
+          songStore={songStore}
+          settingsStore={settingsStore}
+          tuning={tuning}
+          capoFret={capoFret}
+          onFretboardClick={handleFretboardClick}
+          onPianoClick={handlePianoClick}
+        />
       </section>
 
       {/* 3. Área inferior (2 columnas: Partitura/Tablatura + Análisis) */}
