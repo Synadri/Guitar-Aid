@@ -647,3 +647,89 @@ Tras la delegación del renderizado a AlphaTab, se identificaron y solucionaron 
    - **Decisión:** Incluir `currentBeat` en las dependencias de cálculo de `resolveActiveHarmony` y evaluar las notas del pulso y el desglose armónico por mitades de compás (`splitChords`).
    - **Justificación:** Garantiza que si un compás contiene cambios de acorde en subdivisiones intermedias (por ejemplo Do en tiempos 1–2 y Sol en tiempo 3), el chip superior refleje con exactitud matemática el acorde que suena en ese instante.
 
+---
+
+## 2026-11-02 — Hito C7: Biblioteca de canciones (`SongLibraryModal`), Drag & Drop y validación defensiva
+
+Se implementa el Hito C7 del Modo Canción conforme a las especificaciones de `/docs/Fase-3` y tomando como referencia visual el diseño de la imagen proporcionada.
+
+### 1. Decisiones adoptadas
+
+1. **Diseño en 2 columnas integradas (fiel a la referencia visual):**
+   - En lugar de pestañas separadas que ocultaban información, se adopta un layout simétrico de dos columnas en `SongLibraryModal` (`grid-template-columns: 1.15fr 1fr;` en pantallas de escritorio, colapsable a 1 columna en móviles):
+     - **Columna izquierda — «Biblioteca reciente»:** cabecera con insignia numérica turquesa (`badge` con conteo de canciones persistidas) e indicador de orden «*Más reciente primero*»; lista vertical de canciones guardadas; y pie con nota explicativa de anotaciones y botón de vaciado de biblioteca.
+     - **Columna derecha — «Canciones de ejemplo» e «Importar archivo»:** tres tarjetas superiores con las piezas integradas en AlphaTex (`Pop Diatónico en C/Am`, `Blues & Rock Riff en E` y `Modulación y Menor Armónica en Am/C`); y zona inferior de arrastre y selección de archivo (*Dropzone*) con caja de aviso de error accesible.
+
+2. **Formato detallado de tarjetas de biblioteca reciente e identificación de estado:**
+   - **Badge de formato:** icono rectangular a la izquierda en cian translúcido (`.gp5`, `.gp`, `.gpx`, `.tg`, `.xml`, `.tex`).
+   - **Estado activo (`Abierta`):** cuando el `id` de la canción coincide con `activeSong.id`, la tarjeta recibe borde turquesa con realce (`box-shadow: 0 0 0 1px #14b8a6`) y una insignia verde `Abierta` junto al título.
+   - **Subtítulo unificado:** `[Artista || 'Sin artista'] · [Fecha formateada en español: e.g. '28 oct 2026'] · [Tamaño en KB/MB con coma decimal] · [N pistas]`.
+   - **Acciones y confirmaciones en línea:** botón `Abrir` directo para cargar la canción y cerrar el modal; botón `Eliminar` con diálogo en línea (`¿Eliminar? Sí / No`) para evitar borrados accidentales; y botón `Vaciar biblioteca` con confirmación semejante (`¿Vaciar biblioteca? Sí, vaciar / No`).
+
+3. **Doble nivel de interacción Drag & Drop (Vista global y Dropzone):**
+   - **Dropzone del modal:** área con borde discontinuo (`2px dashed #334155`), formatos admitidos (`.gp · .gp3–.gp5 · .gpx · .tg · .xml`), botón `Elegir archivo...` y estado reactivo al pasar el cursor con archivo (`isDraggingOver`).
+   - **Arrastre global sobre `SongView`:** detector de `dragenter`/`dragleave`/`drop` con contador de profundidad sobre el contenedor principal de `SongView`. Al arrastrar un archivo desde el explorador del sistema, se despliega un telón visual translúcido con icono y la indicación «*Suelta tu archivo de Guitar Pro aquí para importarlo*». Al soltarlo, se procesa automáticamente.
+
+4. **Validación defensiva estricta y banner de error accesible (Criterios e, j):**
+   - Si se intenta importar un archivo vacío (`0 bytes`) o con bytes corruptos/no musicales, la función captura el error de forma segura:
+     - **Inviolabilidad del estado:** la canción actualmente en reproducción y el estado del visor no sufren ninguna alteración.
+     - **Aviso accesible con `role="alert"`:** se muestra un banner en rojo suave (`border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.12); color: #fca5a5;`) reproduciendo exactamente el mensaje de la referencia visual:
+       `No se pudo importar «${nombre}»: el archivo está vacío o dañado. Tu biblioteca no ha cambiado.`
+     - Si el arrastre ocurrió sobre la vista general con el modal cerrado, `SongView` abre automáticamente `SongLibraryModal` para visibilizar el aviso de error accesible ante el usuario.
+
+5. **Inhibición de atajos de transporte durante el uso del modal:**
+   - Mientras `SongLibraryModal` está abierto, se suspenden los listeners de teclado de `SongView` (<kbd>Espacio</kbd> Play/Pausa, flechas compás anterior/siguiente, <kbd>L</kbd> bucle) para impedir reproducciones o saltos no deseados. <kbd>Esc</kbd> cierra el modal y devuelve el foco.
+
+6. **Ampliación de API en Zustand (`getStorage`, `clearSavedSongs`):**
+   - Se añaden a `SongActions` en `src/state/song/types.ts` y `store.ts` las funciones:
+     - `getStorage: () => SongStorage`: expone el repositorio de almacenamiento asociado al store para permitir que componentes hijos y tests accedan de forma transparente a la misma instancia (IndexedDB real o adaptador en memoria).
+     - `clearSavedSongs: () => Promise<void>`: vacía la base de datos y, si la canción activa era una canción de usuario importada, restablece la canción de ejemplo por defecto (`PRESET_POP_DIATONIC`).
+
+7. **Aislamiento de eventos de arrastre entre `SongLibraryModal` y `SongView`:**
+   - **Diagnóstico:** Si el usuario arrastraba un archivo con el modal de biblioteca abierto, el evento `dragenter` del contenedor principal de `SongView` activaba su overlay a pantalla completa (`z-index: 500`), el cual entraba en conflicto con el modal (`z-index: 1000`) provocando parpadeos y captura cruzada de puntero.
+   - **Decisión:** En `SongView.tsx`, se abortan los manejadores de arrastre global si el modal está abierto (`if (isLibraryOpen) return;`). En `SongLibraryModal.tsx`, la dropzone ejecuta `e.stopPropagation()` en `dragOver`, `dragLeave` y `drop`, garantizando que el arrastre dentro del modal quede circunscrito a su dropzone sin activar el telón de fondo.
+
+8. **Preservación y renderizado de canciones no predefinidas en `AlphaTabViewport` (`rawData`):**
+   - **Diagnóstico:** Al cargar un archivo binario importado de Guitar Pro (`.gp3`, `.gp4`, `.gp5`, `.gpx`), el visor mostraba el nombre de las pistas en el desplegable pero AlphaTab caía en el fallback por defecto (`PRESET_POP_DIATONIC.alphaTex`), puesto que `song.alphaTex` era `undefined` y el visor utilizaba únicamente `api.tex(...)`.
+   - **Decisión:**
+     - Se amplió `SongModel` (`src/song/types.ts`) con el campo opcional `rawData?: Uint8Array | string;`.
+     - `importSongFromBytes` e `importSongFromAlphaTex` (`src/song/importer.ts`) preservan los bytes o el texto original en el modelo inmutable.
+     - `AlphaTabViewport.tsx` utiliza la función `loadSongIntoAlphaTab(api, song, trackIndex)`: si `song.rawData` es binario (`Uint8Array`), delega directamente en `api.load(song.rawData, [trackIndex])` permitiendo a AlphaTab sintetizar y renderizar las pistas reales de la partitura importada; si es texto o preset AlphaTex, utiliza `api.tex(text, [trackIndex])`. Se eliminó cualquier fallback silencioso a la canción predefinida.
+
+9. **Nota técnica sobre soporte de TuxGuitar (`.tg`):**
+   - **Diagnóstico:** Aunque la importación de archivos binarios de Guitar Pro (`.gp4`, `.gp5`, etc.) funciona correctamente con `ScoreLoader.loadScoreFromBytes`, los archivos generados por TuxGuitar (`.tg`) son rechazados por el deserializador binario por defecto de AlphaTab (formato comprimido gzip/XML específico de TG).
+   - **Decisión (anotada para revisión posterior):** El formato `.tg` se documenta como pendiente para una iteración técnica posterior. Se abordará descomprimiendo el flujo gzip o incorporando un preprocesador/conversor a MusicXML antes de pasarlo a `ScoreLoader`.
+
+10. **Restricción de pistas de percusión a modo Partitura:**
+    - **Diagnóstico:** En pistas de percusión (`track.isPercussion: true`), el renderizado en tablatura de AlphaTab produce errores de grabado o glifos visuales anómalos, dado que la percusión carece de cuerdas y afinaciones de trastes físicos.
+    - **Decisión:**
+      - En el store de Zustand (`src/state/song/store.ts`), `setActiveTrackIndex` y `setActiveSong` conmutan automáticamente `scoreViewMode` a `'score'` cuando la pista seleccionada es de percusión. `setScoreViewMode` rechaza cambios a `'tab'` o `'score-tab'` si la pista activa es percusión.
+      - En `SongTopBar.tsx`, los botones `Tab` y `Partitura + Tab` se deshabilitan (`disabled`, opacidad `0.35`, cursor `not-allowed`) con el tooltip informativo *"La percusión solo se visualiza en modo partitura"*.
+      - En `AlphaTabViewport.tsx`, la cabecera fija etiqueta siempre el modo como `PARTITURA`, el subtítulo técnico refleja `Percusión · N compases`, y AlphaTab se configura con `staveProfile = StaveProfile.Score` y `rhythmMode = TabRhythmMode.Hidden`.
+
+11. **Corrección del auto-scroll durante reproducción y modo Bloquear vista / Vista libre:**
+    - **Diagnóstico:** El scroll automático por defecto de AlphaTab desplazaba la partitura ~2.5 compases de más hacia abajo (overshooting). Esto se debía a que `VerticalContinuousScrollHandler` acumulaba recursivamente el `scrollTop` previo en `elementOffset.y` en cada pulso. Además, resultaba fácil perder el hilo de lectura al no existir una distinción entre vista guiada y navegación libre.
+    - **Decisión:**
+      - Se deshabilitó el scroll continuo interno de AlphaTab (`settings.player.scrollMode = at.ScrollMode.Off`).
+      - Se implementó un seguimiento guiado en `AlphaTabViewport` (`scrollToActiveBar`): calcula la posición del cursor de pulso (`.at-cursor-bar`) respecto al contenedor visible mediante `getBoundingClientRect`, manteniendo márgenes confortables y desplazando suavemente el contenedor sólo cuando la reproducción avanza a un nuevo sistema fuera del área visible.
+      - Se incorporó la preferencia `followPlayback: boolean` (por defecto `true`), conmutador en `SongTopBar` (`🔒 Bloquear vista` / `🔓 Vista libre`) y botón complementario en la barra contextual del visor (`🔒 Seguir` / `🔓 Libre`).
+      - Si el usuario se desplaza manualmente mientras el seguimiento está activo, se detecta el desplazamiento (`handleContainerScroll`), se suspende momentáneamente el auto-scroll y, tras 650 ms de inactividad de scroll, el visor vuelve fluidamente a la posición de compás actual.
+
+12. **Resolución de clics en compases con repeticiones (Repeat Measure Click Bug):**
+    - **Diagnóstico:** Al hacer clic en un compás posterior a una casilla de repetición (p. ej. compás 13 tras una repetición `x4`), el cursor saltaba a una posición previa en la primera línea en lugar del compás clicado. La causa era el uso de `beat.absolutePlaybackStart`, que entrega ticks del pentagrama plano sin desplegar las repeticiones temporales del reproductor.
+    - **Decisión:** En `beatMouseDown` se obtiene el tick de reproducción real consultando prioritariamente `api.tickCache.getBeatStart(beat)`. La caché de ticks de AlphaTab contiene la línea de tiempo MIDI con todas las repeticiones desplegadas, garantizando que `controller.seekToTick(tick)` sitúe el cursor y el sintetizador en el compás y pulso exactos donde el usuario ha hecho clic.
+
+13. **Prevención de fallo crítico al eliminar la canción activa (Crash on Deleting Active Song):**
+    - **Diagnóstico:** Al borrar de la biblioteca la canción actualmente abierta, la aplicación fallaba con `TypeError: Cannot read properties of undefined (reading 'tracks')`. Un `useEffect` redundante en `AlphaTabViewport.tsx` invocaba `api.renderTracks([activeTrackIndex])` pasando un array de números enteros en lugar de objetos `Track` de AlphaTab; al cambiar de canción, AlphaTab intentaba acceder a `(0).score.tracks`, disparando una excepción no capturada en React.
+    - **Decisión:** Se eliminó el `useEffect` duplicado. La conmutación de pistas se gestiona con seguridad comprobando la existencia de `api.score.tracks[activeTrackIndex]` dentro del efecto de carga de canción con bloque `try/catch`. Al cambiar o eliminar la canción activa, se detiene la reproducción previa con `controller.stop()`, se reinicia `lastLoadedSongIdRef` y se carga limpiamente la canción predefinida (`PRESET_POP_DIATONIC`) sin errores ni desmontajes accidentales.
+
+14. **Resolución de bucles y rangos de selección sensibles a repeticiones (`resolvePlaybackRangeForBars`):**
+    - **Diagnóstico:** Al seleccionar compases posteriores a una sección repetida (como los compases 37–38 tras una repetición en compases previos), la selección visual y el bucle saltaban a compases anteriores (compases 25–26). Esto sucedía porque el cálculo plano de ticks `calculatePlaybackRangeForBars` ignoraba los compases repetidos en la línea temporal MIDI; al entregar dicho tick a `_updateSelectionCursor` y `controller.setPlaybackRange`, AlphaTab buscaba en su caché temporal y encontraba los compases 25–26.
+    - **Decisión:** Se implementaron las funciones puras `resolvePlaybackTickForBarBeat` y `resolvePlaybackRangeForBars` en `src/song/ticks.ts`. Si se proporciona el reproductor o la API de AlphaTab (`api.tickCache` con `masterBarLookup` o `getMasterBar`), la función consulta los límites exactos de los compases desplegados en la línea de tiempo MIDI real, devolviendo los ticks reales acumulados tras las repeticiones. Al alimentar `controller.setPlaybackRange` y `_updateSelectionCursor` con estos ticks, tanto el sombreado visual como el bucle de audio se sitúan exactamente en los compases seleccionados (37–38). Si el reproductor no está montado, cae defensivamente en el cálculo plano.
+
+15. **Erradicación del overflow horizontal en la barra superior (`SongTopBar`):**
+    - **Diagnóstico:** La inclusión del botón `[🔒 Bloquear vista] / [🔓 Vista libre]` en el grupo de vistas de `SongTopBar` provocaba que la barra hiciera overflow horizontal por la derecha en anchos de pantalla habituales, resultando redundante con el botón de seguimiento ya integrado en la barra contextual de `AlphaTabViewport`.
+    - **Decisión:** Se retiró dicho botón de `SongTopBar.tsx`, dejando el control de seguimiento exclusivamente en el botón de la barra contextual del visor (`[🔒 Seguir] / [🔓 Libre]`), eliminando el desbordamiento visual de la cabecera sin perder la funcionalidad.
+
+
+

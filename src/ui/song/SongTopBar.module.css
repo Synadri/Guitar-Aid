@@ -238,6 +238,13 @@
   color: #ffffff;
 }
 
+.segmentedBtn:disabled,
+.segmentedBtn.disabledBtn {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .globalActions {
   margin-left: auto;
   display: flex;

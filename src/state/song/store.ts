@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import {
   PRESET_POP_DIATONIC,
+  PRESET_SONGS,
   loadPresetSongModel,
   type BarOverride,
   type SongModel,
@@ -8,6 +9,7 @@ import {
 } from '../../song';
 import { resolveDefaultSongStorage } from './storage';
 import type {
+  ScoreViewMode,
   SongState,
   SongStorage,
   SongStore,
@@ -46,6 +48,7 @@ export function initialSongState(
     barOverrides: {},
     degreeReferenceMode: 'chord',
     scoreViewMode: 'tab',
+    followPlayback: true,
     showLyrics: true,
     analysisSource: 'active-track',
     trackMixer: {},
@@ -109,12 +112,18 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
           // Continuar con valores por defecto
         }
 
+        const isFirstTrackPercussion = Boolean(song.tracks[0]?.isPercussion);
+        const resolvedScoreMode: ScoreViewMode = isFirstTrackPercussion
+          ? 'score'
+          : get().scoreViewMode;
+
         set({
           activeSong: song,
           activeTrackIndex: 0,
           currentBar: 1,
           currentBeat: 0,
           isPlaying: false,
+          scoreViewMode: resolvedScoreMode,
           loopRange: annotations?.loopRange ?? null,
           loopEnabled: Boolean(annotations?.loopRange),
           selectedBarRange: null,
@@ -129,7 +138,12 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
         const song = get().activeSong;
         if (!song || song.tracks.length === 0) return;
         const clamped = Math.max(0, Math.min(song.tracks.length - 1, index));
-        set({ activeTrackIndex: clamped });
+        const track = song.tracks[clamped];
+        if (track?.isPercussion && get().scoreViewMode !== 'score') {
+          set({ activeTrackIndex: clamped, scoreViewMode: 'score' });
+        } else {
+          set({ activeTrackIndex: clamped });
+        }
       },
 
       setCurrentBar: (barNumber) => {
@@ -296,7 +310,18 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
 
       setDegreeReferenceMode: (mode) => set({ degreeReferenceMode: mode }),
 
-      setScoreViewMode: (mode) => set({ scoreViewMode: mode }),
+      setScoreViewMode: (mode) => {
+        const song = get().activeSong;
+        const currentTrack = song?.tracks[get().activeTrackIndex];
+        if (currentTrack?.isPercussion && mode !== 'score') {
+          return;
+        }
+        set({ scoreViewMode: mode });
+      },
+
+      setFollowPlayback: (follow) => set({ followPlayback: follow }),
+
+      toggleFollowPlayback: () => set((s) => ({ followPlayback: !s.followPlayback })),
 
       setShowLyrics: (show) => set({ showLyrics: show }),
 
@@ -371,12 +396,18 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
             throw new Error('Canción no válida: el archivo está vacío o el formato es desconocido.');
           }
 
+          const rawData = metadata?.rawData ?? model.rawData;
+          const modelWithRaw: SongModel = {
+            ...model,
+            ...(rawData ? { rawData } : {}),
+          };
+
           const storedSong: StoredSong = {
             id: model.id,
             title: model.title || 'Canción sin título',
             artist: model.artist || 'Artista desconocido',
-            model,
-            rawData: metadata?.rawData,
+            model: modelWithRaw,
+            rawData,
             fileFormat: metadata?.fileFormat,
             fileSize: metadata?.fileSize,
             importedAt: new Date().toISOString(),
@@ -393,7 +424,7 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
           }
 
           set({
-            activeSong: model,
+            activeSong: modelWithRaw,
             activeTrackIndex: 0,
             currentBar: 1,
             currentBeat: 0,
@@ -435,8 +466,14 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
             // Sin anotaciones
           }
 
+          const rawData = stored.rawData ?? stored.model.rawData;
+          const modelWithRaw: SongModel = {
+            ...stored.model,
+            ...(rawData ? { rawData } : {}),
+          };
+
           set({
-            activeSong: stored.model,
+            activeSong: modelWithRaw,
             activeTrackIndex: 0,
             currentBar: 1,
             currentBeat: 0,
@@ -471,6 +508,21 @@ export function createSongStore(options: CreateSongStoreOptions = {}): StoreApi<
           await get().setActiveSong(defaultSong);
         }
       },
+
+      clearSavedSongs: async () => {
+        try {
+          await storage.clear();
+        } catch (err) {
+          console.warn('Error al vaciar biblioteca de IndexedDB', err);
+        }
+
+        if (get().activeSong && !PRESET_SONGS.some((p) => p.id === get().activeSong?.id)) {
+          const defaultSong = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+          await get().setActiveSong(defaultSong);
+        }
+      },
+
+      getStorage: () => storage,
 
       setError: (error) => set({ error }),
 

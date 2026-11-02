@@ -323,7 +323,7 @@ export function importSongFromAlphaTex(
     const score = ScoreLoader.loadAlphaTex(alphaTex);
     if (options?.title) score.title = options.title;
     if (options?.artist) score.artist = options.artist;
-    return { ...scoreToSongModel(score, options), alphaTex };
+    return { ...scoreToSongModel(score, options), alphaTex, rawData: alphaTex };
   } catch (err) {
     if (err instanceof Error && err.message.includes('La partitura no contiene')) {
       throw err;
@@ -369,7 +369,7 @@ export function importSongFromBytes(
   try {
     Logger.logLevel = LogLevel.None;
     const score = ScoreLoader.loadScoreFromBytes(data);
-    return scoreToSongModel(score, options);
+    return { ...scoreToSongModel(score, options), rawData: data };
   } catch (scoreErr) {
     // Si la lectura binaria falló, comprobar si los bytes corresponden a un texto UTF-8 (AlphaTex plano)
     if (isLikelyText(data)) {
@@ -377,7 +377,7 @@ export function importSongFromBytes(
         const text = new TextDecoder('utf-8').decode(data).trim();
         if (text.length > 0 && !text.startsWith('<')) {
           const score = ScoreLoader.loadAlphaTex(text);
-          return { ...scoreToSongModel(score, options), alphaTex: text };
+          return { ...scoreToSongModel(score, options), alphaTex: text, rawData: text };
         }
       } catch {
         // Ignorar fallo de decodificación de texto

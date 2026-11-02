@@ -128,6 +128,8 @@ export interface SongState {
   degreeReferenceMode: DegreeReferenceMode;
   /** Vista de partitura: 'tab' | 'score-tab' | 'score'. */
   scoreViewMode: ScoreViewMode;
+  /** Modo seguir reproducción (bloquear vista para auto-scroll durante reproducción). */
+  followPlayback: boolean;
   /** Mostrar u ocultar la fila de letra. */
   showLyrics: boolean;
   /** Fuente de análisis: solo la pista activa o todas las pistas armónicas. */
@@ -169,6 +171,8 @@ export interface SongActions {
   clearAllBarOverrides: () => Promise<void>;
   setDegreeReferenceMode: (mode: DegreeReferenceMode) => void;
   setScoreViewMode: (mode: ScoreViewMode) => void;
+  setFollowPlayback: (follow: boolean) => void;
+  toggleFollowPlayback: () => void;
   setShowLyrics: (show: boolean) => void;
   toggleLyrics: () => void;
   setAnalysisSource: (source: AnalysisSource) => void;
@@ -184,6 +188,8 @@ export interface SongActions {
   ) => Promise<void>;
   loadSavedSong: (songId: string) => Promise<boolean>;
   deleteSavedSong: (songId: string) => Promise<void>;
+  clearSavedSongs: () => Promise<void>;
+  getStorage: () => SongStorage;
   setError: (error: string | null) => void;
   resetSongState: () => void;
 }

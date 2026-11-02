@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -15,8 +15,10 @@ import {
 import {
   getPresetSong,
   PRESET_POP_DIATONIC,
-  calculatePlaybackRangeForBars,
+  resolvePlaybackRangeForBars,
+  resolvePlaybackTickForBarBeat,
   type SongBar,
+  type SongModel,
 } from '../../song';
 import {
   getChordQuality,
@@ -36,7 +38,8 @@ export interface AlphaTabViewportProps {
   style?: React.CSSProperties;
 }
 
-export function viewModeLabel(mode: ScoreViewMode): string {
+export function viewModeLabel(mode: ScoreViewMode, isPercussion = false): string {
+  if (isPercussion) return 'PARTITURA';
   switch (mode) {
     case 'score':
       return 'PARTITURA';
@@ -45,6 +48,68 @@ export function viewModeLabel(mode: ScoreViewMode): string {
     case 'tab':
     default:
       return 'TABLATURA';
+  }
+}
+
+/**
+ * Carga una canción en AlphaTab utilizando datos binarios nativos (.gp, .gp5, .gpx, etc.)
+ * o notación AlphaTex según la fuente de la canción.
+ */
+export function loadSongIntoAlphaTab(
+  api: unknown,
+  song: SongModel | null,
+  trackIndex: number,
+) {
+  if (!api || !song) return;
+
+  const rawApi = api as {
+    load?: (data: unknown, tracks?: number[]) => void;
+    tex?: (tex: string, tracks?: number[]) => void;
+  };
+
+  try {
+    // 1. Si disponemos de datos binarios originales (.gp, .gp5, .gpx, etc.) o texto plano
+    if (song.rawData) {
+      if (typeof song.rawData === 'string') {
+        if (typeof rawApi.tex === 'function') {
+          rawApi.tex(song.rawData, [trackIndex]);
+          return;
+        }
+        if (typeof rawApi.load === 'function') {
+          rawApi.load(song.rawData, [trackIndex]);
+          return;
+        }
+      } else {
+        if (typeof rawApi.load === 'function') {
+          rawApi.load(song.rawData, [trackIndex]);
+          return;
+        }
+      }
+    }
+
+    // 2. Si disponemos de notación AlphaTex o es un preset integrado
+    const presetTex = getPresetSong(song.id)?.alphaTex;
+    const alphaTex = song.alphaTex ?? presetTex;
+
+    if (alphaTex) {
+      if (typeof rawApi.tex === 'function') {
+        rawApi.tex(alphaTex, [trackIndex]);
+        return;
+      }
+      if (typeof rawApi.load === 'function') {
+        rawApi.load(alphaTex, [trackIndex]);
+        return;
+      }
+    }
+
+    // 3. Fallback solo si es el preset inicial por defecto
+    if (song.id === PRESET_POP_DIATONIC.id) {
+      if (typeof rawApi.tex === 'function') {
+        rawApi.tex(PRESET_POP_DIATONIC.alphaTex, [trackIndex]);
+      }
+    }
+  } catch (err) {
+    console.warn('Error loading song into AlphaTab', err);
   }
 }
 
@@ -60,6 +125,7 @@ export function AlphaTabViewport({
   const isShiftPressedRef = useRef(false);
   const dragStartBarRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
+  const lastLoadedSongIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,11 +162,84 @@ export function AlphaTabViewport({
   const currentBar = useStore(songStore, (s) => s.currentBar);
   const currentBeat = useStore(songStore, (s) => s.currentBeat);
   const scoreViewMode = useStore(songStore, (s) => s.scoreViewMode);
+  const followPlayback = useStore(songStore, (s) => s.followPlayback);
   const showLyrics = useStore(songStore, (s) => s.showLyrics);
   const loopRange = useStore(songStore, (s) => s.loopRange);
   const loopEnabled = useStore(songStore, (s) => s.loopEnabled);
   const selectedBarRange = useStore(songStore, (s) => s.selectedBarRange);
   const barOverrides = useStore(songStore, (s) => s.barOverrides);
+
+  // Control de scroll y seguimiento de reproducción ("Bloquear vista")
+  const isUserScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<number | null>(null);
+
+  const scrollToActiveBar = useCallback((smooth = true) => {
+    const container = alphaTabHostRef.current;
+    if (!container) return;
+
+    const cursorBar = container.querySelector('.at-cursor-bar') as HTMLElement | null;
+    if (!cursorBar) return;
+
+    const barRect = cursorBar.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    // Área confortable de visualización
+    const marginComfortTop = 24;
+    const marginComfortBottom = 80;
+    const isAbove = barRect.top < containerRect.top + marginComfortTop;
+    const isBelow = barRect.bottom > containerRect.bottom - marginComfortBottom;
+
+    if (isAbove || isBelow) {
+      const currentScroll = container.scrollTop;
+      const elementRelativeTop = barRect.top - containerRect.top + currentScroll;
+      const targetScroll = Math.max(0, elementRelativeTop - 70);
+
+      container.scrollTo({
+        top: targetScroll,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
+  }, []);
+
+  const handleContainerScroll = useCallback(() => {
+    if (!songStore.getState().followPlayback) return;
+
+    isUserScrollingRef.current = true;
+    if (userScrollTimeoutRef.current) {
+      clearTimeout(userScrollTimeoutRef.current);
+    }
+
+    // Al soltar el scroll (inactividad de desplazamiento), si el modo bloquear vista está activo, se vuelve a la posición actual
+    userScrollTimeoutRef.current = window.setTimeout(() => {
+      isUserScrollingRef.current = false;
+      const state = songStore.getState();
+      if (state.followPlayback && state.isPlaying) {
+        scrollToActiveBar(true);
+      }
+    }, 650);
+  }, [songStore, scrollToActiveBar]);
+
+  const handlePointerUp = useCallback(() => {
+    if (!songStore.getState().followPlayback) return;
+    if (userScrollTimeoutRef.current) {
+      clearTimeout(userScrollTimeoutRef.current);
+    }
+    userScrollTimeoutRef.current = window.setTimeout(() => {
+      isUserScrollingRef.current = false;
+      const state = songStore.getState();
+      if (state.followPlayback) {
+        scrollToActiveBar(true);
+      }
+    }, 400);
+  }, [songStore, scrollToActiveBar]);
+
+  useEffect(() => {
+    return () => {
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Pista activa
   const track = useMemo(() => {
@@ -169,6 +308,10 @@ export function AlphaTabViewport({
           const barNum = (b.voice?.bar?.index ?? 0) + 1;
           const beatIdx = b.index ?? 0;
           songStore.getState().setCurrentPosition(barNum, beatIdx);
+
+          if (songStore.getState().followPlayback && !isUserScrollingRef.current) {
+            scrollToActiveBar(true);
+          }
         });
       }
 
@@ -186,7 +329,7 @@ export function AlphaTabViewport({
           if (typeof rawApi._updateSelectionCursor !== 'function') return;
 
           if (store.loopEnabled && store.loopRange) {
-            const range = calculatePlaybackRangeForBars(curTrack.bars, store.loopRange);
+            const range = resolvePlaybackRangeForBars(curTrack.bars, store.loopRange, api);
             if (range) {
               if (alphaTabHostRef.current) {
                 alphaTabHostRef.current.setAttribute('data-highlight-mode', 'loop');
@@ -197,7 +340,7 @@ export function AlphaTabViewport({
               });
             }
           } else if (store.selectedBarRange) {
-            const range = calculatePlaybackRangeForBars(curTrack.bars, store.selectedBarRange);
+            const range = resolvePlaybackRangeForBars(curTrack.bars, store.selectedBarRange, api);
             if (range) {
               if (alphaTabHostRef.current) {
                 alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
@@ -239,7 +382,7 @@ export function AlphaTabViewport({
             // Resaltar visualmente en turquesa sin desplazar el cursor de reproducción
             const curTrack = store.activeSong?.tracks[store.activeTrackIndex];
             if (curTrack?.bars) {
-              const bounds = calculatePlaybackRangeForBars(curTrack.bars, [minBar, maxBar]);
+              const bounds = resolvePlaybackRangeForBars(curTrack.bars, [minBar, maxBar], api);
               if (bounds) {
                 if (alphaTabHostRef.current) {
                   alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
@@ -284,16 +427,28 @@ export function AlphaTabViewport({
 
           store.setCurrentPosition(barNum, beatIdx);
 
-          let tick = b.absolutePlaybackStart;
+          let tick: number | undefined;
+          const rawApiWithCache = api as unknown as {
+            tickCache?: { getBeatStart?: (beat: unknown) => number };
+          };
+          if (
+            rawApiWithCache.tickCache &&
+            typeof rawApiWithCache.tickCache.getBeatStart === 'function'
+          ) {
+            const cacheTick = rawApiWithCache.tickCache.getBeatStart(beat);
+            if (typeof cacheTick === 'number' && !Number.isNaN(cacheTick) && cacheTick >= 0) {
+              tick = cacheTick;
+            }
+          }
+
+          if (tick === undefined || Number.isNaN(tick)) {
+            tick = b.absolutePlaybackStart;
+          }
+
           if (tick === undefined || Number.isNaN(tick)) {
             const currentSong = store.activeSong;
             const currentTrack = currentSong?.tracks[store.activeTrackIndex];
-            const startBar = currentTrack?.bars[barNum - 1];
-            const num = startBar?.timeSignature?.numerator ?? 4;
-            const den = startBar?.timeSignature?.denominator ?? 4;
-            const ticksPerMeasure = Math.round((960 * 4 * num) / den);
-            const ticksPerBeat = Math.round((960 * 4) / den);
-            tick = (barNum - 1) * ticksPerMeasure + beatIdx * ticksPerBeat;
+            tick = resolvePlaybackTickForBarBeat(currentTrack?.bars, barNum, beatIdx, api);
           }
 
           if (tick !== undefined && !Number.isNaN(tick)) {
@@ -309,6 +464,9 @@ export function AlphaTabViewport({
             };
             if (typeof rawApi._cursorUpdateTick === 'function') {
               rawApi._cursorUpdateTick(tick, false, 1, false, true);
+            }
+            if (store.followPlayback && !isUserScrollingRef.current) {
+              scrollToActiveBar(true);
             }
           }
         });
@@ -328,7 +486,7 @@ export function AlphaTabViewport({
             store.setSelectedBarRange([minBar, maxBar]);
             const curTrack = store.activeSong?.tracks[store.activeTrackIndex];
             if (curTrack?.bars) {
-              const bounds = calculatePlaybackRangeForBars(curTrack.bars, [minBar, maxBar]);
+              const bounds = resolvePlaybackRangeForBars(curTrack.bars, [minBar, maxBar], api);
               if (bounds) {
                 if (alphaTabHostRef.current) {
                   alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
@@ -369,6 +527,10 @@ export function AlphaTabViewport({
           apiRef.current = apiInstance;
           controller.attachPlayer(apiInstance);
           setupApiEvents(apiInstance);
+
+          const currentSong = songStore.getState().activeSong;
+          lastLoadedSongIdRef.current = currentSong?.id ?? null;
+          loadSongIntoAlphaTab(apiInstance, currentSong, songStore.getState().activeTrackIndex);
         }
       } else if (
         typeof window !== 'undefined' &&
@@ -397,26 +559,23 @@ export function AlphaTabViewport({
               settings.player.enableAnimatedBeatCursor = false;
               settings.player.enableElementHighlighting = true;
               settings.player.scrollElement = alphaTabHostRef.current;
-              settings.player.scrollMode = at.ScrollMode.Continuous;
+              settings.player.scrollMode = at.ScrollMode.Off;
               settings.display.layoutMode = at.LayoutMode.Page;
               settings.display.scale = 0.9;
               settings.display.padding = [8, 12, 8, 12];
 
               // 1. Modos nativos de AlphaTab y visualización del ritmo en Tablatura
-              switch (currentScoreMode) {
-                case 'score':
-                  settings.display.staveProfile = at.StaveProfile.Score;
-                  settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
-                  break;
-                case 'score-tab':
-                  settings.display.staveProfile = at.StaveProfile.ScoreTab;
-                  settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
-                  break;
-                case 'tab':
-                default:
-                  settings.display.staveProfile = at.StaveProfile.Tab;
-                  settings.notation.rhythmMode = at.TabRhythmMode.ShowWithBars;
-                  break;
+              const curTrackModel = songStore.getState().activeSong?.tracks[currentTrackIdx];
+              const isPercTrack = Boolean(curTrackModel?.isPercussion);
+              if (isPercTrack || currentScoreMode === 'score') {
+                settings.display.staveProfile = at.StaveProfile.Score;
+                settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
+              } else if (currentScoreMode === 'score-tab') {
+                settings.display.staveProfile = at.StaveProfile.ScoreTab;
+                settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
+              } else {
+                settings.display.staveProfile = at.StaveProfile.Tab;
+                settings.notation.rhythmMode = at.TabRhythmMode.ShowWithBars;
               }
 
               // 2. Tema oscuro nativo integrado en los recursos de grabado
@@ -468,19 +627,8 @@ export function AlphaTabViewport({
                 }
 
                 const currentSong = songStore.getState().activeSong;
-                const alphaTex =
-                  currentSong?.alphaTex ??
-                  getPresetSong(currentSong?.id ?? '')?.alphaTex ??
-                  PRESET_POP_DIATONIC.alphaTex;
-                if (
-                  alphaTex &&
-                  typeof (api as unknown as { tex?: (t: string, tr?: number[]) => void }).tex ===
-                    'function'
-                ) {
-                  (api as unknown as { tex: (t: string, tr?: number[]) => void }).tex(alphaTex, [
-                    currentTrackIdx,
-                  ]);
-                }
+                lastLoadedSongIdRef.current = currentSong?.id ?? null;
+                loadSongIntoAlphaTab(api, currentSong, currentTrackIdx);
               }
             } catch (err) {
               console.warn('AlphaTabApi initialization deferred/skipped:', err);
@@ -502,23 +650,7 @@ export function AlphaTabViewport({
     };
   }, [createApi, controller, songStore]);
 
-  // 2. Cambio de pista activa: se conmuta la pista renderizada en AlphaTab
-  useEffect(() => {
-    const api = apiRef.current as {
-      renderTracks?: (tracks: unknown[]) => void;
-      score?: { tracks?: unknown[] };
-    } | null;
-    if (!api || typeof api.renderTracks !== 'function') return;
-
-    const trackObj = api.score?.tracks?.[activeTrackIndex];
-    if (trackObj) {
-      api.renderTracks([trackObj]);
-    } else {
-      api.renderTracks([activeTrackIndex]);
-    }
-  }, [activeTrackIndex]);
-
-  // 3. Cambio reactivo de modo de vista (Score, Score+Tab, Tab)
+  // 2. Cambio reactivo de modo de vista (Score, Score+Tab, Tab)
   useEffect(() => {
     const api = apiRef.current as {
       settings?: {
@@ -533,7 +665,8 @@ export function AlphaTabViewport({
     import('@coderline/alphatab')
       .then((at) => {
         if (!apiRef.current || !api.settings) return;
-        switch (scoreViewMode) {
+        const effectiveMode = track?.isPercussion ? 'score' : scoreViewMode;
+        switch (effectiveMode) {
           case 'score':
             if (api.settings.display) api.settings.display.staveProfile = at.StaveProfile.Score;
             if (api.settings.notation) api.settings.notation.rhythmMode = at.TabRhythmMode.Hidden;
@@ -554,9 +687,9 @@ export function AlphaTabViewport({
       .catch(() => {
         // En entorno de tests sin bundler de AlphaTab
       });
-  }, [scoreViewMode]);
+  }, [scoreViewMode, track?.isPercussion]);
 
-  // 4. Conmutación reactiva de la letra
+  // 3. Conmutación reactiva de la letra
   useEffect(() => {
     const api = apiRef.current as {
       settings?: {
@@ -577,21 +710,49 @@ export function AlphaTabViewport({
       .catch(() => {});
   }, [showLyrics]);
 
-  // 5. Carga reactiva de nueva canción si cambia activeSong
+  // 4. Carga reactiva de nueva canción si cambia activeSong o activeTrackIndex
   useEffect(() => {
-    const api = apiRef.current as {
-      tex?: (tex: string, tracks?: number[]) => void;
-    } | null;
-    if (!api || typeof api.tex !== 'function' || !activeSong) return;
+    const api = apiRef.current;
+    if (!api) return;
 
-    const alphaTex =
-      activeSong.alphaTex ??
-      getPresetSong(activeSong.id ?? '')?.alphaTex ??
-      PRESET_POP_DIATONIC.alphaTex;
-    if (alphaTex) {
-      api.tex(alphaTex, [activeTrackIndex]);
+    if (!activeSong) {
+      controller.stop();
+      lastLoadedSongIdRef.current = null;
+      return;
     }
-  }, [activeSong, activeTrackIndex]);
+
+    const rawApi = api as {
+      load?: (data: unknown, tracks?: number[]) => void;
+      tex?: (tex: string, tracks?: number[]) => void;
+      renderTracks?: (tracks: unknown[]) => void;
+      score?: { tracks?: unknown[] };
+    };
+
+    // Si la canción es la misma y solo cambió la pista activa, renderizar la pista directamente si está disponible
+    if (
+      lastLoadedSongIdRef.current === activeSong.id &&
+      rawApi.score?.tracks?.[activeTrackIndex] &&
+      typeof rawApi.renderTracks === 'function'
+    ) {
+      try {
+        rawApi.renderTracks([rawApi.score.tracks[activeTrackIndex]]);
+      } catch (err) {
+        console.warn('Error conmutando pista en AlphaTab:', err);
+      }
+      return;
+    }
+
+    if (lastLoadedSongIdRef.current !== activeSong.id) {
+      controller.stop();
+    }
+
+    lastLoadedSongIdRef.current = activeSong.id;
+    try {
+      loadSongIntoAlphaTab(api, activeSong, activeTrackIndex);
+    } catch (err) {
+      console.warn('Error cargando canción en AlphaTab:', err);
+    }
+  }, [activeSong, activeTrackIndex, controller]);
 
   // 6. Sincronización del bucle con el controlador de reproducción y resaltado visual en AlphaTab
   useEffect(() => {
@@ -605,7 +766,7 @@ export function AlphaTabViewport({
     if (!track?.bars) return;
 
     if (loopEnabled && loopRange) {
-      const playbackRange = calculatePlaybackRangeForBars(track.bars, loopRange);
+      const playbackRange = resolvePlaybackRangeForBars(track.bars, loopRange, apiRef.current);
       if (playbackRange) {
         controller.setPlaybackRange(playbackRange);
         controller.setLoopEnabled(true);
@@ -627,7 +788,7 @@ export function AlphaTabViewport({
 
     // Si hay un rango de selección múltiple (Shift + clic o arrastre), resaltarlo visualmente en turquesa
     if (selectedBarRange) {
-      const selectionRange = calculatePlaybackRangeForBars(track.bars, selectedBarRange);
+      const selectionRange = resolvePlaybackRangeForBars(track.bars, selectedBarRange, apiRef.current);
       if (selectionRange) {
         if (alphaTabHostRef.current) {
           alphaTabHostRef.current.setAttribute('data-highlight-mode', 'selection');
@@ -660,7 +821,9 @@ export function AlphaTabViewport({
       {/* 1. Cabecera interna fija (36 px) */}
       <header className={styles.scoreHeader}>
         <div className={styles.headerLeft}>
-          <span className={styles.viewModeBadge}>{viewModeLabel(scoreViewMode)}</span>
+          <span className={styles.viewModeBadge}>
+            {viewModeLabel(scoreViewMode, track?.isPercussion)}
+          </span>
           <span className={styles.dot}>·</span>
           <span className={styles.trackName}>{(track?.name ?? 'Pista 1').toUpperCase()}</span>
         </div>
@@ -714,6 +877,20 @@ export function AlphaTabViewport({
           )}
         </div>
         <div className={styles.contextRight}>
+          <button
+            type="button"
+            className={`${styles.followPlaybackBtn} ${followPlayback ? styles.followActive : ''}`}
+            onClick={() => songStore.getState().toggleFollowPlayback()}
+            title={
+              followPlayback
+                ? 'Bloqueo de vista activo: la partitura sigue la reproducción automáticamente. Haz clic para cambiar a Vista libre.'
+                : 'Vista libre activa: puedes desplazarte libremente por la partitura. Haz clic para activar Bloquear vista.'
+            }
+            aria-pressed={followPlayback}
+            data-testid="viewport-toggle-follow-btn"
+          >
+            {followPlayback ? '🔒 Seguir' : '🔓 Libre'}
+          </button>
           {selectedBarRange && (
             <span className={styles.selectedRangeBadge} data-testid="selected-range-badge">
               Selección: c.{selectedBarRange[0]}–{selectedBarRange[1]}
@@ -751,6 +928,8 @@ export function AlphaTabViewport({
         className={styles.alphaTabContainer}
         data-testid="alphatab-container"
         tabIndex={0}
+        onScroll={handleContainerScroll}
+        onPointerUp={handlePointerUp}
         onMouseDown={(e) => {
           if (e.button === 0) {
             e.preventDefault();

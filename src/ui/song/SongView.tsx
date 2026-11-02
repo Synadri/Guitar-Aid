@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import {
@@ -15,6 +15,7 @@ import {
   selectSongPianoMarks,
   type SandboxStore,
   type SettingsStore,
+  type SongStorage,
   type SongStore,
 } from '../../state';
 import {
@@ -22,10 +23,16 @@ import {
   positionToMidi,
   type FretPosition,
 } from '../../theory';
-import { calculateTickForBarBeat, calculatePlaybackRangeForBars } from '../../song';
+import {
+  resolvePlaybackRangeForBars,
+  resolvePlaybackTickForBarBeat,
+  importSong,
+  type SongModel,
+} from '../../song';
 import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
 import { SongContextStrip } from './SongContextStrip';
+import { SongLibraryModal } from './SongLibraryModal';
 import { SongTopBar } from './SongTopBar';
 import styles from './SongView.module.css';
 
@@ -37,6 +44,9 @@ export interface SongViewProps {
   controller?: AlphaSynthController;
   createApi?: (container: HTMLElement, settings?: unknown) => AlphaSynthLike;
   onOpenLibrary?: () => void;
+  storage?: SongStorage;
+  isLibraryOpen?: boolean;
+  onCloseLibrary?: () => void;
 }
 
 export function SongView({
@@ -47,8 +57,102 @@ export function SongView({
   controller = defaultController,
   createApi,
   onOpenLibrary,
+  storage,
+  isLibraryOpen: propsIsLibraryOpen,
+  onCloseLibrary,
 }: SongViewProps) {
   void sandboxStore;
+
+  const [internalLibraryOpen, setInternalLibraryOpen] = useState(false);
+  const isLibraryOpen =
+    propsIsLibraryOpen !== undefined ? propsIsLibraryOpen : internalLibraryOpen;
+
+  const handleOpenLibrary = () => {
+    setInternalLibraryOpen(true);
+    onOpenLibrary?.();
+  };
+
+  const handleCloseLibrary = () => {
+    setInternalLibraryOpen(false);
+    onCloseLibrary?.();
+  };
+
+  // Drag & Drop a nivel de vista principal
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  useEffect(() => {
+    if (isLibraryOpen) {
+      setIsWindowDragging(false);
+      dragCounter.current = 0;
+    }
+  }, [isLibraryOpen]);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (isLibraryOpen) return;
+    e.preventDefault();
+    dragCounter.current += 1;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsWindowDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (isLibraryOpen) return;
+    e.preventDefault();
+    dragCounter.current -= 1;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsWindowDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isLibraryOpen) return;
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    if (isLibraryOpen) return;
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsWindowDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      if (bytes.byteLength === 0) {
+        throw new Error('El archivo está vacío o dañado.');
+      }
+
+      let songModel: SongModel;
+      if (ext === '.tex' || ext === '.alphatex') {
+        const text = new TextDecoder('utf-8').decode(bytes);
+        songModel = importSong(text, { fileName: file.name });
+      } else {
+        songModel = importSong(bytes, { fileName: file.name });
+      }
+
+      await songStore.getState().importSong(songModel, {
+        rawData: bytes,
+        fileFormat: ext || '.gp',
+        fileSize: file.size,
+      });
+
+      songStore.getState().setError(null);
+    } catch {
+      const failMsg = `No se pudo importar «${file.name}»: el archivo está vacío o dañado. Tu biblioteca no ha cambiado.`;
+      songStore.getState().setError(failMsg);
+      setInternalLibraryOpen(true);
+    }
+  };
+
   // Estado reactivo del store de canción
   const songState = useStore(songStore, (s) => s);
   const activeSong = songState.activeSong;
@@ -70,6 +174,11 @@ export function SongView({
   // Manejo de atajos de teclado específicos del Modo Canción
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLibraryOpen) {
+        // Los atajos de transporte e instrumentos quedan inactivos mientras la biblioteca esté abierta
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -97,7 +206,12 @@ export function SongView({
               songStore.getState().setCurrentPosition(startBar, 0);
             }
           }
-          const tick = calculateTickForBarBeat(curTrack?.bars, startBar, startBeat);
+          const tick = resolvePlaybackTickForBarBeat(
+            curTrack?.bars,
+            startBar,
+            startBeat,
+            controller.getPlayer(),
+          );
           controller.seekToTick(tick);
         }
         void controller.playPause().then(() => {
@@ -114,7 +228,7 @@ export function SongView({
           updated.activeSong?.tracks[updated.activeTrackIndex] ?? updated.activeSong?.tracks[0];
         const bars = curTrack?.bars;
         if (updated.loopEnabled && updated.loopRange && bars) {
-          const bounds = calculatePlaybackRangeForBars(bars, updated.loopRange);
+          const bounds = resolvePlaybackRangeForBars(bars, updated.loopRange, controller.getPlayer());
           controller.setPlaybackRange(bounds);
           controller.setLoopEnabled(Boolean(bounds));
         } else {
@@ -138,7 +252,7 @@ export function SongView({
         const curTrack =
           songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
         controller.seekToTick(
-          calculateTickForBarBeat(curTrack?.bars, songStore.getState().currentBar, 0),
+          resolvePlaybackTickForBarBeat(curTrack?.bars, nextBar, 0, controller.getPlayer()),
         );
         return;
       }
@@ -158,7 +272,7 @@ export function SongView({
         }
         songStore.getState().setCurrentBar(nextBar);
         controller.seekToTick(
-          calculateTickForBarBeat(curTrack?.bars, songStore.getState().currentBar, 0),
+          resolvePlaybackTickForBarBeat(curTrack?.bars, nextBar, 0, controller.getPlayer()),
         );
         return;
       }
@@ -172,7 +286,9 @@ export function SongView({
         songStore.getState().setCurrentPosition(startBar, 0);
         const curTrack =
           songStore.getState().activeSong?.tracks[songStore.getState().activeTrackIndex];
-        controller.seekToTick(calculateTickForBarBeat(curTrack?.bars, startBar, 0));
+        controller.seekToTick(
+          resolvePlaybackTickForBarBeat(curTrack?.bars, startBar, 0, controller.getPlayer()),
+        );
         return;
       }
 
@@ -201,13 +317,20 @@ export function SongView({
   };
 
   return (
-    <div className={styles.songView} data-testid="song-view">
+    <div
+      className={styles.songView}
+      data-testid="song-view"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* 1. Barra superior */}
       <SongTopBar
         songStore={songStore}
         settingsStore={settingsStore}
         controller={controller}
-        onOpenLibrary={onOpenLibrary}
+        onOpenLibrary={handleOpenLibrary}
       />
 
       {/* 2. Tarjeta de Instrumentos sincronizados (ContextStrip + Fretboard + Piano) */}
@@ -273,6 +396,41 @@ export function SongView({
           </aside>
         </div>
       </main>
+
+      {/* Overlay al arrastrar archivo sobre la vista */}
+      {isWindowDragging && (
+        <div className={styles.dragOverlay} data-testid="song-view-drag-overlay">
+          <div className={styles.dragOverlayCard}>
+            <svg
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+            </svg>
+            <span className={styles.dragOverlayText}>
+              Suelta tu archivo de Guitar Pro aquí para importarlo
+            </span>
+            <span className={styles.dragOverlaySub}>
+              .gp · .gp3–.gp5 · .gpx · .tg · .xml
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Biblioteca de Canciones (Hito C7) */}
+      <SongLibraryModal
+        isOpen={isLibraryOpen}
+        onClose={handleCloseLibrary}
+        songStore={songStore}
+        storage={storage}
+      />
     </div>
   );
 }

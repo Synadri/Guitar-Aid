@@ -101,6 +101,8 @@ export interface SongModel {
   tracks: readonly SongTrack[];
   /** Notación AlphaTex original si está disponible (para síntesis directa con AlphaSynth). */
   alphaTex?: string;
+  /** Datos binarios originales (.gp, .gp5, .gpx, etc.) o texto para carga en AlphaTab. */
+  rawData?: Uint8Array | string;
 }
 
 /** Sobreescritura manual de un compás por el usuario (plan_fase3.md §4.4 y §5.4). */

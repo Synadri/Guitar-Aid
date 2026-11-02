@@ -13,7 +13,10 @@ import {
 } from '../../state';
 import { SettingsPopover } from '../toolbar/SettingsPopover';
 import { TrackMixerPopover } from './TrackMixerPopover';
-import { calculateTickForBarBeat, calculatePlaybackRangeForBars } from '../../song';
+import {
+  resolvePlaybackRangeForBars,
+  resolvePlaybackTickForBarBeat,
+} from '../../song';
 import styles from './SongTopBar.module.css';
 
 export interface SongTopBarProps {
@@ -63,6 +66,7 @@ export function SongTopBar({
 
   const tracks = activeSong?.tracks ?? [];
   const currentTrack = tracks[activeTrackIndex] ?? tracks[0];
+  const isPercussion = Boolean(currentTrack?.isPercussion);
 
   // Metadatos
   const title = activeSong?.title ?? 'Sin canción activa';
@@ -104,7 +108,12 @@ export function SongTopBar({
           songStore.getState().setCurrentPosition(startBar, 0);
         }
       }
-      const tick = calculateTickForBarBeat(currentTrack?.bars, startBar, startBeat);
+      const tick = resolvePlaybackTickForBarBeat(
+        currentTrack?.bars,
+        startBar,
+        startBeat,
+        controller.getPlayer(),
+      );
       controller.seekToTick(tick);
     }
     await controller.playPause();
@@ -115,7 +124,9 @@ export function SongTopBar({
   const handleGoToStart = () => {
     const startBar = loopEnabled && loopRange ? loopRange[0] : 1;
     songStore.getState().setCurrentPosition(startBar, 0);
-    controller.seekToTick(calculateTickForBarBeat(currentTrack?.bars, startBar, 0));
+    controller.seekToTick(
+      resolvePlaybackTickForBarBeat(currentTrack?.bars, startBar, 0, controller.getPlayer()),
+    );
   };
 
   // Conmutar bucle
@@ -124,7 +135,7 @@ export function SongTopBar({
     const updated = songStore.getState();
     const bars = currentTrack?.bars;
     if (updated.loopEnabled && updated.loopRange && bars) {
-      const bounds = calculatePlaybackRangeForBars(bars, updated.loopRange);
+      const bounds = resolvePlaybackRangeForBars(bars, updated.loopRange, controller.getPlayer());
       controller.setPlaybackRange(bounds);
       controller.setLoopEnabled(Boolean(bounds));
     } else {
@@ -234,8 +245,8 @@ export function SongTopBar({
           onChange={(e) => songStore.getState().setActiveTrackIndex(Number(e.target.value))}
           aria-label="Seleccionar pista activa"
         >
-          {tracks.map((t) => (
-            <option key={`opt-track-${t.index}`} value={t.index}>
+          {tracks.map((t, i) => (
+            <option key={`opt-track-${t.index ?? i}-${i}`} value={t.index ?? i}>
               {t.name} {t.isPercussion ? '· Batería' : `· ${t.tuning.name}`}
             </option>
           ))}
@@ -391,19 +402,23 @@ export function SongTopBar({
         <div className={styles.segmented} role="radiogroup" aria-label="Tipo de vista">
           <button
             type="button"
-            className={styles.segmentedBtn}
+            className={`${styles.segmentedBtn} ${isPercussion ? styles.disabledBtn : ''}`}
             aria-pressed={scoreViewMode === 'tab'}
+            disabled={isPercussion}
             onClick={() => songStore.getState().setScoreViewMode('tab')}
             aria-label="Vista Tablatura"
+            title={isPercussion ? 'La percusión solo se visualiza en modo partitura' : 'Vista Tablatura'}
           >
             Tab
           </button>
           <button
             type="button"
-            className={styles.segmentedBtn}
+            className={`${styles.segmentedBtn} ${isPercussion ? styles.disabledBtn : ''}`}
             aria-pressed={scoreViewMode === 'score-tab'}
+            disabled={isPercussion}
             onClick={() => songStore.getState().setScoreViewMode('score-tab')}
             aria-label="Vista Partitura y Tablatura"
+            title={isPercussion ? 'La percusión solo se visualiza en modo partitura' : 'Vista Partitura y Tablatura'}
           >
             Partitura + Tab
           </button>
@@ -413,6 +428,7 @@ export function SongTopBar({
             aria-pressed={scoreViewMode === 'score'}
             onClick={() => songStore.getState().setScoreViewMode('score')}
             aria-label="Vista Partitura"
+            title="Vista Partitura"
           >
             Partitura
           </button>

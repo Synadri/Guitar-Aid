@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createAlphaSynthController,
@@ -16,6 +16,7 @@ import {
   calculateTickForBarBeat,
   loadPresetSongModel,
   PRESET_POP_DIATONIC,
+  type SongModel,
 } from '../../song';
 import { SongView } from './SongView';
 
@@ -560,5 +561,205 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
 
     expect(songStore.getState().trackMixer[1]?.volume).toBe(0.7);
     expect(mockPlayer.changeTrackVolume).toHaveBeenCalledWith([1], 0.7);
+  });
+
+  describe('Hito C7 — Integración de Biblioteca y Drag & Drop en SongView', () => {
+    it('al pulsar el botón Canciones en SongTopBar se abre SongLibraryModal', async () => {
+      setupSongView();
+
+      expect(screen.queryByRole('dialog', { name: /Biblioteca de canciones/i })).toBeNull();
+
+      const songsBtn = screen.getByRole('button', { name: 'Biblioteca de canciones' });
+      fireEvent.click(songsBtn);
+
+      const modal = await screen.findByRole('dialog', { name: /Biblioteca de canciones/i });
+      expect(modal).toBeTruthy();
+
+      // Cerrar modal
+      const closeBtn = screen.getByTestId('close-song-library-btn');
+      fireEvent.click(closeBtn);
+
+      expect(screen.queryByRole('dialog', { name: /Biblioteca de canciones/i })).toBeNull();
+    });
+
+    it('arrastrar un archivo sobre SongView muestra el overlay visual y al soltarlo lo importa', async () => {
+      const { songStore } = setupSongView();
+      const songView = screen.getByTestId('song-view');
+
+      // Al entrar con arrastre de archivos, se muestra el overlay
+      fireEvent.dragEnter(songView, {
+        dataTransfer: { types: ['Files'] },
+      });
+      expect(screen.getByTestId('song-view-drag-overlay')).toBeTruthy();
+
+      // Al salir el arrastre, se oculta
+      fireEvent.dragLeave(songView);
+      expect(screen.queryByTestId('song-view-drag-overlay')).toBeNull();
+
+      // Al soltar un archivo AlphaTex válido
+      const validTex = `\\title "Canción Drag & Drop"
+\\tempo 120
+.
+\\track "Gtr"
+:4 0.1 1.2 2.3 3.4 |`;
+      const file = new File([validTex], 'drag.tex', { type: 'text/plain' });
+
+      fireEvent.drop(songView, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(songStore.getState().activeSong?.title).toBe('Canción Drag & Drop');
+        expect(screen.queryByTestId('song-view-drag-overlay')).toBeNull();
+      });
+    });
+
+    it('al soltar un archivo corrupto abre SongLibraryModal con el aviso accesible', async () => {
+      const { songStore } = setupSongView();
+      const songView = screen.getByTestId('song-view');
+      const prevTitle = songStore.getState().activeSong?.title;
+
+      const corruptFile = new File([new Uint8Array([0, 1, 2, 3])], 'error.gp5', {
+        type: 'application/octet-stream',
+      });
+
+      fireEvent.drop(songView, {
+        dataTransfer: { files: [corruptFile] },
+      });
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toBeTruthy();
+      expect(alert.textContent).toContain('No se pudo importar «error.gp5»: el archivo está vacío o dañado.');
+      // La canción activa no cambió
+      expect(songStore.getState().activeSong?.title).toBe(prevTitle);
+    });
+
+    it('los atajos de transporte quedan inactivos mientras SongLibraryModal está abierto', async () => {
+      const { songStore, controller } = setupSongView();
+
+      // Abrir biblioteca
+      const songsBtn = screen.getByRole('button', { name: 'Biblioteca de canciones' });
+      fireEvent.click(songsBtn);
+      expect(await screen.findByRole('dialog', { name: /Biblioteca de canciones/i })).toBeTruthy();
+
+      // Pulsar Espacio no debe disparar reproducción
+      fireEvent.keyDown(window, { key: ' ', code: 'Space' });
+      expect(controller.isPlaying()).toBe(false);
+      expect(songStore.getState().isPlaying).toBe(false);
+    });
+
+    it('mientras SongLibraryModal está abierto, el arrastre de archivos no activa el overlay global de SongView', async () => {
+      setupSongView();
+      const songView = screen.getByTestId('song-view');
+
+      // Abrir biblioteca
+      const songsBtn = screen.getByRole('button', { name: 'Biblioteca de canciones' });
+      fireEvent.click(songsBtn);
+      expect(await screen.findByRole('dialog', { name: /Biblioteca de canciones/i })).toBeTruthy();
+
+      // Simular arrastre mientras el modal está abierto
+      fireEvent.dragEnter(songView, {
+        dataTransfer: { types: ['Files'] },
+      });
+
+      // No debe mostrar el overlay global para no solaparse ni interferir con el modal
+      expect(screen.queryByTestId('song-view-drag-overlay')).toBeNull();
+    });
+
+    it('en pista de percusión, fuerza vista en modo partitura y desactiva las opciones de Tab y Partitura + Tab en SongTopBar', async () => {
+      const { songStore } = setupSongView();
+
+      const baseModel = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+      const songWithDrums: SongModel = {
+        ...baseModel,
+        id: 'drums-test-song',
+        title: 'Canción con batería',
+        tracks: [
+          baseModel.tracks[0]!,
+          {
+            ...baseModel.tracks[0]!,
+            index: 1,
+            name: 'Batería',
+            isPercussion: true,
+          },
+        ],
+      };
+
+      await act(async () => {
+        await songStore.getState().setActiveSong(songWithDrums);
+      });
+
+      // Inicialmente pista 0 (guitarra)
+      expect(songStore.getState().activeTrackIndex).toBe(0);
+      const tabBtn = screen.getByRole('button', { name: 'Vista Tablatura' });
+      const scoreTabBtn = screen.getByRole('button', { name: 'Vista Partitura y Tablatura' });
+      expect((tabBtn as HTMLButtonElement).disabled).toBe(false);
+      expect((scoreTabBtn as HTMLButtonElement).disabled).toBe(false);
+
+      // Cambiar a la pista 1 (batería/percusión)
+      act(() => {
+        songStore.getState().setActiveTrackIndex(1);
+      });
+
+      // Se fuerza automáticamente modo 'score'
+      expect(songStore.getState().scoreViewMode).toBe('score');
+      expect((tabBtn as HTMLButtonElement).disabled).toBe(true);
+      expect((scoreTabBtn as HTMLButtonElement).disabled).toBe(true);
+      expect(tabBtn.getAttribute('title')).toBe('La percusión solo se visualiza en modo partitura');
+
+      // Intentar forzar Tab no tiene efecto
+      act(() => {
+        songStore.getState().setScoreViewMode('tab');
+      });
+      expect(songStore.getState().scoreViewMode).toBe('score');
+    });
+
+    it('no renderiza el botón de seguimiento en SongTopBar para evitar overflow y permite conmutar desde el visor', () => {
+      const { songStore } = setupSongView();
+
+      // En la barra superior ya no debe existir para evitar overflow horizontal
+      expect(screen.queryByTestId('toggle-follow-playback-btn')).toBeNull();
+
+      // Por defecto el seguimiento de reproducción está activado
+      expect(songStore.getState().followPlayback).toBe(true);
+      const viewportToggleBtn = screen.getByTestId('viewport-toggle-follow-btn');
+      expect(viewportToggleBtn.textContent).toContain('🔒 Seguir');
+
+      // Clic para cambiar a Vista libre
+      fireEvent.click(viewportToggleBtn);
+      expect(songStore.getState().followPlayback).toBe(false);
+      expect(viewportToggleBtn.textContent).toContain('🔓 Libre');
+
+      // Clic de nuevo para volver a Seguir
+      fireEvent.click(viewportToggleBtn);
+      expect(songStore.getState().followPlayback).toBe(true);
+      expect(viewportToggleBtn.textContent).toContain('🔒 Seguir');
+    });
+
+    it('eliminar la canción activa no provoca errores y restaura limpiamente la canción por defecto', async () => {
+      const { songStore } = setupSongView();
+
+      const baseModel = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+      const customSong: SongModel = {
+        ...baseModel,
+        id: 'saved-song-to-delete',
+        title: 'Canción para borrar',
+      };
+
+      await act(async () => {
+        await songStore.getState().importSong(customSong);
+      });
+
+      expect(songStore.getState().activeSong?.id).toBe('saved-song-to-delete');
+
+      // Eliminar la canción actualmente activa
+      await act(async () => {
+        await songStore.getState().deleteSavedSong('saved-song-to-delete');
+      });
+
+      // Debe haber vuelto a la canción predefinida sin explotar
+      expect(songStore.getState().activeSong?.id).toBe(PRESET_POP_DIATONIC.id);
+      expect(screen.getByTestId('song-view')).toBeTruthy();
+    });
   });
 });

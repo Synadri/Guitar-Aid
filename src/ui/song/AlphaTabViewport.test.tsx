@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react';
 import { createAlphaSynthController, type AlphaSynthLike } from '../../audio';
 import { createSongStore, createMemorySongStorage } from '../../state/song';
+import { loadPresetSongModel, PRESET_POP_DIATONIC, type SongModel } from '../../song';
 import { AlphaTabViewport } from './AlphaTabViewport';
 
 function setupViewportTest() {
@@ -31,11 +32,21 @@ function setupViewportTest() {
     triggerState: (state: number) => void;
     _updateSelectionCursor: (range: unknown) => void;
     _cursorUpdateTick: (tick: number, stop: boolean, speed: number, scroll?: boolean, force?: boolean) => void;
+    load?: (data: unknown, tracks?: number[]) => void;
+    tex?: (tex: string, tracks?: number[]) => void;
+    renderTracks?: (tracks: unknown[]) => void;
+    tickCache?: {
+      getBeatStart?: (beat: unknown) => number;
+      masterBarLookup?: Map<number, { start: number; end: number }>;
+    };
   } = {
     destroyCalls: 0,
     tickPosition: 0,
     _updateSelectionCursor: vi.fn(),
     _cursorUpdateTick: vi.fn(),
+    load: vi.fn(),
+    tex: vi.fn(),
+    renderTracks: vi.fn(),
     play: vi.fn(),
     pause: vi.fn(),
     stop: vi.fn(),
@@ -570,5 +581,211 @@ describe('AlphaTabViewport (Hito C5 / C6b — Delegación en AlphaTab y Barra Co
 
     expect(controller.isLooping()).toBe(false);
     expect(controller.getPlaybackRange()).toBeNull();
+  });
+
+  it('carga correctamente canciones no predefinidas que poseen rawData (GP3, GP4, GP5, GPX) invocando api.load con los bytes originales', async () => {
+    const { songStore, controller, mockApi, createApi } = setupViewportTest();
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    // Inicialmente carga el preset Pop Diatónico usando tex
+    expect(mockApi.tex).toHaveBeenCalled();
+
+    // Ahora se importa y activa una canción de Guitar Pro con rawData binario
+    const customBytes = new Uint8Array([71, 80, 53, 0, 1, 2]); // Simulación de GP
+    const baseModel = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+    const customSong = {
+      ...baseModel,
+      id: 'user-imported-gp5',
+      title: 'Solo de Metal en Drop D',
+      rawData: customBytes,
+      alphaTex: undefined,
+    };
+
+    await act(async () => {
+      await songStore.getState().setActiveSong(customSong);
+    });
+
+    // Se debe haber invocado api.load con los bytes originales y la pista activa
+    expect(mockApi.load).toHaveBeenCalledWith(customBytes, [0]);
+  });
+
+  it('en pista de percusión, viewModeLabel y badge renderizan siempre PARTITURA y subtítulo de Percusión', async () => {
+    const { songStore, controller, createApi } = setupViewportTest();
+
+    const baseModel = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+    const songWithDrums: SongModel = {
+      ...baseModel,
+      id: 'drums-viewport-song',
+      title: 'Canción con batería',
+      tracks: [
+        baseModel.tracks[0]!,
+        {
+          ...baseModel.tracks[0]!,
+          index: 1,
+          name: 'Batería',
+          isPercussion: true,
+        },
+      ],
+    };
+
+    await act(async () => {
+      await songStore.getState().setActiveSong(songWithDrums);
+      songStore.getState().setActiveTrackIndex(1);
+    });
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    // Badge en cabecera
+    const viewModeBadge = screen.getByText('PARTITURA');
+    expect(viewModeBadge).toBeTruthy();
+
+    // Subtítulo técnico
+    const subtitle = screen.getByText(/Percusión/i);
+    expect(subtitle).toBeTruthy();
+  });
+
+  it('utiliza tickCache.getBeatStart en beatMouseDown para resolver la posición real en compases con repetición', async () => {
+    const { songStore, controller, mockApi, createApi } = setupViewportTest();
+
+    // Simulamos un tickCache donde el compás 13 tras repetición x4 devuelve un tick superior al raw
+    mockApi.tickCache = {
+      getBeatStart: vi.fn((beat: unknown) => {
+        const b = beat as { voice?: { bar?: { index?: number } }; index?: number };
+        const barIdx = b.voice?.bar?.index ?? 0;
+        const beatIdx = b.index ?? 0;
+        // Simular desfase por repeticiones
+        return (barIdx + 12) * 3840 + beatIdx * 960;
+      }),
+    };
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    const seekSpy = vi.spyOn(controller, 'seekToTick');
+
+    // Clic en compás 13 (índice 12), pulso 0
+    act(() => {
+      mockApi.triggerBeatMouseDown(12, 0, 12 * 3840);
+    });
+
+    // Debe haber llamado a tickCache.getBeatStart y pasado el tick calculado al controlador
+    expect(mockApi.tickCache.getBeatStart).toHaveBeenCalled();
+    expect(seekSpy).toHaveBeenCalledWith((12 + 12) * 3840);
+  });
+
+  it('permite alternar el seguimiento de reproducción (Bloquear vista) mediante el botón en la barra contextual', () => {
+    const { songStore, controller, createApi } = setupViewportTest();
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    expect(songStore.getState().followPlayback).toBe(true);
+    const toggleBtn = screen.getByTestId('viewport-toggle-follow-btn');
+    expect(toggleBtn.textContent).toContain('🔒 Seguir');
+
+    // Clic para cambiar a libre
+    fireEvent.click(toggleBtn);
+    expect(songStore.getState().followPlayback).toBe(false);
+    expect(toggleBtn.textContent).toContain('🔓 Libre');
+
+    // Clic de nuevo para volver a seguir
+    fireEvent.click(toggleBtn);
+    expect(songStore.getState().followPlayback).toBe(true);
+    expect(toggleBtn.textContent).toContain('🔒 Seguir');
+  });
+
+  it('eliminar la canción activa no provoca un fallo en AlphaTabViewport y reinicializa la pista', async () => {
+    const { songStore, controller, createApi } = setupViewportTest();
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    // Activar una canción guardada
+    const baseModel = loadPresetSongModel(PRESET_POP_DIATONIC.id);
+    const customSong: SongModel = {
+      ...baseModel,
+      id: 'active-song-to-delete',
+      title: 'Canción a eliminar',
+    };
+
+    await act(async () => {
+      await songStore.getState().importSong(customSong);
+    });
+    expect(songStore.getState().activeSong?.id).toBe('active-song-to-delete');
+
+    // Eliminar la canción activa
+    await act(async () => {
+      await songStore.getState().deleteSavedSong('active-song-to-delete');
+    });
+
+    // AlphaTabViewport sigue montado y la canción por defecto está activa
+    expect(songStore.getState().activeSong?.id).toBe(PRESET_POP_DIATONIC.id);
+    expect(screen.getByTestId('alphatab-viewport')).toBeTruthy();
+  });
+
+  it('al activar bucle o seleccionar compases en partitura con repeticiones, sincroniza el rango exacto de tickCache sin desfases', async () => {
+    const { songStore, controller, mockApi, createApi } = setupViewportTest();
+
+    // Simular que los compases 37 y 38 están desplazados en la línea de tiempo por repeticiones previas
+    mockApi.tickCache = {
+      masterBarLookup: new Map([
+        [36, { start: 276480, end: 280320 }],
+        [37, { start: 280320, end: 284160 }],
+      ]),
+    };
+
+    render(
+      <AlphaTabViewport
+        songStore={songStore}
+        controller={controller}
+        createApi={createApi}
+      />,
+    );
+
+    // Activar bucle en compases 37–38
+    act(() => {
+      songStore.getState().setLoopRange([37, 38]);
+      songStore.getState().setLoopEnabled(true);
+    });
+
+    // El controlador debe recibir exactamente los ticks de los compases 37 y 38 (276480 a 284160), no ticks planos
+    expect(controller.getPlaybackRange()).toEqual({
+      startTick: 276480,
+      endTick: 284160,
+    });
+
+    // _updateSelectionCursor debe recibir el rango correspondiente
+    expect(mockApi._updateSelectionCursor).toHaveBeenCalledWith({
+      startTick: 276480,
+      endTick: 284160 - 10,
+    });
   });
 });
