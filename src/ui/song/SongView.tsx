@@ -27,10 +27,12 @@ import {
   resolvePlaybackRangeForBars,
   resolvePlaybackTickForBarBeat,
   importSong,
+  type SongMenuContext,
   type SongModel,
 } from '../../song';
 import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
+import { SongAnalysisPanel } from './SongAnalysisPanel';
 import { SongContextStrip } from './SongContextStrip';
 import { SongLibraryModal } from './SongLibraryModal';
 import { SongTimelineBar } from './SongTimelineBar';
@@ -48,6 +50,10 @@ export interface SongViewProps {
   storage?: SongStorage;
   isLibraryOpen?: boolean;
   onCloseLibrary?: () => void;
+  onOpenInSandbox?: (context: SongMenuContext) => void;
+  onCreateSrsDeck?: () => void;
+  onPracticeInDrills?: () => void;
+  onNavigateToSandbox?: () => void;
 }
 
 export function SongView({
@@ -61,8 +67,10 @@ export function SongView({
   storage,
   isLibraryOpen: propsIsLibraryOpen,
   onCloseLibrary,
+  onOpenInSandbox,
+  onCreateSrsDeck,
+  onPracticeInDrills,
 }: SongViewProps) {
-  void sandboxStore;
 
   const [internalLibraryOpen, setInternalLibraryOpen] = useState(false);
   const isLibraryOpen =
@@ -379,22 +387,16 @@ export function SongView({
         </div>
 
         <div className={styles.rightColumn}>
-          {/* Panel de análisis del fragmento (Hito C8 / C9) */}
-          <aside
-            className={styles.analysisPlaceholder}
-            data-testid="song-analysis-panel"
-            aria-label="Panel de análisis armónico"
-          >
-            <div className={styles.analysisHeader}>
-              <span className={styles.analysisTitle}>Análisis del fragmento</span>
-              <span className={styles.analysisSub}>
-                Compás {songState.currentBar}
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-              El panel de análisis detallado, ranking de escalas y progresiones se completa en el Hito C8.
-            </p>
-          </aside>
+          {/* Panel de análisis del fragmento (Hito C8 Parte 2) */}
+          <SongAnalysisPanel
+            songStore={songStore}
+            settingsStore={settingsStore}
+            sandboxStore={sandboxStore}
+            audioEngine={audioEngine}
+            onOpenInSandbox={onOpenInSandbox}
+            onCreateSrsDeck={onCreateSrsDeck}
+            onPracticeInDrills={onPracticeInDrills}
+          />
         </div>
       </main>
 

@@ -769,6 +769,58 @@ Se cierran los acuerdos de diseño y arquitectura para el Hito C8 Parte 1 antes 
    - **Celdas elásticas:** compases con 1 o 2 acordes mantienen ancho estándar (`52–60 px`); compases con 3 o 4 acordes se ensanchan suavemente (`88–100 px`) dentro del contenedor con desplazamiento horizontal.
    - **Interacción:** clic en el compás selecciona el compás completo; clic en un sub-slot enfoca e inspecciona ese acorde concreto en el panel de análisis.
 
+---
+
+## 2026-11-02 — Hito C8 (Parte 2): Panel de análisis del fragmento (`SongAnalysisPanel`)
+
+Se implementa el Hito C8 Parte 2 del Modo Canción conforme a `/docs/Fase-3` y tomando como guía de diseño visual la imagen de referencia.
+
+### 1. Decisiones adoptadas
+
+1. **Estructura en 3 bloques y composición visual (fiel a la maqueta):**
+   - **Cabecera (`header`):**
+     - Título en negrita `Análisis del fragmento`.
+     - Subtítulo dinámico `Analizando: compases {A}–{B} ({Sección})` cuando hay selección activa, o `Analizando: compás {N}` para inspección individual.
+     - Conmutador segmentado `FUENTE: Pista activa | Todas` enlazado reactivamente a `songStore.setAnalysisSource`.
+   - **Bloque 1 (`Tonalidad y escalas sugeridas`):**
+     - Lista vertical de tarjetas de candidatos numeradas (`1`, `2`, `3`...).
+     - Nombre legible y expandido de la escala (`formatScaleDisplayName`: p. ej. `C mayor · Jónico`, `A menor natural · Eólico`, `C lidio`).
+     - Insignia porcentual de cobertura (`pctBadge`): verde (`#10b981`) si $\ge 95\%$, ámbar (`#f59e0b`) si $< 95\%$.
+     - Razones estructuradas traducidas al español con `formatReason` y unidas por puntos centrados (`·`).
+     - Resaltado turquesa `#14b8a6` con fondo suave para el candidato activo correspondiente a la tonalidad calculada o sobreescrita.
+   - **Bloque 2 (`Acordes y progresión en {Tonalidad}`):**
+     - Cabecera con indicación dinámica de la tonalidad de referencia (p. ej. `en C mayor`).
+     - Tira horizontal de progresión con chips interactivos `c.{N} [ {Acorde} {Grado} ] → ...` e indicador de punto ámbar `●` en caso de sobreescritura manual.
+     - Resaltado ámbar `#f59e0b` en el compás actualmente inspeccionado.
+     - Fila diagnóstica con texto de coincidencia de plantilla (p. ej. `Coincide con la plantilla I–V–vi–IV · progresión habitual`) y botón `▶ Escuchar progresión`.
+     - Subsección `CANDIDATOS DEL COMPÁS {inspectedBarNumber}` con tarjetas de acordes candidatos (nombre, numeral romano, insignia porcentual y razones estructuradas).
+   - **Bloque 3 (Pie fijo `Llevar este fragmento a otro modo`):**
+     - Botón primario en turquesa (`#14b8a6`, texto oscuro `#042f2e`, negrita) `↗ Abrir en Sandbox`.
+     - Botones secundarios `Crear / añadir a mazo SRS` y `Practicar en Ejercicios`.
+
+2. **Anclaje e inspección estable de compás (`inspectedBar`):**
+   - Hacer clic en un chip de la tira de progresión ancla ese compás en `songStore.setInspectedBar(barNum)`, fijando la lista inferior de candidatos de acorde para permitir una exploración calmada sin que la lista salte con el avance del cursor durante la reproducción.
+   - Pulsar de nuevo sobre el compás ya anclado lo desancla (`setInspectedBar(null)`), volviendo a seguir automáticamente el compás activo de la reproducción.
+
+3. **Previsualización de marcas en mástil y piano en hover (`setPreviewContext`):**
+   - Al pasar el ratón sobre cualquier tarjeta candidata de escala o de acorde, se alimenta `songStore.setPreviewContext({ kind: 'scale' | 'chord', root, ... })`.
+   - Los selectores reactivos `selectSongFretboardMarks` y `selectSongPianoMarks` superponen de inmediato las marcas discontinuas de previsualización (`role: 'preview'`) sobre los instrumentos sin alterar el estado del reproductor. Al salir el puntero o desmontar el panel, la previsualización se limpia limpiamente.
+
+4. **Reproducción acústica individual y secuencial (`pluck.ts`):**
+   - Botón `▶` en escalas reproduce una octava ascendente mediante `scaleEvents` y `audioEngine`.
+   - Botón `▶` en acordes reproduce el arpegio correspondiente mediante `arpeggioEvents` y `chordFallbackMidis`.
+   - Botón `▶ Escuchar progresión` planifica y reproduce secuencialmente la secuencia completa de acordes del fragmento espaciados a 0.75 s con `playEvents`.
+   - La etiqueta accesible se normalizó a `Escuchar escala ...` y `Escuchar acorde ...` para evitar colisiones semánticas con el transporte principal (`Reproducir / Pausa`).
+
+5. **Sobreescritura manual reversible (`📌 Fijar` / `✓ Fijada` / `✓ Fijado`):**
+   - Si la escala o acorde no están fijados, pulsar el botón aplica el override en `songStore.barOverrides` (para todo el rango seleccionado si hay rango activo, o para el compás inspeccionado), cambiando el botón a estado activo `✓ Fijada` o `✓ Fijado`.
+   - Si ya está fijado, volver a pulsarlo invoca `clearBarScaleOverride` o `clearBarChordOverride`, restaurando inmediatamente el análisis armónico automático y eliminando el punto ámbar `●`.
+
+6. **Puentes desacoplados hacia Sandbox y Aprender:**
+   - La apertura en Sandbox utiliza los conversores puros `songScaleToSandboxContext`, `songChordToSandboxContext` y `fragmentToSandboxContext` de `src/song/bridges.ts`, inyectando el contexto directamente en `sandboxStore.setContext` e invocando los callbacks de navegación correspondientes.
+   - Los botones de exportación a mazo SRS y ejercicios en Aprender quedan expuestos con props de callback listas para el Hito C9.
+
+
 
 
 
