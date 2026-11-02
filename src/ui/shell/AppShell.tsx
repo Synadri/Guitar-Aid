@@ -15,7 +15,7 @@ import {
 import { audioEngine as defaultAudioEngine, type AudioEngine } from '../../audio';
 import { SideNav, type AppMode } from '../layout/SideNav';
 import { SandboxView } from '../sandbox/SandboxView';
-import { LearnView } from '../learn/LearnView';
+import { LearnView, type LearnTab } from '../learn/LearnView';
 import { SongView } from '../song/SongView';
 import styles from './AppShell.module.css';
 
@@ -39,6 +39,7 @@ export function AppShell({
   audioEngine = defaultAudioEngine,
 }: AppShellProps) {
   const [currentMode, setCurrentMode] = useState<AppMode>(initialMode);
+  const [learnTab, setLearnTab] = useState<LearnTab>('drills');
   const sideNavExpanded = useStore(settingsStore, (s) => s.sideNavExpanded);
 
   // Atajo global: M (alternar sonido en modo fuera de Sandbox, ya que SandboxView maneja su propio M)
@@ -90,6 +91,7 @@ export function AppShell({
 
         {(currentMode === 'learn' || currentMode === 'tests') && (
           <LearnView
+            initialTab={learnTab}
             sandboxStore={sandboxStore}
             settingsStore={settingsStore}
             drillsStore={drillsStore}
@@ -104,7 +106,18 @@ export function AppShell({
             songStore={songStore}
             settingsStore={settingsStore}
             sandboxStore={sandboxStore}
+            drillsStore={drillsStore}
+            decksStore={decksStore}
             audioEngine={audioEngine}
+            onOpenInSandbox={(ctx) => {
+              sandboxStore.getState().setContext(ctx);
+              setCurrentMode('sandbox');
+            }}
+            onNavigateToSandbox={() => setCurrentMode('sandbox')}
+            onNavigateToLearn={(tab = 'drills') => {
+              setLearnTab(tab);
+              setCurrentMode('learn');
+            }}
           />
         )}
       </div>

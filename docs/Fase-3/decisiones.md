@@ -820,6 +820,60 @@ Se implementa el Hito C8 Parte 2 del Modo Canción conforme a `/docs/Fase-3` y t
    - La apertura en Sandbox utiliza los conversores puros `songScaleToSandboxContext`, `songChordToSandboxContext` y `fragmentToSandboxContext` de `src/song/bridges.ts`, inyectando el contexto directamente en `sandboxStore.setContext` e invocando los callbacks de navegación correspondientes.
    - Los botones de exportación a mazo SRS y ejercicios en Aprender quedan expuestos con props de callback listas para el Hito C9.
 
+---
+
+## 2026-11-02 — Implementación del hito C9 (Integración con Sandbox y Aprender, atajos de teclado y cierre de Fase 3)
+
+Queda completado el hito C9 con el cierre formal de la Fase 3, integrando las acciones de exportación y puentes entre modos, atajos de teclado accesibles y la batería integral de pruebas de aceptación:
+
+1. **Puentes hacia Sandbox en `SongContextStrip` y `SongAnalysisPanel` (Criterio m):**
+   - En `SongContextStrip`, se añadieron las acciones contextuales `↗ Abrir en Sandbox` en los desplegables de Tonalidad y de Acorde del compás activo.
+   - En `SongAnalysisPanel`, se conectaron los botones de apertura rápida para la escala candidata, el acorde candidato y el fragmento completo (mediante `songScaleToSandboxContext`, `songChordToSandboxContext` y `fragmentToSandboxContext`).
+   - Se desacoplaron las llamadas a `onOpenInSandbox` y `onNavigateToSandbox` para evitar navegaciones redundantes y asegurar que `sandboxStore.setContext(...)` transfiera exactamente la tónica, cualidad, afinación y origen.
+
+2. **Modal de exportación a mazo SRS (`SongExportDeckModal.tsx`, Criterio n):**
+   - Diseñado e implementado el diálogo modal accesible `SongExportDeckModal` para convertir el fragmento activo (o la canción completa) en fuentes declarativas para el motor SRS de `decksStore`.
+   - Soporte para:
+     - **Crear un nuevo mazo** con nombre sugerido dinámico (ej. `Canción: Pop Diatónico en C/Am (c. 1–4)`) o personalizado.
+     - **Añadir a un mazo existente** en `decksStore`, respetando las tarjetas existentes y evitando duplicidades.
+     - **Filtros por categoría de contenido**: Acordes diatónicos y de la progresión, Escalas / Tonalidad, y Progresión armónica.
+     - **Contador en vivo de tarjetas**: cálculo reactivo mediante `buildDeckCardIds(sources)` con garantía de que el 100 % de las tarjetas generadas se resuelven satisfactoriamente con `resolveCard(cardId)`.
+     - Cierre accesible con tecla <kbd>Esc</kbd> o clic en el botón de cancelar.
+
+3. **Puente hacia Ejercicios en Aprender (`fragmentToDrillConfig`):**
+   - El botón `Practicar en Ejercicios` en `SongAnalysisPanel` convierte el compás o fragmento seleccionado en una configuración pedagógica `DrillConfig` mediante `fragmentToDrillConfig(activeSong, fragment, activeTrackIndex)`.
+   - Inicializa una nueva sesión en `drillsStore.createSession(config)` y conmuta limpiamente a la pestaña `Ejercicios` del modo Aprender (`onNavigateToLearn('drills')`).
+
+4. **Atajos de teclado en el Modo Canción:**
+   - <kbd>Espacio</kbd>: Play / Pausa del reproductor multipista.
+   - <kbd>L</kbd>: Conmutar bucle de reproducción (*loop*).
+   - <kbd>←</kbd> / <kbd>→</kbd>: Retroceder o avanzar un compás completo.
+   - <kbd>M</kbd>: Silenciar / reactivar el sonido global conmutando `settingsStore.soundEnabled` y propagándolo en vivo a `controller.setSoundEnabled` y al volumen maestro del sintetizador.
+   - <kbd>Esc</kbd>: Si hay un modal abierto (Biblioteca o Exportación SRS), lo cierra; si no hay modales abiertos pero existe un rango seleccionado de compases, deselecciona el rango restaurando la selección de compás único.
+   - Todos los atajos quedan suspendidos cuando el foco se encuentra en un campo de texto editable (`input`, `textarea`, `select`) o cuando la biblioteca modal está abierta.
+
+5. **Sincronización reactiva de sonido con `bindSettings`:**
+   - En `SongView`, el controlador `alphaSynthController` se vincula a `settingsStore` mediante `controller.bindSettings(settingsStore)`, sincronizando de forma transparente `soundEnabled` con el sintetizador sin acoplamientos prohibidos entre capas.
+
+6. **Batería completa de pruebas de aceptación (`acceptance_fase3.test.tsx`):**
+   - Implementada en `src/ui/song/acceptance_fase3.test.tsx` la verificación integral de extremo a extremo de los criterios (a) al (n) de la Fase 3:
+     - (a) Regla de capas de `src/song/` (TypeScript puro sin React, DOM ni Zustand).
+     - (b) Estimación ponderada de raíz (`estimateRoot`).
+     - (c) Detección de acordes por compás (`detectBarChords`) tolerante a notas melódicas de paso.
+     - (d) Detección de tonalidad y modulaciones (`detectSongKeysByBar`).
+     - (e) Importación y parseo de formatos GP3–GP5, GPX, MusicXML y AlphaTex, incluyendo validación defensiva ante archivos corruptos o vacíos.
+     - (f) Tres presets en AlphaTex integrados en datos.
+     - (g) Análisis funcional de progresiones con números romanos y reconocimiento de plantillas.
+     - (h) Tiempos de cómputo reactivo `< 50 ms` para el análisis armónico en tiempo real.
+     - (i) Sincronización en vivo sobre mástil y piano con marcas del pulso activo superpuestas a la escala y afinación adaptativa por pista sin tocar el Sandbox.
+     - (j) Persistencia de biblioteca y anotaciones en storage e integridad ante fallos.
+     - (k) Controles de transporte, velocidad variable, metrónomo y mezclador multipista.
+     - (l) Sobreescritura manual reversible (*overrides*) de acorde y escala con indicación visual.
+     - (m) Puente funcional hacia el Sandbox (`sandboxStore.setContext`).
+     - (n) Puente funcional hacia Aprender (generación y resolución íntegra de tarjetas en `decksStore` y configuración de ejercicios en `drillsStore`).
+   - Cumplimiento de la regla de capas en `src/architecture/layers.test.ts`, `pnpm test` (730/730 tests pasando), `pnpm lint` (0 advertencias/errores) y `pnpm build` (bundle de producción limpio con AlphaTab empaquetado).
+
+
 
 
 

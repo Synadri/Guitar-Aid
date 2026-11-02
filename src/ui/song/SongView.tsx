@@ -11,8 +11,11 @@ import {
 import {
   settingsStore as defaultSettingsStore,
   songStore as defaultSongStore,
+  selectActiveFragmentAnalysis,
   selectSongFretboardMarks,
   selectSongPianoMarks,
+  type DecksStore,
+  type DrillsStore,
   type SandboxStore,
   type SettingsStore,
   type SongStorage,
@@ -24,6 +27,7 @@ import {
   type FretPosition,
 } from '../../theory';
 import {
+  fragmentToDrillConfig,
   resolvePlaybackRangeForBars,
   resolvePlaybackTickForBarBeat,
   importSong,
@@ -34,6 +38,7 @@ import { Fretboard, Piano } from '../instruments';
 import { AlphaTabViewport } from './AlphaTabViewport';
 import { SongAnalysisPanel } from './SongAnalysisPanel';
 import { SongContextStrip } from './SongContextStrip';
+import { SongExportDeckModal } from './SongExportDeckModal';
 import { SongLibraryModal } from './SongLibraryModal';
 import { SongTimelineBar } from './SongTimelineBar';
 import { SongTopBar } from './SongTopBar';
@@ -43,6 +48,8 @@ export interface SongViewProps {
   songStore?: StoreApi<SongStore>;
   settingsStore?: StoreApi<SettingsStore>;
   sandboxStore?: StoreApi<SandboxStore>;
+  drillsStore?: StoreApi<DrillsStore>;
+  decksStore?: StoreApi<DecksStore>;
   audioEngine?: AudioEngine;
   controller?: AlphaSynthController;
   createApi?: (container: HTMLElement, settings?: unknown) => AlphaSynthLike;
@@ -54,12 +61,15 @@ export interface SongViewProps {
   onCreateSrsDeck?: () => void;
   onPracticeInDrills?: () => void;
   onNavigateToSandbox?: () => void;
+  onNavigateToLearn?: (tab?: 'drills' | 'cards') => void;
 }
 
 export function SongView({
   songStore = defaultSongStore,
   settingsStore = defaultSettingsStore,
   sandboxStore,
+  drillsStore,
+  decksStore,
   audioEngine = defaultAudioEngine,
   controller = defaultController,
   createApi,
@@ -70,6 +80,8 @@ export function SongView({
   onOpenInSandbox,
   onCreateSrsDeck,
   onPracticeInDrills,
+  onNavigateToSandbox,
+  onNavigateToLearn,
 }: SongViewProps) {
 
   const [internalLibraryOpen, setInternalLibraryOpen] = useState(false);
@@ -171,10 +183,49 @@ export function SongView({
   const settings = useStore(settingsStore, (s) => s);
   const { nameMode, labels, leftHanded, soundEnabled, visibleInstruments } = settings;
 
+  // Sincronizar ajustes de sonido y volumen con AlphaSynthController
+  useEffect(() => {
+    if (!controller || !settingsStore) return;
+    return controller.bindSettings(settingsStore);
+  }, [controller, settingsStore]);
+
+  // Modal para exportar a mazo SRS
+  const [internalExportDeckOpen, setInternalExportDeckOpen] = useState(false);
+
   // Pista activa
   const track = activeSong?.tracks[activeTrackIndex] ?? activeSong?.tracks[0];
   const tuning = track?.tuning ?? STANDARD_TUNING;
   const capoFret = track?.capoFret ?? 0;
+
+  // Análisis del fragmento activo para puentes
+  const fragmentAnalysis = selectActiveFragmentAnalysis(songState, { mode: nameMode });
+
+  // Manejadores de puentes
+  const handleOpenInSandbox = (context: SongMenuContext) => {
+    if (sandboxStore) {
+      sandboxStore.getState().setContext(context);
+    }
+    onOpenInSandbox?.(context);
+    onNavigateToSandbox?.();
+  };
+
+  const handleCreateSrsDeck = () => {
+    onCreateSrsDeck?.();
+    setInternalExportDeckOpen(true);
+  };
+
+  const handlePracticeInDrills = () => {
+    if (fragmentAnalysis) {
+      const drillConfig = fragmentToDrillConfig(
+        fragmentAnalysis,
+        activeSong ?? undefined,
+        activeTrackIndex,
+      );
+      drillsStore?.getState().updateConfig(drillConfig);
+    }
+    onPracticeInDrills?.();
+    onNavigateToLearn?.('drills');
+  };
 
   // Marcas reactivas en vivo para Fretboard y Piano (pulso + scale-bg + etiquetas)
   const fretboardMarks = selectSongFretboardMarks(songState, { nameMode, labels });
@@ -183,8 +234,15 @@ export function SongView({
   // Manejo de atajos de teclado específicos del Modo Canción
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isLibraryOpen) {
-        // Los atajos de transporte e instrumentos quedan inactivos mientras la biblioteca esté abierta
+      if (isLibraryOpen || internalExportDeckOpen) {
+        // Los atajos de transporte e instrumentos quedan inactivos mientras un modal esté abierto
+        if (e.key === 'Escape') {
+          if (internalExportDeckOpen) {
+            setInternalExportDeckOpen(false);
+          } else if (isLibraryOpen) {
+            handleCloseLibrary();
+          }
+        }
         return;
       }
 
@@ -301,15 +359,25 @@ export function SongView({
         return;
       }
 
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const nextSound = !settingsStore.getState().soundEnabled;
+        settingsStore.getState().setSoundEnabled(nextSound);
+        audioEngine?.setSoundEnabled?.(nextSound);
+        controller.setSoundEnabled(nextSound);
+        return;
+      }
+
       if (e.key === 'Escape') {
         songStore.getState().setSelectedBarRange(null);
+        songStore.getState().setInspectedBar(null);
         return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [songStore, controller]);
+  }, [songStore, controller, settingsStore, audioEngine, isLibraryOpen, internalExportDeckOpen]);
 
   // Pluck manual al pulsar en el mástil o piano
   const handleFretboardClick = (pos: FretPosition) => {
@@ -344,7 +412,13 @@ export function SongView({
 
       {/* 2. Tarjeta de Instrumentos sincronizados (ContextStrip + Fretboard + Piano) */}
       <section className={styles.instrumentsCard} aria-label="Instrumentos sincronizados">
-        <SongContextStrip songStore={songStore} settingsStore={settingsStore} />
+        <SongContextStrip
+          songStore={songStore}
+          settingsStore={settingsStore}
+          sandboxStore={sandboxStore}
+          onOpenInSandbox={handleOpenInSandbox}
+          onNavigateToSandbox={onNavigateToSandbox}
+        />
 
         {(!visibleInstruments || visibleInstruments.fretboard || visibleInstruments.piano) && (
           <div className={styles.instrumentsRow}>
@@ -393,9 +467,10 @@ export function SongView({
             settingsStore={settingsStore}
             sandboxStore={sandboxStore}
             audioEngine={audioEngine}
-            onOpenInSandbox={onOpenInSandbox}
-            onCreateSrsDeck={onCreateSrsDeck}
-            onPracticeInDrills={onPracticeInDrills}
+            onOpenInSandbox={handleOpenInSandbox}
+            onNavigateToSandbox={onNavigateToSandbox}
+            onCreateSrsDeck={handleCreateSrsDeck}
+            onPracticeInDrills={handlePracticeInDrills}
           />
         </div>
       </main>
@@ -426,6 +501,15 @@ export function SongView({
           </div>
         </div>
       )}
+
+      {/* Modal de Exportación a mazo SRS (Hito C9) */}
+      <SongExportDeckModal
+        isOpen={internalExportDeckOpen}
+        onClose={() => setInternalExportDeckOpen(false)}
+        fragment={fragmentAnalysis}
+        song={activeSong}
+        decksStore={decksStore}
+      />
 
       {/* Modal de Biblioteca de Canciones (Hito C7) */}
       <SongLibraryModal

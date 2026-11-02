@@ -54,6 +54,8 @@ export interface SongAnalysisPanelProps {
   style?: React.CSSProperties;
   /** Callback opcional al abrir un contexto en el Sandbox. */
   onOpenInSandbox?: (context: SongMenuContext) => void;
+  /** Callback opcional para navegar al modo Sandbox. */
+  onNavigateToSandbox?: () => void;
   /** Callback opcional al solicitar crear o añadir al mazo SRS. */
   onCreateSrsDeck?: () => void;
   /** Callback opcional al solicitar practicar el fragmento en Ejercicios. */
@@ -88,6 +90,7 @@ export function SongAnalysisPanel({
   className,
   style,
   onOpenInSandbox,
+  onNavigateToSandbox,
   onCreateSrsDeck,
   onPracticeInDrills,
 }: SongAnalysisPanelProps) {
@@ -281,11 +284,14 @@ export function SongAnalysisPanel({
       const ctx = songScaleToSandboxContext(scale);
       if (onOpenInSandbox) {
         onOpenInSandbox(ctx);
-      } else if (sandboxStore) {
-        sandboxStore.getState().setContext(ctx);
+      } else {
+        if (sandboxStore) {
+          sandboxStore.getState().setContext(ctx);
+        }
+        onNavigateToSandbox?.();
       }
     },
-    [onOpenInSandbox, sandboxStore],
+    [onOpenInSandbox, onNavigateToSandbox, sandboxStore],
   );
 
   const handleOpenChordInSandbox = useCallback(
@@ -293,11 +299,14 @@ export function SongAnalysisPanel({
       const ctx = songChordToSandboxContext(chord);
       if (onOpenInSandbox) {
         onOpenInSandbox(ctx);
-      } else if (sandboxStore) {
-        sandboxStore.getState().setContext(ctx);
+      } else {
+        if (sandboxStore) {
+          sandboxStore.getState().setContext(ctx);
+        }
+        onNavigateToSandbox?.();
       }
     },
-    [onOpenInSandbox, sandboxStore],
+    [onOpenInSandbox, onNavigateToSandbox, sandboxStore],
   );
 
   const handleOpenFragmentInSandbox = useCallback(() => {
@@ -306,10 +315,13 @@ export function SongAnalysisPanel({
     if (!ctx) return;
     if (onOpenInSandbox) {
       onOpenInSandbox(ctx);
-    } else if (sandboxStore) {
-      sandboxStore.getState().setContext(ctx);
+    } else {
+      if (sandboxStore) {
+        sandboxStore.getState().setContext(ctx);
+      }
+      onNavigateToSandbox?.();
     }
-  }, [fragmentAnalysis, onOpenInSandbox, sandboxStore]);
+  }, [fragmentAnalysis, onOpenInSandbox, onNavigateToSandbox, sandboxStore]);
 
   // Clic en chips de progresión
   const handleClickProgressionChip = useCallback(

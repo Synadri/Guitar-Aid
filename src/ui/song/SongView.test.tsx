@@ -11,14 +11,20 @@ import {
   createSandboxStore,
   createSettingsStore,
   createSongStore,
+  createDecksStore,
+  createDrillsStore,
+  type DecksStore,
+  type DrillsStore,
 } from '../../state';
 import {
   calculateTickForBarBeat,
   loadPresetSongModel,
   PRESET_POP_DIATONIC,
+  type SongMenuContext,
   type SongModel,
 } from '../../song';
 import { SongView } from './SongView';
+import type { StoreApi } from 'zustand/vanilla';
 
 afterEach(() => {
   cleanup();
@@ -62,9 +68,25 @@ function createMockPlayer(): AlphaSynthLike {
   };
 }
 
-function setupSongView(presetId = PRESET_POP_DIATONIC.id) {
+function setupSongView(
+  optionsOrPresetId?:
+    | string
+    | {
+        presetId?: string;
+        onOpenInSandbox?: (ctx: SongMenuContext) => void;
+        onNavigateToSandbox?: () => void;
+        onNavigateToLearn?: (tab?: 'drills' | 'cards') => void;
+        drillsStore?: StoreApi<DrillsStore>;
+        decksStore?: StoreApi<DecksStore>;
+      },
+) {
+  const options =
+    typeof optionsOrPresetId === 'string'
+      ? { presetId: optionsOrPresetId }
+      : (optionsOrPresetId ?? {});
+
   const songStorage = createMemorySongStorage();
-  const initialSong = loadPresetSongModel(presetId);
+  const initialSong = loadPresetSongModel(options.presetId ?? PRESET_POP_DIATONIC.id);
   const songStore = createSongStore({
     storage: songStorage,
     initialSong,
@@ -74,18 +96,47 @@ function setupSongView(presetId = PRESET_POP_DIATONIC.id) {
   });
   const sandboxStore = createSandboxStore();
 
+  const drillsStore: StoreApi<DrillsStore> =
+    options.drillsStore ??
+    createDrillsStore({
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+    });
+
+  const decksStore: StoreApi<DecksStore> =
+    options.decksStore ??
+    createDecksStore({
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+    });
+
   const mockPlayer = createMockPlayer();
   const controller: AlphaSynthController = createAlphaSynthController({
     player: mockPlayer,
   });
+
+  const onOpenInSandbox = options.onOpenInSandbox ?? vi.fn();
+  const onNavigateToSandbox = options.onNavigateToSandbox ?? vi.fn();
+  const onNavigateToLearn = options.onNavigateToLearn ?? vi.fn();
 
   const renderResult = render(
     <SongView
       songStore={songStore}
       settingsStore={settingsStore}
       sandboxStore={sandboxStore}
+      drillsStore={drillsStore}
+      decksStore={decksStore}
       controller={controller}
       createApi={() => mockPlayer}
+      onOpenInSandbox={onOpenInSandbox}
+      onNavigateToSandbox={onNavigateToSandbox}
+      onNavigateToLearn={onNavigateToLearn}
     />,
   );
 
@@ -94,8 +145,13 @@ function setupSongView(presetId = PRESET_POP_DIATONIC.id) {
     songStore,
     settingsStore,
     sandboxStore,
+    drillsStore,
+    decksStore,
     controller,
     mockPlayer,
+    onOpenInSandbox,
+    onNavigateToSandbox,
+    onNavigateToLearn,
   };
 }
 
@@ -757,6 +813,149 @@ describe('SongView — Hito C6 (UI Parte 1: Instrumentos en vivo, Transporte y M
       // Debe haber vuelto a la canción predefinida sin explotar
       expect(songStore.getState().activeSong?.id).toBe(PRESET_POP_DIATONIC.id);
       expect(screen.getByTestId('song-view')).toBeTruthy();
+    });
+  });
+
+  describe('Hito C9 — Integración con Sandbox y Aprender, atajos de teclado y puentes', () => {
+    it('atajo de teclado M alterna el sonido global en settingsStore y sincroniza el controlador', () => {
+      const { settingsStore, controller } = setupSongView();
+
+      expect(settingsStore.getState().soundEnabled).toBe(true);
+      expect(controller.isSoundEnabled()).toBe(true);
+
+      // Pulsar M para silenciar
+      act(() => {
+        fireEvent.keyDown(window, { key: 'm' });
+      });
+      expect(settingsStore.getState().soundEnabled).toBe(false);
+      expect(controller.isSoundEnabled()).toBe(false);
+
+      // Pulsar M de nuevo para restaurar
+      act(() => {
+        fireEvent.keyDown(window, { key: 'M' });
+      });
+      expect(settingsStore.getState().soundEnabled).toBe(true);
+      expect(controller.isSoundEnabled()).toBe(true);
+    });
+
+    it('atajo Escape quita la selección de compases y desancla el compás inspeccionado', () => {
+      const { songStore } = setupSongView();
+
+      act(() => {
+        songStore.getState().setSelectedBarRange([2, 5]);
+        songStore.getState().setInspectedBar(3);
+      });
+
+      expect(songStore.getState().selectedBarRange).toEqual([2, 5]);
+      expect(songStore.getState().inspectedBar).toBe(3);
+
+      act(() => {
+        fireEvent.keyDown(window, { key: 'Escape' });
+      });
+
+      expect(songStore.getState().selectedBarRange).toBeNull();
+      expect(songStore.getState().inspectedBar).toBeNull();
+    });
+
+    it('(Criterio m) acción «Abrir en Sandbox» transfiere el contexto activo a sandboxStore y activa navegación', () => {
+      const onNavigateToSandbox = vi.fn();
+      const onOpenInSandbox = vi.fn();
+
+      const { sandboxStore } = setupSongView({
+        onNavigateToSandbox,
+        onOpenInSandbox,
+      });
+
+      // Clic en "Abrir en Sandbox" en el pie del panel de análisis
+      const openSandboxBtn = screen.getByTestId('bridge-open-sandbox');
+      expect(openSandboxBtn).toBeTruthy();
+
+      act(() => {
+        fireEvent.click(openSandboxBtn);
+      });
+
+      // Debe haber transferido el contexto (escala o acorde) a sandboxStore
+      const ctx = sandboxStore.getState().context;
+      expect(ctx).toBeTruthy();
+      expect(ctx?.kind).toBe('scale');
+      expect(ctx?.root).toBe(0); // Do mayor
+
+      expect(onOpenInSandbox).toHaveBeenCalledWith(ctx);
+      expect(onNavigateToSandbox).toHaveBeenCalled();
+    });
+
+    it('abre tonalidad o acorde en Sandbox desde los desplegables de SongContextStrip', () => {
+      const onNavigateToSandbox = vi.fn();
+      const { sandboxStore } = setupSongView({ onNavigateToSandbox });
+
+      // 1. Desplegable Tonalidad
+      const keyPill = screen.getByRole('button', { name: 'Tonalidad activa' });
+      fireEvent.click(keyPill);
+
+      const stripOpenScaleBtn = screen.getByTestId('strip-open-scale-sandbox');
+      expect(stripOpenScaleBtn).toBeTruthy();
+
+      act(() => {
+        fireEvent.click(stripOpenScaleBtn);
+      });
+
+      expect(sandboxStore.getState().context).toMatchObject({ kind: 'scale' });
+      expect(onNavigateToSandbox).toHaveBeenCalledTimes(1);
+
+      // 2. Desplegable Acorde
+      const chordPill = screen.getByRole('button', { name: 'Acorde activo' });
+      fireEvent.click(chordPill);
+
+      const stripOpenChordBtn = screen.getByTestId('strip-open-chord-sandbox');
+      expect(stripOpenChordBtn).toBeTruthy();
+
+      act(() => {
+        fireEvent.click(stripOpenChordBtn);
+      });
+
+      expect(sandboxStore.getState().context).toMatchObject({ kind: 'chord' });
+      expect(onNavigateToSandbox).toHaveBeenCalledTimes(2);
+    });
+
+    it('(Criterio n) acción «Crear / añadir a mazo SRS» abre el modal SongExportDeckModal y permite cerrarlo con Escape', () => {
+      setupSongView();
+
+      expect(screen.queryByTestId('song-export-deck-modal')).toBeNull();
+
+      const createSrsBtn = screen.getByTestId('bridge-create-srs');
+      act(() => {
+        fireEvent.click(createSrsBtn);
+      });
+
+      expect(screen.getByTestId('song-export-deck-modal')).toBeTruthy();
+      expect(screen.getByText('Crear o añadir a mazo SRS')).toBeTruthy();
+
+      // Cerrar con Escape
+      act(() => {
+        fireEvent.keyDown(window, { key: 'Escape' });
+      });
+
+      expect(screen.queryByTestId('song-export-deck-modal')).toBeNull();
+    });
+
+    it('(Criterio n) acción «Practicar en Ejercicios» preconfigura drillsStore con cuerdas, trastes y afinación, y navega a Aprender', () => {
+      const onNavigateToLearn = vi.fn();
+      const { drillsStore } = setupSongView({ onNavigateToLearn });
+
+      const practiceDrillsBtn = screen.getByTestId('bridge-practice-drills');
+      expect(practiceDrillsBtn).toBeTruthy();
+
+      act(() => {
+        fireEvent.click(practiceDrillsBtn);
+      });
+
+      // drillsStore debe haber recibido la configuración del fragmento
+      const config = drillsStore.getState().config;
+      expect(config.activeStrings?.length).toBeGreaterThan(0);
+      expect(config.fretRange).toBeDefined();
+      expect(config.tuning).toBeDefined();
+
+      expect(onNavigateToLearn).toHaveBeenCalledWith('drills');
     });
   });
 });

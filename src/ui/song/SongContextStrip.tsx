@@ -7,13 +7,17 @@ import {
   resolveActiveHarmony,
   type DegreeReferenceMode,
   type LabelMode,
+  type SandboxStore,
   type SettingsStore,
   type SongStore,
 } from '../../state';
 import {
   analyzeBarChords,
   detectSongKeysByBar,
+  songChordToSandboxContext,
+  songScaleToSandboxContext,
   type SongBar,
+  type SongMenuContext,
 } from '../../song';
 import {
   getChordQuality,
@@ -28,11 +32,17 @@ import styles from './SongContextStrip.module.css';
 export interface SongContextStripProps {
   songStore?: StoreApi<SongStore>;
   settingsStore?: StoreApi<SettingsStore>;
+  sandboxStore?: StoreApi<SandboxStore>;
+  onOpenInSandbox?: (context: SongMenuContext) => void;
+  onNavigateToSandbox?: () => void;
 }
 
 export function SongContextStrip({
   songStore = defaultSongStore,
   settingsStore = defaultSettingsStore,
+  sandboxStore,
+  onOpenInSandbox,
+  onNavigateToSandbox,
 }: SongContextStripProps) {
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const [chordMenuOpen, setChordMenuOpen] = useState(false);
@@ -166,6 +176,42 @@ export function SongContextStrip({
     setChordMenuOpen(false);
   };
 
+  const handleOpenScaleInSandbox = () => {
+    if (harmony) {
+      const ctx = songScaleToSandboxContext({
+        tonic: harmony.scaleTonic,
+        type: harmony.scaleType,
+      });
+      if (onOpenInSandbox) {
+        onOpenInSandbox(ctx);
+      } else {
+        if (sandboxStore) {
+          sandboxStore.getState().setContext(ctx);
+        }
+        onNavigateToSandbox?.();
+      }
+      setKeyMenuOpen(false);
+    }
+  };
+
+  const handleOpenChordInSandbox = () => {
+    if (harmony && harmony.chordRoot !== undefined && harmony.chordQuality !== undefined) {
+      const ctx = songChordToSandboxContext({
+        root: harmony.chordRoot,
+        quality: harmony.chordQuality,
+      });
+      if (onOpenInSandbox) {
+        onOpenInSandbox(ctx);
+      } else {
+        if (sandboxStore) {
+          sandboxStore.getState().setContext(ctx);
+        }
+        onNavigateToSandbox?.();
+      }
+      setChordMenuOpen(false);
+    }
+  };
+
   return (
     <div className={styles.strip} data-testid="song-context-strip">
       {/* 1. Izquierda: Posición y Selección */}
@@ -245,6 +291,16 @@ export function SongContextStrip({
                   </button>
                 );
               })}
+              {harmony && (
+                <button
+                  type="button"
+                  className={`${styles.menuItem} ${styles.menuItemAction}`}
+                  onClick={handleOpenScaleInSandbox}
+                  data-testid="strip-open-scale-sandbox"
+                >
+                  <span>↗ Abrir en Sandbox</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -290,6 +346,16 @@ export function SongContextStrip({
                   <small>{Math.round((c.score / maxChordScore) * 100)}%</small>
                 </button>
               ))}
+              {harmony && harmony.chordRoot !== undefined && harmony.chordQuality !== undefined && (
+                <button
+                  type="button"
+                  className={`${styles.menuItem} ${styles.menuItemAction}`}
+                  onClick={handleOpenChordInSandbox}
+                  data-testid="strip-open-chord-sandbox"
+                >
+                  <span>↗ Abrir en Sandbox</span>
+                </button>
+              )}
             </div>
           )}
         </div>

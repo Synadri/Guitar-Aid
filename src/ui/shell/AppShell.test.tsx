@@ -8,6 +8,8 @@ import {
   createSandboxStore,
   createSettingsStore,
   createSongStore,
+  createDecksStore,
+  createDrillsStore,
 } from '../../state';
 import { AppShell } from './AppShell';
 
@@ -222,5 +224,54 @@ describe('AppShell — Navegación de modos y preservación de estado (Criterio 
     expect(screen.getByTestId('song-view')).toBeTruthy();
     expect(songStore.getState().currentBar).toBe(3);
     expect(songStore.getState().selectedBarRange).toEqual([2, 4]);
+  });
+
+  it('(Criterios m y n) integración de puentes: Abrir en Sandbox y Practicar en Ejercicios navegan fluidamente desde Modo Canción', async () => {
+    const sandboxStore = createSandboxStore();
+    const settingsStore = createSettingsStore({ storageName: 'test-settings-appshell-song-2' });
+    const songStorage = createMemorySongStorage();
+    const songStore = createSongStore({ storage: songStorage });
+    const drillsStore = createDrillsStore();
+    const decksStore = createDecksStore();
+
+    render(
+      <AppShell
+        initialMode="cancion"
+        sandboxStore={sandboxStore}
+        settingsStore={settingsStore}
+        songStore={songStore}
+        drillsStore={drillsStore}
+        decksStore={decksStore}
+      />,
+    );
+
+    // 1. Inicialmente en Canción
+    expect(screen.getByTestId('song-view')).toBeTruthy();
+    expect(screen.queryByTestId('sandbox-container')).toBeNull();
+
+    // 2. Clic en "Abrir en Sandbox" (Criterio m)
+    const openSandboxBtn = screen.getByTestId('bridge-open-sandbox');
+    fireEvent.click(openSandboxBtn);
+
+    // Debe haber conmutado automáticamente al modo Sandbox con el contexto transferido
+    expect(screen.getByTestId('sandbox-container')).toBeTruthy();
+    expect(screen.queryByTestId('song-view')).toBeNull();
+    expect(sandboxStore.getState().context).toBeTruthy();
+
+    // 3. Volver a Canción
+    const songNavBtn = screen.getByRole('button', {
+      name: /Modo Canción: Tabs, bucles y análisis/i,
+    });
+    fireEvent.click(songNavBtn);
+    expect(screen.getByTestId('song-view')).toBeTruthy();
+
+    // 4. Clic en "Practicar en Ejercicios" (Criterio n)
+    const practiceDrillsBtn = screen.getByTestId('bridge-practice-drills');
+    fireEvent.click(practiceDrillsBtn);
+
+    // Debe haber navegado a Aprender en la pestaña Ejercicios
+    expect(screen.getByTestId('learn-container')).toBeTruthy();
+    expect(screen.queryByTestId('song-view')).toBeNull();
+    expect(drillsStore.getState().config.activeStrings?.length).toBeGreaterThan(0);
   });
 });

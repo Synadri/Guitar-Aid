@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import {
   sandboxStore as defaultSandboxStore,
@@ -91,6 +91,10 @@ export function LearnView({
   onNavigateToSandbox,
 }: LearnViewProps) {
   const [activeTab, setActiveTab] = useState<LearnTab>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const drillsHistory = useStore(drillsStore, (s) => s.history);
   const decksHistory = useStore(decksStore, (s) => s.history);
